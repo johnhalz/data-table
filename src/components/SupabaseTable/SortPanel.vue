@@ -1,27 +1,40 @@
 <script setup>
-import { ref, watch, inject } from 'vue'
+import { ref, watch, inject, computed } from 'vue'
 
 const props = defineProps({
   table: { type: Object, required: true },
   sorting: { type: Array, default: () => [] },
   allColumns: { type: Array, default: () => [] },
+  subTableColumns: { type: Array, default: null },
+  subTableSorting: { type: Array, default: () => [] },
+  tableName: { type: String, default: 'table' },
 })
 
-const emit = defineEmits(['update:sorting', 'close'])
+const emit = defineEmits(['update:sorting', 'update:sub-table-sorting', 'close'])
 
 const showDataTypes = inject('showDataTypes', true)
 
-const localRules = ref([...props.sorting])
+const hasSubTable = computed(() => !!props.subTableColumns && props.subTableColumns.length > 0)
 
-watch(() => props.sorting, (val) => {
-  localRules.value = [...val]
+// Merge parent + sub-table rules into a unified list with a `table` field
+function buildLocalRules() {
+  const parent = props.sorting.map(r => ({ ...r, table: 'parent' }))
+  const sub = props.subTableSorting.map(r => ({ ...r, table: 'sub' }))
+  return [...parent, ...sub]
+}
+
+const localRules = ref(buildLocalRules())
+
+watch([() => props.sorting, () => props.subTableSorting], () => {
+  localRules.value = buildLocalRules()
 }, { deep: true })
 
-function addRule() {
-  const usedIds = new Set(localRules.value.map(r => r.id))
-  const available = props.allColumns.find(c => !usedIds.has(c.id))
+function addRule(tableType) {
+  const cols = tableType === 'parent' ? props.allColumns : props.subTableColumns
+  const usedIds = new Set(localRules.value.filter(r => r.table === tableType).map(r => r.id))
+  const available = cols.find(c => !usedIds.has(c.id))
   if (available) {
-    localRules.value.push({ id: available.id, desc: false })
+    localRules.value.push({ id: available.id, desc: false, table: tableType })
   }
 }
 
@@ -33,15 +46,42 @@ function toggleDirection(index) {
   localRules.value[index].desc = !localRules.value[index].desc
 }
 
+function columnsForRule(rule) {
+  return rule.table === 'sub' ? props.subTableColumns : props.allColumns
+}
+
 function apply() {
-  emit('update:sorting', [...localRules.value])
+  const parentRules = localRules.value.filter(r => r.table === 'parent').map(({ table, ...r }) => r)
+  const subRules = localRules.value.filter(r => r.table === 'sub').map(({ table, ...r }) => r)
+  emit('update:sorting', parentRules)
+  if (hasSubTable.value) {
+    emit('update:sub-table-sorting', subRules)
+  }
   emit('close')
 }
 
 function clearAll() {
   localRules.value = []
   emit('update:sorting', [])
+  if (hasSubTable.value) {
+    emit('update:sub-table-sorting', [])
+  }
   emit('close')
+}
+
+const parentRules = computed(() => localRules.value.filter(r => r.table === 'parent'))
+const subRules = computed(() => localRules.value.filter(r => r.table === 'sub'))
+
+// Find global index for a rule given its table type and index within that group
+function globalIndex(tableType, localIdx) {
+  let count = 0
+  for (let i = 0; i < localRules.value.length; i++) {
+    if (localRules.value[i].table === tableType) {
+      if (count === localIdx) return i
+      count++
+    }
+  }
+  return -1
 }
 
 const dragIndex = ref(null)
@@ -80,14 +120,21 @@ function onDragEnd() {
         <p class="text-xs">Add a column below to sort the view</p>
       </div>
 
+      <!-- Parent table section -->
+      <template v-if="hasSubTable">
+        <div class="text-xs font-medium uppercase tracking-wide mb-2" :style="{ color: 'var(--st-text-placeholder)' }">
+          {{ tableName }}
+        </div>
+      </template>
+
       <div
-        v-for="(rule, i) in localRules"
-        :key="i"
+        v-for="(rule, i) in parentRules"
+        :key="'p-' + i"
         class="flex items-center gap-2 mb-2 rounded px-1 -mx-1 transition-colors"
-        :style="dragOverIndex === i && dragIndex !== i ? { backgroundColor: 'var(--st-bg-menu-hover)' } : {}"
+        :style="dragOverIndex === globalIndex('parent', i) && dragIndex !== globalIndex('parent', i) ? { backgroundColor: 'var(--st-bg-menu-hover)' } : {}"
         draggable="true"
-        @dragstart="onDragStart(i)"
-        @dragover="onDragOver($event, i)"
+        @dragstart="onDragStart(globalIndex('parent', i))"
+        @dragover="onDragOver($event, globalIndex('parent', i))"
         @dragend="onDragEnd"
       >
         <span class="cursor-grab active:cursor-grabbing shrink-0 flex items-center" :style="{ color: 'var(--st-text-placeholder)' }">
@@ -115,7 +162,7 @@ function onDragEnd() {
           :style="rule.desc
             ? { color: 'var(--st-text-secondary)', backgroundColor: 'var(--st-bg)', border: '1px solid var(--st-border-secondary)' }
             : { color: 'var(--st-accent)', backgroundColor: 'var(--st-accent-bg)', border: '1px solid var(--st-accent-border-light)' }"
-          @click="toggleDirection(i)"
+          @click="toggleDirection(globalIndex('parent', i))"
           :title="rule.desc ? 'Descending — click to toggle' : 'Ascending — click to toggle'"
         >
           <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
@@ -129,7 +176,7 @@ function onDragEnd() {
           class="shrink-0 w-5 h-5 flex items-center justify-center rounded transition-colors"
           :style="{ color: 'var(--st-text-tertiary)' }"
           title="Remove sort rule"
-          @click="removeRule(i)"
+          @click="removeRule(globalIndex('parent', i))"
         >
           <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
             <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
@@ -140,10 +187,83 @@ function onDragEnd() {
       <button
         class="text-[13px] mt-1"
         :style="{ color: 'var(--st-text-secondary)' }"
-        @click="addRule"
+        @click="addRule('parent')"
       >
         + Pick a column to sort by
       </button>
+
+      <!-- Sub-table section -->
+      <template v-if="hasSubTable">
+        <div class="my-3" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
+        <div class="text-xs font-medium uppercase tracking-wide mb-2" :style="{ color: 'var(--st-text-placeholder)' }">
+          Sub-table
+        </div>
+
+        <div
+          v-for="(rule, i) in subRules"
+          :key="'s-' + i"
+          class="flex items-center gap-2 mb-2 rounded px-1 -mx-1 transition-colors"
+          :style="dragOverIndex === globalIndex('sub', i) && dragIndex !== globalIndex('sub', i) ? { backgroundColor: 'var(--st-bg-menu-hover)' } : {}"
+          draggable="true"
+          @dragstart="onDragStart(globalIndex('sub', i))"
+          @dragover="onDragOver($event, globalIndex('sub', i))"
+          @dragend="onDragEnd"
+        >
+          <span class="cursor-grab active:cursor-grabbing shrink-0 flex items-center" :style="{ color: 'var(--st-text-placeholder)' }">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+              <circle cx="5.5" cy="4" r="1" /><circle cx="10.5" cy="4" r="1" />
+              <circle cx="5.5" cy="8" r="1" /><circle cx="10.5" cy="8" r="1" />
+              <circle cx="5.5" cy="12" r="1" /><circle cx="10.5" cy="12" r="1" />
+            </svg>
+          </span>
+
+          <span class="text-xs w-12 shrink-0" :style="{ color: 'var(--st-text-tertiary)' }">{{ i === 0 ? 'sort by' : 'then by' }}</span>
+
+          <select
+            v-model="rule.id"
+            class="flex-1 rounded px-2 py-1 text-[13px] outline-none min-w-0"
+            :style="{ backgroundColor: 'var(--st-bg)', border: '1px solid var(--st-border-secondary)', color: 'var(--st-text)' }"
+          >
+            <option v-for="col in subTableColumns" :key="col.id" :value="col.id">
+              {{ col.id }}<template v-if="showDataTypes"> ({{ col.type }})</template>
+            </option>
+          </select>
+
+          <button
+            class="shrink-0 flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors"
+            :style="rule.desc
+              ? { color: 'var(--st-text-secondary)', backgroundColor: 'var(--st-bg)', border: '1px solid var(--st-border-secondary)' }
+              : { color: 'var(--st-accent)', backgroundColor: 'var(--st-accent-bg)', border: '1px solid var(--st-accent-border-light)' }"
+            @click="toggleDirection(globalIndex('sub', i))"
+            :title="rule.desc ? 'Descending — click to toggle' : 'Ascending — click to toggle'"
+          >
+            <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+              <path v-if="!rule.desc" d="M3.5 12.5V2.707l-1.146 1.147a.5.5 0 01-.708-.708l2-2a.5.5 0 01.708 0l2 2a.5.5 0 01-.708.708L3.5 2.707V12.5a.5.5 0 01-1 0z" />
+              <path v-else d="M3.5 3.5v9.793l-1.146-1.147a.5.5 0 00-.708.708l2 2a.5.5 0 00.708 0l2-2a.5.5 0 00-.708-.708L4.5 13.293V3.5a.5.5 0 00-1 0z" />
+            </svg>
+            {{ rule.desc ? 'DESC' : 'ASC' }}
+          </button>
+
+          <button
+            class="shrink-0 w-5 h-5 flex items-center justify-center rounded transition-colors"
+            :style="{ color: 'var(--st-text-tertiary)' }"
+            title="Remove sort rule"
+            @click="removeRule(globalIndex('sub', i))"
+          >
+            <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
+            </svg>
+          </button>
+        </div>
+
+        <button
+          class="text-[13px] mt-1"
+          :style="{ color: 'var(--st-text-secondary)' }"
+          @click="addRule('sub')"
+        >
+          + Pick a column to sort by
+        </button>
+      </template>
     </div>
 
     <div class="px-3 py-2 flex items-center justify-end gap-2" :style="{ borderTop: '1px solid var(--st-border-secondary)' }">

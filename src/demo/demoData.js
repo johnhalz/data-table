@@ -50,3 +50,34 @@ export const stores = [
   { id: 49, store_code: 'NK-KR-001', name: 'E-Mart - Gangnam', address: '514 Yeongdong-daero', city: 'Seoul', state: 'SEL', zip_code: '06164', phone: '+82 2 5555 0001', is_active: true, coordinate_system_type: 'KGD2002' },
   { id: 50, store_code: 'NK-KR-002', name: 'E-Mart - Hongdae', address: '188 Yanghwa-ro', city: 'Seoul', state: 'SEL', zip_code: '04050', phone: '+82 2 5555 0002', is_active: false, coordinate_system_type: 'KGD2002' },
 ]
+
+// Demo sub-table data: employees by store
+export const employeesByStore = {
+  1: [
+    { id: 101, name: 'Anna Meier', role: 'Store Manager', email: 'anna.meier@scanmarino.ch', hired: '2021-03-15', salary: 95000 },
+    { id: 102, name: 'Lukas Brunner', role: 'Cashier', email: 'lukas.b@scanmarino.ch', hired: '2022-07-01', salary: 52000 },
+    { id: 103, name: 'Sara Fischer', role: 'Stock Clerk', email: 'sara.f@scanmarino.ch', hired: '2023-01-10', salary: 48000 },
+  ],
+  2: [
+    { id: 201, name: 'Maria Garcia', role: 'Store Manager', email: 'mgarcia@kroger.com', hired: '2019-06-20', salary: 78000 },
+    { id: 202, name: 'James Wilson', role: 'Deli Lead', email: 'jwilson@kroger.com', hired: '2020-11-05', salary: 52000 },
+    { id: 203, name: 'Tanya Brooks', role: 'Cashier', email: 'tbrooks@kroger.com', hired: '2022-02-14', salary: 38000 },
+    { id: 204, name: 'Derek Chen', role: 'Night Stock', email: 'dchen@kroger.com', hired: '2023-08-22', salary: 36000 },
+  ],
+  6: [
+    { id: 601, name: 'Rachel Kim', role: 'Captain (Manager)', email: 'rkim@traderjoes.com', hired: '2018-04-01', salary: 82000 },
+    { id: 602, name: 'Sam Patel', role: 'Mate (Asst. Manager)', email: 'spatel@traderjoes.com', hired: '2020-09-15', salary: 65000 },
+    { id: 603, name: 'Olivia Tran', role: 'Crew Member', email: 'otran@traderjoes.com', hired: '2021-12-01', salary: 42000 },
+  ],
+  10: [
+    { id: 1001, name: 'Kevin Nguyen', role: 'Warehouse Manager', email: 'knguyen@costco.com', hired: '2017-01-10', salary: 92000 },
+    { id: 1002, name: 'Lisa Park', role: 'Membership Clerk', email: 'lpark@costco.com', hired: '2021-05-20', salary: 48000 },
+    { id: 1003, name: 'Tom Bradley', role: 'Forklift Operator', email: 'tbradley@costco.com', hired: '2022-03-08', salary: 55000 },
+    { id: 1004, name: 'Amy Rodriguez', role: 'Bakery Lead', email: 'arodriguez@costco.com', hired: '2020-08-14', salary: 52000 },
+    { id: 1005, name: 'Chris Tanaka', role: 'Stocker', email: 'ctanaka@costco.com', hired: '2023-06-30', salary: 42000 },
+  ],
+  28: [
+    { id: 2801, name: 'Petra Müller', role: 'Filialleitung', email: 'pmueller@migros.ch', hired: '2019-02-01', salary: 98000 },
+    { id: 2802, name: 'Yves Keller', role: 'Kassier', email: 'ykeller@migros.ch', hired: '2021-10-15', salary: 54000 },
+  ],
+}

@@ -23,10 +23,22 @@ const props = defineProps({
   showDataTypes: { type: Boolean, default: true },
   editable: { type: Boolean, default: true },
   selectionActions: { type: Array, default: () => [] },
+  defaultInsertLabel: { type: String, default: null }, // label for split insert button; null = single dropdown
   showRowBorders: { type: Boolean, default: true },
   showColumnBorders: { type: Boolean, default: true },
   theme: { type: String, default: 'dark' }, // 'dark' | 'light'
   accentColor: { type: String, default: '#3ecf8e' },
+  // Expandable row groups
+  getSubTable: { type: Function, default: null }, // (rowData) => SubTableConfig | null
+  subTableColumns: { type: Array, default: null }, // shared column defs for all sub-tables
+  expandedRows: { type: Object, default: null }, // v-model:expanded-rows for controlled state
+  nestingDepth: { type: Number, default: 0 }, // internal — tracks recursion level
+  showToolbar: { type: Boolean, default: true },
+  showPagination: { type: Boolean, default: true },
+  // Externally controlled state (used by parent to push sub-table state into nested instances)
+  controlledSorting: { type: Array, default: null },
+  controlledColumnFilters: { type: Array, default: null },
+  controlledColumnVisibility: { type: Object, default: null },
 })
 
 // Theme CSS custom properties
@@ -95,20 +107,55 @@ const emit = defineEmits([
   'refresh',
   'selection-action',
   'view-change',
+  'update:expanded-rows',
+  'sub-table-event',
 ])
 
 const data = ref(props.rows)
 watch(() => props.rows, (val) => { data.value = val })
 
-const sorting = ref([])
-const columnFilters = ref([])
+const sorting = ref(props.controlledSorting ?? [])
+const columnFilters = ref(props.controlledColumnFilters ?? [])
 const rowSelection = ref({})
 const pagination = ref({ pageIndex: 0, pageSize: 100 })
 const columnSizing = ref({})
-const columnVisibility = ref({ ...props.defaultColumnVisibility })
+const columnVisibility = ref(props.controlledColumnVisibility ?? { ...props.defaultColumnVisibility })
+
+// Sync externally controlled state into internal refs (for nested sub-tables)
+watch(() => props.controlledSorting, (val) => {
+  if (val !== null) { sorting.value = val; rerenderKey.value++ }
+}, { deep: true })
+watch(() => props.controlledColumnFilters, (val) => {
+  if (val !== null) { columnFilters.value = val; rerenderKey.value++ }
+}, { deep: true })
+watch(() => props.controlledColumnVisibility, (val) => {
+  if (val !== null) { columnVisibility.value = val; rerenderKey.value++ }
+}, { deep: true })
+
+// Sub-table state (managed by parent toolbar, applied to all nested sub-tables)
+const subTableSorting = ref([])
+const subTableColumnFilters = ref([])
+const subTableColumnVisibility = ref({})
 
 // Rerender key — incremented on state change to force re-render
 const rerenderKey = ref(0)
+
+// Expand state for row groups
+const internalExpanded = ref({})
+const expanded = computed(() => props.expandedRows ?? internalExpanded.value)
+
+function toggleRowExpanded(rowId) {
+  if (props.expandedRows !== null) {
+    const next = { ...props.expandedRows, [rowId]: !props.expandedRows[rowId] }
+    emit('update:expanded-rows', next)
+  } else {
+    internalExpanded.value = {
+      ...internalExpanded.value,
+      [rowId]: !internalExpanded.value[rowId],
+    }
+  }
+  rerenderKey.value++
+}
 
 // Custom filter function that supports operator-based filtering
 function operatorFilterFn(row, columnId, filterValue) {
@@ -255,6 +302,16 @@ provide('emit', emit)
 provide('openEditPanel', openEditPanel)
 provide('openInsertPanel', openInsertPanel)
 provide('openContextMenu', openContextMenu)
+// Expandable row groups
+provide('expanded', expanded)
+provide('toggleRowExpanded', toggleRowExpanded)
+provide('getSubTable', props.getSubTable)
+provide('nestingDepth', props.nestingDepth)
+provide('parentTheme', computed(() => props.theme))
+provide('parentAccentColor', computed(() => props.accentColor))
+provide('subTableSorting', subTableSorting)
+provide('subTableColumnFilters', subTableColumnFilters)
+provide('subTableColumnVisibility', subTableColumnVisibility)
 
 // Reset selection when rows change
 watch(() => props.rows, () => {
@@ -264,30 +321,41 @@ watch(() => props.rows, () => {
 
 <template>
   <div class="flex flex-col flex-1 min-h-0 text-[13px]" :style="{ ...themeVars, backgroundColor: 'var(--st-bg)', color: 'var(--st-text)' }">
-    <SelectionToolbar
-      v-if="hasSelection"
-      :selected-count="selectedCount"
-      :table="table"
-      :editable="editable"
-      :selection-actions="selectionActions"
-      :key="'sel-' + rerenderKey"
-      @delete-rows="handleDeleteRows"
-      @selection-action="(action, rows) => emit('selection-action', action, rows)"
-    />
-    <TableToolbar
-      v-else
-      :table="table"
-      :sorting="sorting"
-      :column-filters="columnFilters"
-      :column-visibility="columnVisibility"
-      :default-column-visibility="defaultColumnVisibility"
-      :editable="editable"
-      @update:sorting="val => sorting = val"
-      @update:column-filters="val => columnFilters = val"
-      @update:column-visibility="val => columnVisibility = val"
-      @insert-row="openInsertPanel"
-      @refresh="emit('refresh')"
-    />
+    <template v-if="showToolbar">
+      <SelectionToolbar
+        v-if="hasSelection"
+        :selected-count="selectedCount"
+        :table="table"
+        :editable="editable"
+        :selection-actions="selectionActions"
+        :key="'sel-' + rerenderKey"
+        @delete-rows="handleDeleteRows"
+        @selection-action="(action, rows) => emit('selection-action', action, rows)"
+      />
+      <TableToolbar
+        v-else
+        :table="table"
+        :sorting="sorting"
+        :column-filters="columnFilters"
+        :column-visibility="columnVisibility"
+        :default-column-visibility="defaultColumnVisibility"
+        :editable="editable"
+        :default-insert-label="defaultInsertLabel"
+        :sub-table-columns="subTableColumns"
+        :sub-table-sorting="subTableSorting"
+        :sub-table-column-filters="subTableColumnFilters"
+        :sub-table-column-visibility="subTableColumnVisibility"
+        :table-name="tableName"
+        @update:sorting="val => sorting = val"
+        @update:column-filters="val => columnFilters = val"
+        @update:column-visibility="val => columnVisibility = val"
+        @update:sub-table-sorting="val => subTableSorting = val"
+        @update:sub-table-column-filters="val => subTableColumnFilters = val"
+        @update:sub-table-column-visibility="val => subTableColumnVisibility = val"
+        @insert-row="openInsertPanel"
+        @refresh="emit('refresh')"
+      />
+    </template>
 
     <TableGrid
       :table="table"
@@ -297,7 +365,7 @@ watch(() => props.rows, () => {
       @edit-row="openEditPanel"
     />
 
-    <TablePagination :table="table" :key="'pag-' + rerenderKey" />
+    <TablePagination v-if="showPagination" :table="table" :key="'pag-' + rerenderKey" />
 
     <RowEditPanel
       v-if="editable && editPanel.open"

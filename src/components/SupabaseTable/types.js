@@ -21,6 +21,23 @@
  * @property {string} value - Filter value
  */
 
+/**
+ * Configuration returned by the `getSubTable` prop for expandable row groups.
+ * Any SupabaseTable prop can be included and will be forwarded to the nested table.
+ *
+ * @typedef {Object} SubTableConfig
+ * @property {Array} columns - TanStack column definitions for the sub-table (required)
+ * @property {Array} rows - Data rows for the sub-table (required)
+ * @property {string} [tableName] - Display name in the sub-table's edit panel
+ * @property {boolean} [editable] - Enable insert/update/delete in the sub-table
+ * @property {boolean} [showToolbar] - Show the toolbar (sort, filter, insert). Default: true
+ * @property {boolean} [showPagination] - Show pagination controls. Default: true
+ * @property {boolean} [showDataTypes] - Show type badges in sub-table headers
+ * @property {boolean} [showRowBorders] - Horizontal row dividers in sub-table
+ * @property {boolean} [showColumnBorders] - Vertical column dividers in sub-table
+ * @property {Function} [getSubTable] - Recursive: allows nested sub-tables within sub-tables
+ */
+
 export const FILTER_OPERATORS = [
   { group: 'Comparison', operators: [
     { label: 'Equals', value: '=' },

@@ -6,15 +6,28 @@ const props = defineProps({
   table: { type: Object, required: true },
   columnFilters: { type: Array, default: () => [] },
   allColumns: { type: Array, default: () => [] },
+  subTableColumns: { type: Array, default: null },
+  subTableColumnFilters: { type: Array, default: () => [] },
+  tableName: { type: String, default: 'table' },
 })
 
-const emit = defineEmits(['update:column-filters'])
+const emit = defineEmits(['update:column-filters', 'update:sub-table-column-filters'])
 
 const showDataTypes = inject('showDataTypes', true)
 
+const hasSubTable = computed(() => !!props.subTableColumns && props.subTableColumns.length > 0)
+
+// --- Merged filter list for display ---
+// Each entry gets a `table` field: 'parent' or 'sub'
+const mergedFilters = computed(() => {
+  const parent = props.columnFilters.map((f, i) => ({ ...f, table: 'parent', sourceIndex: i }))
+  const sub = props.subTableColumnFilters.map((f, i) => ({ ...f, table: 'sub', sourceIndex: i }))
+  return [...parent, ...sub]
+})
+
 // --- Dropdown state machine: 'closed' | 'columns' | 'operators' ---
 const dropdownState = ref('closed')
-const pendingColumn = ref(null)
+const pendingColumn = ref(null) // { id, table }
 const searchQuery = ref('')
 const highlightIndex = ref(0)
 
@@ -37,11 +50,30 @@ const selectableOperators = computed(() =>
   flatOperators.value.filter(item => item.type === 'operator')
 )
 
-// Filtered columns for column picker
-const filteredColumns = computed(() => {
+// Filtered columns for column picker — grouped
+const filteredParentColumns = computed(() => {
   const q = searchQuery.value.toLowerCase()
   if (!q) return props.allColumns
   return props.allColumns.filter(c => c.id.toLowerCase().includes(q))
+})
+
+const filteredSubColumns = computed(() => {
+  if (!hasSubTable.value) return []
+  const q = searchQuery.value.toLowerCase()
+  if (!q) return props.subTableColumns
+  return props.subTableColumns.filter(c => c.id.toLowerCase().includes(q))
+})
+
+// Combined filtered list for keyboard nav
+const filteredAllItems = computed(() => {
+  const items = []
+  for (const col of filteredParentColumns.value) {
+    items.push({ ...col, table: 'parent' })
+  }
+  for (const col of filteredSubColumns.value) {
+    items.push({ ...col, table: 'sub' })
+  }
+  return items
 })
 
 const placeholder = computed(() => {
@@ -50,7 +82,6 @@ const placeholder = computed(() => {
 })
 
 // --- Helpers to read the TanStack-compatible filter shape ---
-// TanStack columnFilters = [{ id, value: { operator, value } }]
 function getFilterOperator(filter) {
   return filter.value?.operator || '='
 }
@@ -65,8 +96,8 @@ function openColumnPicker() {
   highlightIndex.value = 0
 }
 
-function selectColumn(colId) {
-  pendingColumn.value = colId
+function selectColumn(colId, tableType) {
+  pendingColumn.value = { id: colId, table: tableType }
   searchQuery.value = ''
   dropdownState.value = 'operators'
   highlightIndex.value = 0
@@ -74,12 +105,18 @@ function selectColumn(colId) {
 
 // --- Operator picker ---
 function selectOperator(opValue) {
-  const colId = pendingColumn.value
-  if (!colId) return
+  if (!pendingColumn.value) return
+  const { id: colId, table: tableType } = pendingColumn.value
 
-  // TanStack format: { id, value: { operator, value } }
-  const newFilters = [...props.columnFilters, { id: colId, value: { operator: opValue, value: '' } }]
-  emit('update:column-filters', newFilters)
+  const newFilter = { id: colId, value: { operator: opValue, value: '' } }
+
+  if (tableType === 'sub') {
+    const newFilters = [...props.subTableColumnFilters, newFilter]
+    emit('update:sub-table-column-filters', newFilters)
+  } else {
+    const newFilters = [...props.columnFilters, newFilter]
+    emit('update:column-filters', newFilters)
+  }
 
   dropdownState.value = 'closed'
   pendingColumn.value = null
@@ -87,27 +124,47 @@ function selectOperator(opValue) {
   searchInputRef.value?.blur()
 
   // Focus the value input for the newly created filter
-  nextTick(() => {
-    nextTick(() => {
-      const idx = newFilters.length - 1
-      const input = valueInputRefs.value[idx]
-      if (input) input.focus()
-    })
-  })
+  // The emit triggers a prop update → re-render, so we need to wait for that cycle
+  const focusLastInput = () => {
+    const idx = mergedFilters.value.length - 1
+    const input = valueInputRefs.value[idx]
+    if (input) {
+      input.focus()
+    } else {
+      // Re-render hasn't completed yet, try once more
+      nextTick(focusLastInput)
+    }
+  }
+  nextTick(() => nextTick(focusLastInput))
 }
 
 // --- Remove / update ---
-function removeFilter(index) {
-  const newFilters = props.columnFilters.filter((_, i) => i !== index)
-  emit('update:column-filters', newFilters)
+function removeFilter(mergedIndex) {
+  const filter = mergedFilters.value[mergedIndex]
+  if (filter.table === 'sub') {
+    const newFilters = props.subTableColumnFilters.filter((_, i) => i !== filter.sourceIndex)
+    emit('update:sub-table-column-filters', newFilters)
+  } else {
+    const newFilters = props.columnFilters.filter((_, i) => i !== filter.sourceIndex)
+    emit('update:column-filters', newFilters)
+  }
 }
 
-function updateFilterValue(index, value) {
-  const newFilters = [...props.columnFilters]
-  const existing = newFilters[index]
-  const operator = existing.value?.operator || '='
-  newFilters[index] = { ...existing, value: { operator, value } }
-  emit('update:column-filters', newFilters)
+function updateFilterValue(mergedIndex, value) {
+  const filter = mergedFilters.value[mergedIndex]
+  if (filter.table === 'sub') {
+    const newFilters = [...props.subTableColumnFilters]
+    const existing = newFilters[filter.sourceIndex]
+    const operator = existing.value?.operator || '='
+    newFilters[filter.sourceIndex] = { ...existing, value: { operator, value } }
+    emit('update:sub-table-column-filters', newFilters)
+  } else {
+    const newFilters = [...props.columnFilters]
+    const existing = newFilters[filter.sourceIndex]
+    const operator = existing.value?.operator || '='
+    newFilters[filter.sourceIndex] = { ...existing, value: { operator, value } }
+    emit('update:column-filters', newFilters)
+  }
 }
 
 // --- Keyboard navigation ---
@@ -127,7 +184,7 @@ function handleSearchKeydown(e) {
 }
 
 function handleColumnKeydown(e) {
-  const items = filteredColumns.value
+  const items = filteredAllItems.value
   if (items.length === 0) return
 
   if (e.key === 'ArrowDown') {
@@ -140,8 +197,9 @@ function handleColumnKeydown(e) {
     scrollHighlightedIntoView('column-picker')
   } else if (e.key === 'Enter' || e.key === 'Tab') {
     e.preventDefault()
-    if (items[highlightIndex.value]) {
-      selectColumn(items[highlightIndex.value].id)
+    const item = items[highlightIndex.value]
+    if (item) {
+      selectColumn(item.id, item.table)
     }
   }
 }
@@ -189,6 +247,12 @@ function handleSearchFocus() {
   }
 }
 
+// Track running index for keyboard highlight across grouped sections
+function getGlobalColumnIndex(tableType, localIdx) {
+  if (tableType === 'parent') return localIdx
+  return filteredParentColumns.value.length + localIdx
+}
+
 // Reset highlight when search query changes
 watch(searchQuery, () => {
   highlightIndex.value = 0
@@ -199,11 +263,16 @@ watch(searchQuery, () => {
   <div class="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
     <!-- Active filter chips -->
     <div
-      v-for="(filter, i) in columnFilters"
-      :key="i"
+      v-for="(filter, i) in mergedFilters"
+      :key="filter.table + '-' + filter.sourceIndex"
       class="flex items-center gap-1 rounded px-2 py-0.5 text-[13px]"
       :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"
     >
+      <span
+        v-if="hasSubTable"
+        class="text-[10px] font-medium uppercase px-1 rounded"
+        :style="{ color: 'var(--st-text-placeholder)', backgroundColor: 'var(--st-bg-input)' }"
+      >{{ filter.table === 'sub' ? 'sub' : tableName }}</span>
       <span :style="{ color: 'var(--st-text-secondary)' }">{{ filter.id }}</span>
       <span class="font-mono text-xs" :style="{ color: 'var(--st-text-placeholder)' }">{{ getFilterOperator(filter) }}</span>
       <input
@@ -231,7 +300,12 @@ watch(searchQuery, () => {
       class="flex items-center gap-1 rounded px-2 py-0.5 text-[13px]"
       :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-accent-border)' }"
     >
-      <span :style="{ color: 'var(--st-text-secondary)' }">{{ pendingColumn }}</span>
+      <span
+        v-if="hasSubTable"
+        class="text-[10px] font-medium uppercase px-1 rounded"
+        :style="{ color: 'var(--st-text-placeholder)', backgroundColor: 'var(--st-bg-input)' }"
+      >{{ pendingColumn.table === 'sub' ? 'sub' : tableName }}</span>
+      <span :style="{ color: 'var(--st-text-secondary)' }">{{ pendingColumn.id }}</span>
     </div>
 
     <!-- Search / add filter input -->
@@ -241,7 +315,7 @@ watch(searchQuery, () => {
         v-model="searchQuery"
         class="w-full bg-transparent outline-none text-[13px] py-1"
         :style="{ color: 'var(--st-text)', caretColor: dropdownState === 'operators' ? 'transparent' : undefined }"
-        :placeholder="dropdownState === 'operators' ? 'Pick a filter method...' : columnFilters.length > 0 ? '+ Add more filters...' : placeholder"
+        :placeholder="dropdownState === 'operators' ? 'Pick a filter method...' : mergedFilters.length > 0 ? '+ Add more filters...' : placeholder"
         @focus="handleSearchFocus"
         @keydown="handleSearchKeydown"
       />
@@ -253,19 +327,51 @@ watch(searchQuery, () => {
         class="absolute top-full left-0 mt-1 w-60 rounded shadow-xl z-50 py-1 max-h-60 overflow-auto"
         :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"
       >
+        <!-- Parent columns section -->
         <div
-          v-for="(col, idx) in filteredColumns"
-          :key="col.id"
+          v-if="hasSubTable && filteredParentColumns.length > 0"
+          class="px-3 py-1 text-xs font-medium uppercase tracking-wide"
+          :style="{ color: 'var(--st-text-placeholder)' }"
+        >
+          {{ tableName }}
+        </div>
+        <div
+          v-for="(col, idx) in filteredParentColumns"
+          :key="'p-' + col.id"
           class="flex items-center justify-between px-3 py-1.5 cursor-pointer text-[13px]"
-          :data-highlighted="idx === highlightIndex"
-          :style="idx === highlightIndex ? { backgroundColor: 'var(--st-bg-menu-hover)' } : {}"
-          @click="selectColumn(col.id)"
-          @mouseenter="highlightIndex = idx"
+          :data-highlighted="getGlobalColumnIndex('parent', idx) === highlightIndex"
+          :style="getGlobalColumnIndex('parent', idx) === highlightIndex ? { backgroundColor: 'var(--st-bg-menu-hover)' } : {}"
+          @click="selectColumn(col.id, 'parent')"
+          @mouseenter="highlightIndex = getGlobalColumnIndex('parent', idx)"
         >
           <span :style="{ color: 'var(--st-text)' }">{{ col.id }}</span>
           <span v-if="showDataTypes" class="text-xs" :style="{ color: 'var(--st-text-placeholder)' }">{{ col.type }}</span>
         </div>
-        <div v-if="filteredColumns.length === 0" class="px-3 py-2 text-[13px]" :style="{ color: 'var(--st-text-placeholder)' }">
+
+        <!-- Sub-table columns section -->
+        <template v-if="hasSubTable && filteredSubColumns.length > 0">
+          <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
+          <div
+            class="px-3 py-1 text-xs font-medium uppercase tracking-wide"
+            :style="{ color: 'var(--st-text-placeholder)' }"
+          >
+            Sub-table
+          </div>
+          <div
+            v-for="(col, idx) in filteredSubColumns"
+            :key="'s-' + col.id"
+            class="flex items-center justify-between px-3 py-1.5 cursor-pointer text-[13px]"
+            :data-highlighted="getGlobalColumnIndex('sub', idx) === highlightIndex"
+            :style="getGlobalColumnIndex('sub', idx) === highlightIndex ? { backgroundColor: 'var(--st-bg-menu-hover)' } : {}"
+            @click="selectColumn(col.id, 'sub')"
+            @mouseenter="highlightIndex = getGlobalColumnIndex('sub', idx)"
+          >
+            <span :style="{ color: 'var(--st-text)' }">{{ col.id }}</span>
+            <span v-if="showDataTypes" class="text-xs" :style="{ color: 'var(--st-text-placeholder)' }">{{ col.type }}</span>
+          </div>
+        </template>
+
+        <div v-if="filteredParentColumns.length === 0 && filteredSubColumns.length === 0" class="px-3 py-2 text-[13px]" :style="{ color: 'var(--st-text-placeholder)' }">
           No columns found
         </div>
       </div>

@@ -1,8 +1,8 @@
 <script setup>
 import { ref } from 'vue'
 import { SupabaseTable } from './components/SupabaseTable'
-import { columns } from './demo/demoColumns.js'
-import { stores } from './demo/demoData.js'
+import { columns, employeeColumns } from './demo/demoColumns.js'
+import { stores, employeesByStore } from './demo/demoData.js'
 
 const rows = ref([...stores])
 function handleInsert(payload) {
@@ -20,6 +20,19 @@ function handleDelete(ids) {
 }
 
 function handleRefresh() {
+}
+
+function getSubTable(row) {
+  const employees = employeesByStore[row.id]
+  if (!employees || employees.length === 0) return null
+  return {
+    columns: employeeColumns,
+    rows: employees,
+    tableName: `${row.name} — Employees`,
+    editable: false,
+    showToolbar: false,
+    showPagination: false,
+  }
 }
 
 const selectionActions = [
@@ -103,6 +116,8 @@ const presetColors = [
       :accent-color="accentColor"
       :default-column-visibility="{ coordinate_system_type: false }"
       :selection-actions="selectionActions"
+      :get-sub-table="getSubTable"
+      :sub-table-columns="employeeColumns"
       @insert-row="handleInsert"
       @update-row="handleUpdate"
       @delete-rows="handleDelete"

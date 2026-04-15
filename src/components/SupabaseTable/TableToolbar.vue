@@ -11,17 +11,49 @@ const props = defineProps({
   columnVisibility: { type: Object, default: () => ({}) },
   defaultColumnVisibility: { type: Object, default: () => ({}) },
   editable: { type: Boolean, default: true },
+  defaultInsertLabel: { type: String, default: null },
+  // Sub-table support
+  subTableColumns: { type: Array, default: null },
+  subTableSorting: { type: Array, default: () => [] },
+  subTableColumnFilters: { type: Array, default: () => [] },
+  subTableColumnVisibility: { type: Object, default: () => ({}) },
+  tableName: { type: String, default: 'table' },
 })
 
-const emit = defineEmits(['update:sorting', 'update:column-filters', 'update:column-visibility', 'insert-row', 'refresh'])
+const emit = defineEmits([
+  'update:sorting', 'update:column-filters', 'update:column-visibility',
+  'update:sub-table-sorting', 'update:sub-table-column-filters', 'update:sub-table-column-visibility',
+  'insert-row', 'refresh',
+])
 
 const showSortPanel = ref(false)
 const showInsertMenu = ref(false)
 const showColumnsPanel = ref(false)
 
-const sortCount = computed(() => props.sorting.length)
-const filterCount = computed(() => props.columnFilters.length)
-const hiddenColumnCount = computed(() => Object.values(props.columnVisibility).filter(v => v === false).length)
+const sortCount = computed(() => props.sorting.length + props.subTableSorting.length)
+const filterCount = computed(() => props.columnFilters.length + props.subTableColumnFilters.length)
+const hiddenColumnCount = computed(() => {
+  const parentHidden = Object.values(props.columnVisibility).filter(v => v === false).length
+  const subHidden = Object.values(props.subTableColumnVisibility).filter(v => v === false).length
+  return parentHidden + subHidden
+})
+
+const isDefaultVisibility = computed(() => {
+  // Check parent: current visibility must match defaultColumnVisibility
+  const currentParent = props.columnVisibility
+  const defaultParent = props.defaultColumnVisibility
+  const allParentCols = props.table.getAllColumns().map(c => c.id)
+  for (const colId of allParentCols) {
+    const currentVal = currentParent[colId] !== false
+    const defaultVal = defaultParent[colId] !== false
+    if (currentVal !== defaultVal) return false
+  }
+  // Check sub-table: default is all visible (empty object)
+  for (const val of Object.values(props.subTableColumnVisibility)) {
+    if (val === false) return false
+  }
+  return true
+})
 
 const allColumns = computed(() =>
   props.table.getAllColumns().map(col => ({
@@ -29,6 +61,14 @@ const allColumns = computed(() =>
     type: col.columnDef.meta?.type || 'text',
   }))
 )
+
+const subTableColumnList = computed(() => {
+  if (!props.subTableColumns) return null
+  return props.subTableColumns.map(col => ({
+    id: col.accessorKey || col.id || col.header,
+    type: col.meta?.type || col.columnDef?.meta?.type || 'text',
+  }))
+})
 </script>
 
 <template>
@@ -39,7 +79,11 @@ const allColumns = computed(() =>
         :table="table"
         :column-filters="columnFilters"
         :all-columns="allColumns"
+        :sub-table-columns="subTableColumnList"
+        :sub-table-column-filters="subTableColumnFilters"
+        :table-name="tableName"
         @update:column-filters="val => emit('update:column-filters', val)"
+        @update:sub-table-column-filters="val => emit('update:sub-table-column-filters', val)"
         class="flex-1"
       />
 
@@ -79,7 +123,11 @@ const allColumns = computed(() =>
           :table="table"
           :sorting="sorting"
           :all-columns="allColumns"
+          :sub-table-columns="subTableColumnList"
+          :sub-table-sorting="subTableSorting"
+          :table-name="tableName"
           @update:sorting="val => emit('update:sorting', val)"
+          @update:sub-table-sorting="val => emit('update:sub-table-sorting', val)"
           @close="showSortPanel = false"
         />
         <Teleport to="body">
@@ -91,7 +139,7 @@ const allColumns = computed(() =>
       <div class="relative">
         <button
           class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[13px] transition-colors"
-          :style="Object.values(columnVisibility).some(v => v === false)
+          :style="!isDefaultVisibility
             ? { border: '1px solid var(--st-accent-border)', color: 'var(--st-accent)', backgroundColor: 'var(--st-accent-bg)' }
             : { border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)' }"
           @click="showColumnsPanel = !showColumnsPanel"
@@ -99,10 +147,8 @@ const allColumns = computed(() =>
           <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
             <path d="M1.5 2A1.5 1.5 0 000 3.5v9A1.5 1.5 0 001.5 14h13a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0014.5 2h-13zM1 3.5a.5.5 0 01.5-.5H5v10H1.5a.5.5 0 01-.5-.5v-9zM6 13V3h4v10H6zm5 0V3h3.5a.5.5 0 01.5.5v9a.5.5 0 01-.5.5H11z"/>
           </svg>
-          <template v-if="hiddenColumnCount > 0">
-            {{ hiddenColumnCount }} hidden
-          </template>
-          <template v-else>Columns</template>
+          <template v-if="isDefaultVisibility">Columns</template>
+          <template v-else>{{ hiddenColumnCount }} hidden</template>
         </button>
 
         <ColumnVisibilityPanel
@@ -110,7 +156,11 @@ const allColumns = computed(() =>
           :table="table"
           :column-visibility="columnVisibility"
           :default-column-visibility="defaultColumnVisibility"
+          :sub-table-columns="subTableColumnList"
+          :sub-table-column-visibility="subTableColumnVisibility"
+          :table-name="tableName"
           @update:column-visibility="val => emit('update:column-visibility', val)"
+          @update:sub-table-column-visibility="val => emit('update:sub-table-column-visibility', val)"
           @close="showColumnsPanel = false"
         />
         <Teleport to="body">
@@ -120,13 +170,14 @@ const allColumns = computed(() =>
 
       <!-- Insert button -->
       <div v-if="editable" class="relative">
-        <div class="flex items-center">
+        <!-- Split button: default action + dropdown arrow -->
+        <div v-if="defaultInsertLabel" class="flex items-center">
           <button
             class="flex items-center gap-1.5 px-3 py-1 rounded-l text-[13px] font-medium transition-colors"
             :style="{ backgroundColor: 'var(--st-accent)', color: 'var(--st-text-on-accent)' }"
             @click="emit('insert-row')"
           >
-            Insert
+            {{ defaultInsertLabel }}
           </button>
           <button
             class="flex items-center self-stretch px-1.5 rounded-r transition-colors"
@@ -138,6 +189,18 @@ const allColumns = computed(() =>
             </svg>
           </button>
         </div>
+        <!-- Single dropdown button: no default action -->
+        <button
+          v-else
+          class="flex items-center gap-1.5 px-3 py-1 rounded text-[13px] font-medium transition-colors"
+          :style="{ backgroundColor: 'var(--st-accent)', color: 'var(--st-text-on-accent)' }"
+          @click="showInsertMenu = !showInsertMenu"
+        >
+          Insert
+          <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M4.427 6.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 6H4.604a.25.25 0 00-.177.427z"/>
+          </svg>
+        </button>
 
         <!-- Insert dropdown -->
         <div
