@@ -1,5 +1,226 @@
-# Vue 3 + Vite
+# SupabaseTable
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+A feature-rich Vue 3 data table component inspired by the Supabase Table Editor. Built on [TanStack Table v8](https://tanstack.com/table/v8) with Tailwind CSS dark theme styling.
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+## Quick Start
+
+```bash
+npm install
+npm run dev
+```
+
+## Installation
+
+**Dependencies:**
+
+- Vue 3.5+
+- @tanstack/vue-table ^8.21
+- @vueuse/core ^14.2
+- Tailwind CSS v4
+
+## Basic Usage
+
+```vue
+<script setup>
+import { ref } from 'vue'
+import { SupabaseTable } from './components/SupabaseTable'
+import { createColumnHelper } from '@tanstack/vue-table'
+
+const col = createColumnHelper()
+
+const columns = [
+  col.accessor('id', {
+    header: 'id',
+    meta: { type: 'int8', isPrimaryKey: true, isNullable: false },
+    size: 80,
+    enableSorting: true,
+    enableColumnFilter: true,
+  }),
+  col.accessor('name', {
+    header: 'name',
+    meta: { type: 'varchar', isNullable: false },
+    size: 200,
+    enableSorting: true,
+    enableColumnFilter: true,
+  }),
+  col.accessor('is_active', {
+    header: 'is_active',
+    meta: { type: 'boolean', isNullable: false },
+    size: 110,
+    enableSorting: true,
+    enableColumnFilter: true,
+  }),
+]
+
+const rows = ref([
+  { id: 1, name: 'Acme Corp', is_active: true },
+  { id: 2, name: 'Globex', is_active: false },
+])
+</script>
+
+<template>
+  <SupabaseTable
+    :columns="columns"
+    :rows="rows"
+    table-name="companies"
+    @insert-row="handleInsert"
+    @update-row="handleUpdate"
+    @delete-rows="handleDelete"
+    @refresh="handleRefresh"
+  />
+</template>
+```
+
+## Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `columns` | `Array` | **required** | TanStack column definitions with `meta` for type info |
+| `rows` | `Array` | **required** | Array of row data objects |
+| `tableName` | `String` | `'table'` | Display name shown in the edit panel header |
+| `loading` | `Boolean` | `false` | Loading state (reserved for future use) |
+| `defaultColumnVisibility` | `Object` | `{}` | Initial column visibility. Keys are column IDs, values are booleans. `{ col_name: false }` hides `col_name` on load |
+| `showDataTypes` | `Boolean` | `true` | Show data type labels (e.g. `varchar`, `int8`) in column headers and panels |
+| `editable` | `Boolean` | `true` | Enable insert, update, and delete operations. When `false`, the table is read-only |
+| `selectionActions` | `Array` | `[]` | Custom actions shown in the Actions dropdown when rows are selected. Each item: `{ key: string, label: string }` |
+| `showRowBorders` | `Boolean` | `true` | Show horizontal borders between rows |
+| `showColumnBorders` | `Boolean` | `true` | Show vertical borders between columns |
+
+## Events
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `insert-row` | `Object` (row data) | User submitted the insert form |
+| `update-row` | `{ id, changes }` | User edited a cell or saved the edit panel |
+| `delete-rows` | `Array<string>` (row IDs) | User confirmed deletion of selected rows |
+| `refresh` | — | User clicked the refresh button |
+| `selection-action` | `(actionKey: string, rows: Object[])` | User triggered a custom selection action |
+
+## Column Definition
+
+Columns use TanStack's `createColumnHelper()`. The `meta` object controls component behavior:
+
+```js
+col.accessor('field_name', {
+  header: 'Display Name',
+  meta: {
+    type: 'varchar',        // Data type: 'int8', 'int4', 'float8', 'varchar', 'text', 'boolean'
+    isPrimaryKey: false,    // Disables editing in update mode
+    isNullable: true,       // Separates required vs. optional in the edit panel
+  },
+  size: 180,                // Column width in pixels
+  enableSorting: true,
+  enableColumnFilter: true,
+})
+```
+
+### Supported `meta.type` Values
+
+| Type | Behavior |
+|------|----------|
+| `int8`, `int4`, `float8` | Values converted to `Number` on save |
+| `varchar`, `text` | Standard text input |
+| `boolean` | Renders as a toggle switch |
+| Any other string | Treated as text |
+
+## Features
+
+### Toolbar
+- **Filter bar** — Click to add column filters with operator support (equals, like, greater than, etc.)
+- **Sort** — Multi-column sort with drag-and-drop reordering, ASC/DESC toggle
+- **Columns** — Toggle column visibility with Show All / Default reset
+- **Insert** — Split button with dropdown for insert row, insert column, import CSV
+- **Refresh** — Emits `refresh` event for parent to reload data
+
+### Grid
+- **Sticky columns** — Row numbers and checkboxes stay pinned on horizontal scroll
+- **Column resizing** — Drag column borders to resize
+- **Inline editing** — Double-click a cell to edit (when `editable: true`)
+- **Boolean toggles** — Click to flip boolean values
+- **Row selection** — Click checkboxes, Shift+click for range selection
+- **Context menu** — Right-click for copy, filter, edit, delete actions
+
+### Selection Toolbar
+Appears when rows are selected:
+- **Delete...** — Opens confirmation dialog before emitting `delete-rows`
+- **Actions** — Dropdown with Copy as CSV/SQL/JSON plus any custom `selectionActions`
+- **Clear selection** / **Select all rows in table**
+
+### Row Edit Panel
+Slide-in panel from the right for inserting or updating rows:
+- Required and optional field sections based on `isNullable`
+- Primary key fields are read-only in update mode
+- Save with `Cmd+Enter`, close with `Escape`
+
+### Pagination
+- Page navigation with direct page number input
+- Configurable rows per page (100, 500, 1000)
+- Total record count display
+
+## Examples
+
+### Read-Only Table
+
+```vue
+<SupabaseTable
+  :columns="columns"
+  :rows="rows"
+  :editable="false"
+/>
+```
+
+### Minimal Chrome
+
+```vue
+<SupabaseTable
+  :columns="columns"
+  :rows="rows"
+  :show-data-types="false"
+  :show-row-borders="false"
+  :show-column-borders="false"
+/>
+```
+
+### Custom Selection Actions
+
+```vue
+<script setup>
+const actions = [
+  { key: 'export-pdf', label: 'Export to PDF' },
+  { key: 'send-email', label: 'Send via email' },
+]
+
+function onAction(actionKey, selectedRows) {
+  if (actionKey === 'export-pdf') {
+    generatePdf(selectedRows)
+  }
+}
+</script>
+
+<template>
+  <SupabaseTable
+    :columns="columns"
+    :rows="rows"
+    :selection-actions="actions"
+    @selection-action="onAction"
+  />
+</template>
+```
+
+### Default Hidden Columns
+
+```vue
+<SupabaseTable
+  :columns="columns"
+  :rows="rows"
+  :default-column-visibility="{ internal_id: false, metadata: false }"
+/>
+```
+
+## Tech Stack
+
+- **Vue 3** — Composition API with `<script setup>`
+- **TanStack Table v8** — Headless table engine (sorting, filtering, pagination, column visibility, row selection, column resizing)
+- **Tailwind CSS v4** — Dark theme styling
+- **VueUse** — `onClickOutside` for dropdown/menu dismissal
+- **Vite** — Build tooling
