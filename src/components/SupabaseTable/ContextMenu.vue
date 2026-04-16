@@ -26,16 +26,31 @@ const colId = computed(() => {
   return props.cell.column.id
 })
 
+function copyText(text) {
+  if (navigator.clipboard && document.hasFocus()) {
+    navigator.clipboard.writeText(text)
+  } else {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none'
+    document.body.appendChild(ta)
+    ta.focus()
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+  }
+}
+
 function copyCellValue() {
   if (cellValue.value !== null && cellValue.value !== undefined) {
-    navigator.clipboard.writeText(String(cellValue.value))
+    copyText(String(cellValue.value))
   }
   emit('close')
 }
 
 function copyRow() {
   if (props.row) {
-    navigator.clipboard.writeText(JSON.stringify(props.row.original, null, 2))
+    copyText(JSON.stringify(props.row.original, null, 2))
   }
   emit('close')
 }

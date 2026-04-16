@@ -18,6 +18,7 @@ const props = defineProps({
   subTableColumnFilters: { type: Array, default: () => [] },
   subTableColumnVisibility: { type: Object, default: () => ({}) },
   tableName: { type: String, default: 'table' },
+  isEmpty: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -82,9 +83,11 @@ const subTableColumnList = computed(() => {
         :sub-table-columns="subTableColumnList"
         :sub-table-column-filters="subTableColumnFilters"
         :table-name="tableName"
+        :disabled="isEmpty"
         @update:column-filters="val => emit('update:column-filters', val)"
         @update:sub-table-column-filters="val => emit('update:sub-table-column-filters', val)"
         class="flex-1"
+        :style="isEmpty ? { opacity: 0.4, pointerEvents: 'none' } : {}"
       />
 
       <!-- Refresh -->
@@ -104,10 +107,13 @@ const subTableColumnList = computed(() => {
       <div class="relative">
         <button
           class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[13px] transition-colors"
-          :style="sortCount > 0
-            ? { border: '1px solid var(--st-accent-border)', color: 'var(--st-accent)', backgroundColor: 'var(--st-accent-bg)' }
-            : { border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)' }"
-          @click="showSortPanel = !showSortPanel"
+          :style="isEmpty
+            ? { border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)', opacity: 0.4, cursor: 'default' }
+            : sortCount > 0
+              ? { border: '1px solid var(--st-accent-border)', color: 'var(--st-accent)', backgroundColor: 'var(--st-accent-bg)' }
+              : { border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)' }"
+          :disabled="isEmpty"
+          @click="!isEmpty && (showSortPanel = !showSortPanel)"
         >
           <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
             <path d="M3.5 2.5a.5.5 0 00-1 0v9.793l-1.146-1.147a.5.5 0 00-.708.708l2 2a.5.5 0 00.708 0l2-2a.5.5 0 00-.708-.708L3.5 12.293V2.5zm4 .5a.5.5 0 010-1h1a.5.5 0 010 1h-1zm0 3a.5.5 0 010-1h3a.5.5 0 010 1h-3zm0 3a.5.5 0 010-1h5a.5.5 0 010 1h-5zm0 3a.5.5 0 010-1h7a.5.5 0 010 1h-7z"/>
@@ -139,10 +145,13 @@ const subTableColumnList = computed(() => {
       <div class="relative">
         <button
           class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[13px] transition-colors"
-          :style="!isDefaultVisibility
-            ? { border: '1px solid var(--st-accent-border)', color: 'var(--st-accent)', backgroundColor: 'var(--st-accent-bg)' }
-            : { border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)' }"
-          @click="showColumnsPanel = !showColumnsPanel"
+          :style="isEmpty
+            ? { border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)', opacity: 0.4, cursor: 'default' }
+            : !isDefaultVisibility
+              ? { border: '1px solid var(--st-accent-border)', color: 'var(--st-accent)', backgroundColor: 'var(--st-accent-bg)' }
+              : { border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)' }"
+          :disabled="isEmpty"
+          @click="!isEmpty && (showColumnsPanel = !showColumnsPanel)"
         >
           <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
             <path d="M1.5 2A1.5 1.5 0 000 3.5v9A1.5 1.5 0 001.5 14h13a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0014.5 2h-13zM1 3.5a.5.5 0 01.5-.5H5v10H1.5a.5.5 0 01-.5-.5v-9zM6 13V3h4v10H6zm5 0V3h3.5a.5.5 0 01.5.5v9a.5.5 0 01-.5.5H11z"/>

@@ -14,6 +14,13 @@ const props = defineProps({
 const editable = inject('editable', true)
 const showRowBorders = inject('showRowBorders', true)
 const showColumnBorders = inject('showColumnBorders', true)
+const emptyTitle = inject('emptyTitle', 'No rows found')
+const emptyMessage = inject('emptyMessage', 'Get started by inserting a new row.')
+const openInsertPanel = inject('openInsertPanel', null)
+const defaultInsertLabel = inject('defaultInsertLabel', null)
+const emitParent = inject('emit', null)
+
+const showEmptyInsertMenu = ref(false)
 
 // Expandable row groups
 const expanded = inject('expanded', ref({}))
@@ -137,8 +144,9 @@ const totalColspan = computed(() => {
 </script>
 
 <template>
-  <div class="flex-1 overflow-auto min-h-0" @click.self="clearSelection">
-    <table class="border-collapse table-fixed" :style="{ width: totalTableWidth + 'px' }">
+  <div :class="nestingDepth === 0 ? 'flex-1 min-h-0 relative' : 'overflow-auto'">
+  <div :class="nestingDepth === 0 ? 'absolute inset-0 overflow-auto flex flex-col' : 'flex flex-col'" @click.self="clearSelection">
+    <table class="border-collapse table-fixed shrink-0" :style="{ width: totalTableWidth + 'px' }">
       <thead class="sticky top-0 z-20">
         <tr
           v-for="headerGroup in headerGroups"
@@ -158,7 +166,7 @@ const totalColspan = computed(() => {
           </th>
           <!-- Checkbox header -->
           <th
-            class="px-1 py-1.5 text-center sticky z-30"
+            class="px-1 py-1.5 text-center align-middle sticky z-30"
             :style="{
               width: '40px', minWidth: '40px', left: '44px',
               backgroundColor: 'var(--st-bg-header)',
@@ -168,7 +176,7 @@ const totalColspan = computed(() => {
           >
             <input
               type="checkbox"
-              class="cursor-pointer"
+              class="cursor-pointer align-middle"
               :style="{ accentColor: 'var(--st-accent)' }"
               :checked="isAllSelected"
               :indeterminate="isSomeSelected"
@@ -237,7 +245,7 @@ const totalColspan = computed(() => {
             </td>
             <!-- Checkbox -->
             <td
-              class="px-1 py-1.5 text-center sticky z-10"
+              class="px-1 py-1.5 text-center align-middle sticky z-10"
               :style="{
                 width: '40px', minWidth: '40px', left: '44px',
                 backgroundColor: isRowSelected(row) ? 'var(--st-bg-selected-cell)' : 'var(--st-bg)',
@@ -247,7 +255,7 @@ const totalColspan = computed(() => {
             >
               <input
                 type="checkbox"
-                class="cursor-pointer"
+                class="cursor-pointer align-middle"
                 :style="{ accentColor: 'var(--st-accent)' }"
                 :checked="isRowSelected(row)"
                 @click="(e) => toggleRow(row, e, rowIndex)"
@@ -295,19 +303,94 @@ const totalColspan = computed(() => {
           </tr>
         </template>
 
-        <tr v-if="rows.length === 0">
-          <td
-            :colspan="table.getAllColumns().length + 2"
-            class="px-4 py-12 text-center"
-            :style="{
-              color: 'var(--st-text-tertiary)',
-              borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
-            }"
-          >
-            No rows found
-          </td>
-        </tr>
       </tbody>
     </table>
   </div>
+
+  <!-- Empty state — absolute overlay so it stays centered regardless of horizontal scroll -->
+  <div
+    v-if="rows.length === 0"
+    class="absolute inset-0 flex items-center justify-center pointer-events-none"
+    style="top: 33px"
+  >
+    <div class="flex flex-col items-center gap-4 text-center px-6 pointer-events-auto">
+      <!-- Icon -->
+      <div
+        class="flex items-center justify-center w-14 h-14 rounded-2xl"
+        :style="{ backgroundColor: 'var(--st-accent-bg)', border: '1px solid var(--st-accent-border-light)' }"
+      >
+        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" :style="{ color: 'var(--st-accent)' }">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <path d="M3 9h18M3 15h18M9 9v9M15 9v9"/>
+        </svg>
+      </div>
+      <!-- Title + message -->
+      <div class="flex flex-col gap-1">
+        <p class="font-semibold text-[15px]" :style="{ color: 'var(--st-text)' }">{{ emptyTitle }}</p>
+        <p class="text-[13px] max-w-xs leading-relaxed" :style="{ color: 'var(--st-text-tertiary)' }">{{ emptyMessage }}</p>
+      </div>
+      <!-- Insert button — mirrors the toolbar insert button exactly -->
+      <div v-if="editable" class="relative mt-1">
+        <!-- Split button -->
+        <div v-if="defaultInsertLabel" class="flex items-center">
+          <button
+            class="flex items-center gap-1.5 px-3 py-1 rounded-l text-[13px] font-medium transition-colors"
+            :style="{ backgroundColor: 'var(--st-accent)', color: 'var(--st-text-on-accent)' }"
+            @click="emitParent('insert-row')"
+          >
+            {{ defaultInsertLabel }}
+          </button>
+          <button
+            class="flex items-center self-stretch px-1.5 rounded-r transition-colors"
+            :style="{ backgroundColor: 'var(--st-accent)', color: 'var(--st-text-on-accent)', borderLeft: '1px solid var(--st-accent-hover)' }"
+            @click="showEmptyInsertMenu = !showEmptyInsertMenu"
+          >
+            <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M4.427 6.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 6H4.604a.25.25 0 00-.177.427z"/>
+            </svg>
+          </button>
+        </div>
+        <!-- Single dropdown button -->
+        <button
+          v-else
+          class="flex items-center gap-1.5 px-3 py-1 rounded text-[13px] font-medium transition-colors"
+          :style="{ backgroundColor: 'var(--st-accent)', color: 'var(--st-text-on-accent)' }"
+          @click="showEmptyInsertMenu = !showEmptyInsertMenu"
+        >
+          Insert
+          <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M4.427 6.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 6H4.604a.25.25 0 00-.177.427z"/>
+          </svg>
+        </button>
+
+        <!-- Dropdown menu -->
+        <div
+          v-if="showEmptyInsertMenu"
+          class="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-48 rounded shadow-xl z-50 py-1 text-[13px]"
+          :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"
+        >
+          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="openInsertPanel(); showEmptyInsertMenu = false">
+            Insert row
+          </button>
+          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="showEmptyInsertMenu = false">
+            Insert column
+          </button>
+          <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
+          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="showEmptyInsertMenu = false">
+            Import data from CSV
+          </button>
+        </div>
+        <Teleport to="body">
+          <div v-if="showEmptyInsertMenu" class="fixed inset-0 z-40" @click="showEmptyInsertMenu = false" />
+        </Teleport>
+      </div>
+    </div>
+  </div>
+  </div>
 </template>
+
+<style scoped>
+.hover-menu-item:hover {
+  background-color: var(--st-bg-menu-hover);
+}
+</style>

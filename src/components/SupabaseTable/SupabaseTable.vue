@@ -35,6 +35,8 @@ const props = defineProps({
   nestingDepth: { type: Number, default: 0 }, // internal — tracks recursion level
   showToolbar: { type: Boolean, default: true },
   showPagination: { type: Boolean, default: true },
+  emptyTitle: { type: String, default: 'No rows found' },
+  emptyMessage: { type: String, default: 'Get started by inserting a new row.' },
   // Externally controlled state (used by parent to push sub-table state into nested instances)
   controlledSorting: { type: Array, default: null },
   controlledColumnFilters: { type: Array, default: null },
@@ -291,17 +293,32 @@ function closeContextMenu() {
   contextMenu.value = { show: false, x: 0, y: 0, row: null, cell: null }
 }
 
+function handleFilterByValue(colId, val) {
+  const existing = columnFilters.value.find(f => f.id === colId)
+  if (existing) {
+    columnFilters.value = columnFilters.value.map(f =>
+      f.id === colId ? { ...f, value: { operator: '=', value: val } } : f
+    )
+  } else {
+    columnFilters.value = [...columnFilters.value, { id: colId, value: { operator: '=', value: val } }]
+  }
+  rerenderKey.value++
+}
+
 provide('themeVars', themeVars)
 provide('table', table)
 provide('tableName', props.tableName)
 provide('showDataTypes', props.showDataTypes)
-provide('editable', props.editable)
+provide('editable', computed(() => props.editable))
 provide('showRowBorders', props.showRowBorders)
 provide('showColumnBorders', props.showColumnBorders)
 provide('emit', emit)
 provide('openEditPanel', openEditPanel)
 provide('openInsertPanel', openInsertPanel)
 provide('openContextMenu', openContextMenu)
+provide('emptyTitle', computed(() => props.emptyTitle))
+provide('emptyMessage', computed(() => props.emptyMessage))
+provide('defaultInsertLabel', computed(() => props.defaultInsertLabel))
 // Expandable row groups
 provide('expanded', expanded)
 provide('toggleRowExpanded', toggleRowExpanded)
@@ -320,7 +337,11 @@ watch(() => props.rows, () => {
 </script>
 
 <template>
-  <div class="flex flex-col flex-1 min-h-0 text-[13px]" :style="{ ...themeVars, backgroundColor: 'var(--st-bg)', color: 'var(--st-text)' }">
+  <div
+    class="flex flex-col text-[13px]"
+    :class="nestingDepth === 0 ? 'flex-1 min-h-0' : ''"
+    :style="{ ...themeVars, backgroundColor: 'var(--st-bg)', color: 'var(--st-text)' }"
+  >
     <template v-if="showToolbar">
       <SelectionToolbar
         v-if="hasSelection"
@@ -340,6 +361,7 @@ watch(() => props.rows, () => {
         :column-visibility="columnVisibility"
         :default-column-visibility="defaultColumnVisibility"
         :editable="editable"
+        :is-empty="data.length === 0"
         :default-insert-label="defaultInsertLabel"
         :sub-table-columns="subTableColumns"
         :sub-table-sorting="subTableSorting"
@@ -386,17 +408,7 @@ watch(() => props.rows, () => {
       @close="closeContextMenu"
       @edit-row="openEditPanel(contextMenu.row.original)"
       @delete-row="handleDeleteRows([contextMenu.row.id])"
-      @filter-by-value="(colId, val) => {
-        const existing = columnFilters.value.find(f => f.id === colId)
-        if (existing) {
-          columnFilters.value = columnFilters.value.map(f =>
-            f.id === colId ? { ...f, value: { operator: '=', value: val } } : f
-          )
-        } else {
-          columnFilters.value = [...columnFilters.value, { id: colId, value: { operator: '=', value: val } }]
-        }
-        rerenderKey.value++
-      }"
+      @filter-by-value="handleFilterByValue"
     />
   </div>
 </template>

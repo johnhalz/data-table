@@ -132,6 +132,13 @@ function autoFitColumn() {
       >
         {{ header.column.getIsSorted() === 'asc' ? '↑' : '↓' }}
       </span>
+      <!-- Frozen indicator -->
+      <span
+        v-if="meta.isFrozen"
+        class="shrink-0 text-xs"
+        :style="{ color: 'var(--st-text-tertiary)' }"
+        title="Column is frozen"
+      >&#10052;</span>
       <!-- Dropdown trigger -->
       <button
         ref="triggerRef"

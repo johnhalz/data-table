@@ -1,6 +1,5 @@
 <script setup>
-import { ref, nextTick, watch, inject } from 'vue'
-import { FlexRender } from '@tanstack/vue-table'
+import { ref, nextTick, inject, computed } from 'vue'
 
 const props = defineProps({
   cell: { type: Object, required: true },
@@ -20,6 +19,28 @@ const textareaRef = ref(null)
 const meta = props.cell.column.columnDef.meta || {}
 const isBoolean = meta.type === 'boolean'
 
+// Progress bar: meta.progressBar = true | { min, max } | ((value, row) => number 0–100)
+const progressPercent = computed(() => {
+  if (!meta.progressBar) return null
+  const value = props.cell.getValue()
+  if (value === null || value === undefined) return null
+  if (typeof meta.progressBar === 'function') {
+    return Math.min(100, Math.max(0, meta.progressBar(value, props.cell.row.original)))
+  }
+  if (typeof meta.progressBar === 'object' && meta.progressBar !== null) {
+    const { min = 0, max = 100 } = meta.progressBar
+    return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100))
+  }
+  // meta.progressBar === true: value is already 0–100
+  return Math.min(100, Math.max(0, Number(value)))
+})
+
+// Multiline: meta.multiline = true — wraps text instead of truncating
+const isMultiline = !!meta.multiline
+
+// Cell buttons: meta.cellButtons = [{ icon: '<svg…>', label: 'string', onClick: (row) => void }]
+const cellButtons = meta.cellButtons ?? []
+
 function handleClick() {
   if (!isEditing.value) {
     emit('select')
@@ -27,7 +48,7 @@ function handleClick() {
 }
 
 function handleDoubleClick() {
-  if (!editable || isBoolean) return
+  if (!editable.value || isBoolean || meta.progressBar || cellButtons.length > 0) return
   isEditing.value = true
   editValue.value = props.cell.getValue() ?? ''
   nextTick(() => {
@@ -68,7 +89,7 @@ function handleKeydown(e) {
 }
 
 function toggleBoolean() {
-  if (!editable) return
+  if (!editable.value) return
   emit('update', !props.cell.getValue())
 }
 </script>
@@ -140,16 +161,65 @@ function toggleBoolean() {
       </div>
     </template>
 
-    <!-- Display mode -->
+    <!-- Progress bar -->
+    <template v-else-if="progressPercent !== null">
+      <div class="flex items-center gap-2">
+        <div
+          class="flex-1 rounded-full overflow-hidden"
+          :style="{ height: '6px', backgroundColor: 'var(--st-border-secondary)' }"
+        >
+          <div
+            class="h-full rounded-full transition-all duration-300"
+            :style="{ width: `${progressPercent}%`, backgroundColor: 'var(--st-accent)' }"
+          />
+        </div>
+        <span class="text-xs shrink-0 tabular-nums" :style="{ color: 'var(--st-text-secondary)' }">
+          {{ Math.round(progressPercent) }}%
+        </span>
+      </div>
+    </template>
+
+    <!-- Display mode with optional cell buttons -->
     <template v-else>
-      <span class="truncate block" :title="String(cell.getValue() ?? '')">
-        <template v-if="cell.getValue() === null || cell.getValue() === undefined">
-          <span class="italic" :style="{ color: 'var(--st-text-placeholder)' }">NULL</span>
-        </template>
-        <template v-else>
-          {{ cell.getValue() }}
-        </template>
-      </span>
+      <div class="flex items-start gap-1 group/cell min-w-0">
+        <!-- Text content -->
+        <div class="flex-1 min-w-0 text-[13px]" :style="{ color: 'var(--st-text)' }">
+          <template v-if="cell.getValue() === null || cell.getValue() === undefined">
+            <span class="italic" :style="{ color: 'var(--st-text-placeholder)' }">NULL</span>
+          </template>
+          <template v-else-if="isMultiline">
+            <span class="block whitespace-pre-wrap break-words">{{ cell.getValue() }}</span>
+          </template>
+          <template v-else>
+            <span class="truncate block" :title="String(cell.getValue())">{{ cell.getValue() }}</span>
+          </template>
+        </div>
+
+        <!-- Trailing cell buttons -->
+        <div
+          v-if="cellButtons.length > 0"
+          class="flex items-center gap-0.5 shrink-0 opacity-0 group-hover/cell:opacity-100 transition-opacity"
+        >
+          <button
+            v-for="btn in cellButtons"
+            :key="btn.label"
+            class="flex items-center justify-center w-5 h-5 rounded transition-colors"
+            :style="{ color: 'var(--st-text-secondary)' }"
+            :title="btn.label"
+            @click.stop="btn.onClick(cell.row.original)"
+          >
+            <!-- Icon slot: supports raw SVG string or plain label -->
+            <span v-if="btn.icon" class="w-3.5 h-3.5 flex items-center justify-center" v-html="btn.icon" />
+            <span v-else class="text-[11px]">{{ btn.label }}</span>
+          </button>
+        </div>
+      </div>
     </template>
   </td>
 </template>
+
+<style scoped>
+button:hover {
+  background-color: var(--st-bg-menu-hover);
+}
+</style>

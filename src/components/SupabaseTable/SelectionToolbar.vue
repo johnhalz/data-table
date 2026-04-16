@@ -50,6 +50,41 @@ function copyAs(format) {
   showActionsMenu.value = false
 }
 
+function downloadAs(format) {
+  const rows = getSelectedRows()
+  let content = ''
+  let mimeType = ''
+  let filename = ''
+
+  if (format === 'json') {
+    content = JSON.stringify(rows, null, 2)
+    mimeType = 'application/json'
+    filename = 'export.json'
+  } else if (format === 'csv') {
+    const headers = Object.keys(rows[0] || {})
+    content = [headers.join(','), ...rows.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(','))].join('\n')
+    mimeType = 'text/csv'
+    filename = 'export.csv'
+  } else if (format === 'tsv') {
+    const headers = Object.keys(rows[0] || {})
+    content = [headers.join('\t'), ...rows.map(r => headers.map(h => {
+      const v = r[h] ?? ''
+      return String(v).replace(/\t/g, ' ')
+    }).join('\t'))].join('\n')
+    mimeType = 'text/tab-separated-values'
+    filename = 'export.tsv'
+  }
+
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+  showActionsMenu.value = false
+}
+
 function handleCustomAction(action) {
   emit('selection-action', action.key, getSelectedRows())
   showActionsMenu.value = false
@@ -101,6 +136,10 @@ function selectAll() {
         <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="copyAs('csv')">Copy as CSV</button>
         <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="copyAs('sql')">Copy as SQL</button>
         <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="copyAs('json')">Copy as JSON</button>
+        <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
+        <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('csv')">Download as CSV</button>
+        <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('tsv')">Download as TSV</button>
+        <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('json')">Download as JSON</button>
         <template v-if="selectionActions.length > 0">
           <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
           <button
