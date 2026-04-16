@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, inject, nextTick, watch } from 'vue'
-import { FILTER_OPERATORS } from './types.js'
+import { FILTER_OPERATORS, DATE_TIME_TYPES } from './types.js'
+import FilterDatePicker from './FilterDatePicker.vue'
 
 const props = defineProps({
   table: { type: Object, required: true },
@@ -80,6 +81,20 @@ const placeholder = computed(() => {
   const colNames = props.allColumns.map(c => c.id).slice(0, 3).join(', ')
   return `Filter by ${colNames}...`
 })
+
+// --- Column type lookup (for date/time picker) ---
+const allColumnsFlat = computed(() => {
+  const sub = props.subTableColumns || []
+  return [...props.allColumns, ...sub]
+})
+
+function getColumnType(colId) {
+  return allColumnsFlat.value.find(c => c.id === colId)?.type || 'varchar'
+}
+
+function isDateTimeType(colId) {
+  return DATE_TIME_TYPES.includes(getColumnType(colId))
+}
 
 // --- Helpers to read the TanStack-compatible filter shape ---
 function getFilterOperator(filter) {
@@ -282,6 +297,12 @@ watch(searchQuery, () => {
         :style="{ color: 'var(--st-text)', width: Math.max(3, (getFilterValue(filter) || '').length + 1) + 'ch' }"
         placeholder="value"
         @input="updateFilterValue(i, $event.target.value)"
+      />
+      <FilterDatePicker
+        v-if="isDateTimeType(filter.id)"
+        :value="getFilterValue(filter)"
+        :column-type="getColumnType(filter.id)"
+        @update="val => updateFilterValue(i, val)"
       />
       <button
         class="ml-0.5 w-5 h-5 flex items-center justify-center rounded transition-colors filter-chip-close shrink-0"

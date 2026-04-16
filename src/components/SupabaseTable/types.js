@@ -38,6 +38,8 @@
  * @property {Function} [getSubTable] - Recursive: allows nested sub-tables within sub-tables
  */
 
+export const DATE_TIME_TYPES = ['date', 'time', 'timetz', 'timestamp', 'timestamptz', 'datetime']
+
 export const FILTER_OPERATORS = [
   { group: 'Comparison', operators: [
     { label: 'Equals', value: '=' },

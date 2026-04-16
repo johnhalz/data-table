@@ -124,6 +124,20 @@ export const columns = [
     enableSorting: true,
     enableColumnFilter: true,
   }),
+  col.accessor('opened_at', {
+    header: 'opened_at',
+    meta: { type: 'timestamp', isNullable: true },
+    size: 180,
+    enableSorting: true,
+    enableColumnFilter: true,
+  }),
+  col.accessor('open_time', {
+    header: 'open_time',
+    meta: { type: 'time', isNullable: true },
+    size: 120,
+    enableSorting: true,
+    enableColumnFilter: true,
+  }),
   col.accessor('coordinate_system_type', {
     header: 'coordinate_system_type',
     meta: { type: 'varchar', isNullable: true },
