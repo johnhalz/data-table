@@ -232,7 +232,7 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
                 </button>
                 <!-- Edit row button (non-expandable rows only) -->
                 <button
-                  v-else-if="editable"
+                  v-else-if="editable.update"
                   class="invisible group-hover:visible flex items-center justify-center w-4 h-4 shrink-0"
                   :style="{ color: 'var(--st-text-secondary)' }"
                   title="Expand row"
@@ -334,7 +334,7 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
         <p class="text-[13px] max-w-xs leading-relaxed" :style="{ color: 'var(--st-text-tertiary)' }">{{ emptyMessage }}</p>
       </div>
       <!-- Insert button — mirrors the toolbar insert button exactly -->
-      <div v-if="editable" class="relative mt-1">
+      <div v-if="editable.insert" class="relative mt-1">
         <!-- Split button -->
         <div v-if="defaultInsertLabel" class="flex items-center">
           <button

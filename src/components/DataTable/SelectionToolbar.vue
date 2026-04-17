@@ -6,7 +6,7 @@ const themeVars = inject('themeVars', {})
 const props = defineProps({
   selectedCount: { type: Number, required: true },
   table: { type: Object, required: true },
-  editable: { type: Boolean, default: true },
+  editable: { type: Object, default: () => ({ insert: true, update: true, delete: true }) },
   selectionActions: { type: Array, default: () => [] },
 })
 
@@ -98,7 +98,7 @@ function handleCustomAction(action) {
 
     <!-- Delete -->
     <button
-      v-if="editable"
+      v-if="editable.delete"
       class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[13px] transition-colors"
       style="border: 1px solid rgba(239,68,68,0.4); color: #ef4444; background-color: rgba(239,68,68,0.1);"
       @click="showDeleteConfirm = true"

@@ -19,11 +19,13 @@ const props = defineProps({
   rows: { type: Array, required: true },
   tableName: { type: String, default: 'table' },
   loading: { type: Boolean, default: false },
+  error: { type: String, default: null },
   defaultColumnVisibility: { type: Object, default: () => ({}) },
   showDataTypes: { type: Boolean, default: true },
-  editable: { type: Boolean, default: true },
+  // editable: true | false | { insert, update, delete }
+  editable: { type: [Boolean, Object], default: true },
   selectionActions: { type: Array, default: () => [] },
-  defaultInsertLabel: { type: String, default: null }, // label for split insert button; null = single dropdown
+  defaultInsertLabel: { type: String, default: null },
   showRowBorders: { type: Boolean, default: true },
   showColumnBorders: { type: Boolean, default: true },
   theme: { type: String, default: 'dark' }, // 'dark' | 'light'
@@ -37,6 +39,8 @@ const props = defineProps({
   showPagination: { type: Boolean, default: true },
   emptyTitle: { type: String, default: 'No rows found' },
   emptyMessage: { type: String, default: 'Get started by inserting a new row.' },
+  // Server-side pagination: pass totalCount to enable manual pagination mode
+  totalCount: { type: Number, default: null },
   // Externally controlled state (used by parent to push sub-table state into nested instances)
   controlledSorting: { type: Array, default: null },
   controlledColumnFilters: { type: Array, default: null },
@@ -111,7 +115,20 @@ const emit = defineEmits([
   'view-change',
   'update:expanded-rows',
   'sub-table-event',
+  'column-resize',
+  'page-change',
 ])
+
+// Normalize editable prop to { insert, update, delete }
+const editableCaps = computed(() => {
+  if (props.editable === true) return { insert: true, update: true, delete: true }
+  if (props.editable === false) return { insert: false, update: false, delete: false }
+  return { insert: true, update: true, delete: true, ...props.editable }
+})
+
+// Dismiss error banner
+const errorDismissed = ref(false)
+watch(() => props.error, () => { errorDismissed.value = false })
 
 const data = shallowRef(props.rows)
 watch(() => props.rows, (val) => { data.value = val })
@@ -192,6 +209,16 @@ function operatorFilterFn(row, columnId, filterValue) {
   }
 }
 
+// Derive primary key field from column definitions (falls back to 'id')
+const primaryKeyField = computed(() => {
+  for (const col of props.columns) {
+    if (col.meta?.isPrimaryKey) return col.accessorKey ?? col.id ?? 'id'
+  }
+  return 'id'
+})
+
+const isServerPagination = computed(() => props.totalCount !== null)
+
 const table = useVueTable({
   data: data,
   get columns() { return props.columns },
@@ -215,10 +242,16 @@ const table = useVueTable({
     rowSelection.value = typeof updater === 'function' ? updater(rowSelection.value) : updater
   },
   onPaginationChange: updater => {
-    pagination.value = typeof updater === 'function' ? updater(pagination.value) : updater
+    const next = typeof updater === 'function' ? updater(pagination.value) : updater
+    pagination.value = next
+    if (isServerPagination.value) {
+      emit('page-change', { pageIndex: next.pageIndex, pageSize: next.pageSize })
+    }
   },
   onColumnSizingChange: updater => {
-    columnSizing.value = typeof updater === 'function' ? updater(columnSizing.value) : updater
+    const next = typeof updater === 'function' ? updater(columnSizing.value) : updater
+    columnSizing.value = next
+    emit('column-resize', next)
   },
   onColumnVisibilityChange: updater => {
     columnVisibility.value = typeof updater === 'function' ? updater(columnVisibility.value) : updater
@@ -227,11 +260,16 @@ const table = useVueTable({
   getSortedRowModel: getSortedRowModel(),
   getFilteredRowModel: getFilteredRowModel(),
   getPaginationRowModel: getPaginationRowModel(),
+  get manualPagination() { return isServerPagination.value },
+  get pageCount() {
+    if (!isServerPagination.value) return undefined
+    return Math.ceil(props.totalCount / pagination.value.pageSize)
+  },
   enableRowSelection: true,
   enableMultiRowSelection: true,
   enableColumnResizing: true,
   columnResizeMode: 'onEnd',
-  getRowId: (row) => String(row.id),
+  getRowId: (row) => String(row[primaryKeyField.value] ?? row.id),
 })
 
 const selectedCount = computed(() => Object.keys(rowSelection.value).length)
@@ -298,7 +336,7 @@ provide('themeVars', themeVars)
 provide('table', table)
 provide('tableName', props.tableName)
 provide('showDataTypes', props.showDataTypes)
-provide('editable', computed(() => props.editable))
+provide('editable', editableCaps)
 provide('showRowBorders', props.showRowBorders)
 provide('showColumnBorders', props.showColumnBorders)
 provide('insertRow', () => emit('insert-row'))
@@ -334,7 +372,7 @@ watch(() => props.rows, () => {
         v-if="hasSelection"
         :selected-count="selectedCount"
         :table="table"
-        :editable="editable"
+        :editable="editableCaps"
         :selection-actions="selectionActions"
         @delete-rows="handleDeleteRows"
         @selection-action="(action, rows) => emit('selection-action', action, rows)"
@@ -346,7 +384,8 @@ watch(() => props.rows, () => {
         :column-filters="columnFilters"
         :column-visibility="columnVisibility"
         :default-column-visibility="defaultColumnVisibility"
-        :editable="editable"
+        :editable="editableCaps"
+        :loading="loading"
         :is-empty="data.length === 0"
         :default-insert-label="defaultInsertLabel"
         :sub-table-columns="subTableColumns"
@@ -365,24 +404,47 @@ watch(() => props.rows, () => {
       />
     </template>
 
-    <TableGrid
-      :table="table"
-      @update-cell="(rowId, colId, value) => emit('update-row', { id: rowId, changes: { [colId]: value } })"
-      @context-menu="openContextMenu"
-      @edit-row="openEditPanel"
-    />
+    <!-- Error banner -->
+    <div
+      v-if="error && !errorDismissed"
+      class="flex items-center gap-2 px-3 py-2 text-[13px] shrink-0"
+      :style="{ backgroundColor: 'rgba(239,68,68,0.1)', borderBottom: '1px solid rgba(239,68,68,0.3)', color: '#ef4444' }"
+    >
+      <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 018 4zm0 8a1 1 0 110-2 1 1 0 010 2z"/>
+      </svg>
+      <span class="flex-1">{{ error }}</span>
+      <button class="opacity-60 hover:opacity-100" @click="errorDismissed = true">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
+        </svg>
+      </button>
+    </div>
 
-    <TablePagination v-if="showPagination" :table="table" />
+    <div class="flex flex-1 min-h-0 min-w-0">
+      <div class="flex flex-col flex-1 min-w-0 min-h-0">
+        <TableGrid
+          :table="table"
+          @update-cell="(rowId, colId, value) => emit('update-row', { id: rowId, changes: { [colId]: value } })"
+          @context-menu="openContextMenu"
+          @edit-row="openEditPanel"
+        />
 
-    <RowEditPanel
-      v-if="editable && editPanel.open"
-      :mode="editPanel.mode"
-      :row-data="editPanel.rowData"
-      :table="table"
-      :table-name="tableName"
-      @save="handleSavePanel"
-      @close="closeEditPanel"
-    />
+        <TablePagination v-if="showPagination" :table="table" :total-count="totalCount" />
+      </div>
+
+      <Transition name="slide-panel">
+        <RowEditPanel
+          v-if="(editableCaps.insert || editableCaps.update) && editPanel.open"
+          :mode="editPanel.mode"
+          :row-data="editPanel.rowData"
+          :table="table"
+          :table-name="tableName"
+          @save="handleSavePanel"
+          @close="closeEditPanel"
+        />
+      </Transition>
+    </div>
 
     <ContextMenu
       v-if="contextMenu.show"
@@ -397,3 +459,20 @@ watch(() => props.rows, () => {
     />
   </div>
 </template>
+
+<style scoped>
+.slide-panel-enter-active,
+.slide-panel-leave-active {
+  transition: width 0.25s ease, opacity 0.25s ease;
+}
+.slide-panel-enter-from,
+.slide-panel-leave-to {
+  width: 0 !important;
+  opacity: 0;
+}
+.slide-panel-enter-to,
+.slide-panel-leave-from {
+  width: 420px;
+  opacity: 1;
+}
+</style>

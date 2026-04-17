@@ -60,24 +60,23 @@ src/
 
 ### Reactivity pattern
 
-TanStack's `useVueTable` returns a non-reactive object. All table state is stored in Vue `ref()`s and wired into the table via `state` getters and `on*Change` handlers. A `rerenderKey` counter is incremented on every state change and passed as a prop to force child components to recompute.
+TanStack's `useVueTable` returns a non-reactive object. All table state is stored in Vue `ref()`s and wired into the table via `state` getters and `on*Change` handlers. Child components that read from the table instance wrap those reads in `computed()` so Vue tracks the reactive refs as dependencies.
 
 ### Provide/inject map
 
 These values are provided by `DataTable.vue` and injected by child components:
 
-| Key                | Type       | Consumers |
-|--------------------|------------|-----------|
-| `table`            | Object     | SortPanel, ColumnVisibilityPanel |
-| `tableName`        | String     | RowEditPanel (via prop) |
-| `showDataTypes`    | Boolean    | TableColumnHeader, ColumnVisibilityPanel, SortPanel, FilterBar |
-| `editable`         | Boolean    | TableGrid, TableCell, ContextMenu |
-| `showRowBorders`   | Boolean    | TableGrid, TableColumnHeader, TableCell |
-| `showColumnBorders`| Boolean    | TableGrid, TableColumnHeader, TableCell |
-| `emit`             | Function   | (reserved for child-to-parent event forwarding) |
-| `openEditPanel`    | Function   | (reserved) |
-| `openInsertPanel`  | Function   | (reserved) |
-| `openContextMenu`  | Function   | (reserved) |
+| Key                | Type         | Consumers |
+|--------------------|--------------|-----------|
+| `table`            | Object       | SortPanel, ColumnVisibilityPanel |
+| `tableName`        | String       | RowEditPanel (via prop) |
+| `showDataTypes`    | Boolean      | TableColumnHeader, ColumnVisibilityPanel, SortPanel, FilterBar |
+| `editable`         | `ComputedRef<{ insert, update, delete }>` | TableGrid, TableCell, ContextMenu, SelectionToolbar (via prop) |
+| `showRowBorders`   | Boolean      | TableGrid, TableColumnHeader, TableCell |
+| `showColumnBorders`| Boolean      | TableGrid, TableColumnHeader, TableCell |
+| `openInsertPanel`  | Function     | TableGrid (empty state insert button) |
+
+The `editable` inject value is always the normalized object shape `{ insert: boolean, update: boolean, delete: boolean }` — never a raw boolean. Consumers check specific keys: `editable.value.update`, `editable.delete`, etc.
 
 ### Theming system
 
@@ -123,15 +122,17 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 | `columns` | `Array` | required | TanStack column defs with `meta: { type, isNullable }` |
 | `rows` | `Array` | required | Array of row data objects |
 | `tableName` | `String` | `'table'` | Display name in edit panel header |
-| `loading` | `Boolean` | `false` | Reserved for future use |
+| `loading` | `Boolean` | `false` | Spins the refresh button; disables it while true |
+| `error` | `String` | `null` | Dismissible red banner above the grid; resets when prop value changes |
 | `defaultColumnVisibility` | `Object` | `{}` | Initial hidden columns, e.g. `{ col: false }` |
 | `showDataTypes` | `Boolean` | `true` | Show type badges in headers and panels |
-| `editable` | `Boolean` | `true` | Enable insert/update/delete. `false` = read-only |
+| `editable` | `Boolean\|Object` | `true` | `true`/`false` gates all mutations; or `{ insert, update, delete }` booleans for per-operation control |
 | `selectionActions` | `Array` | `[]` | Custom actions: `[{ key: string, label: string }]` |
 | `showRowBorders` | `Boolean` | `true` | Horizontal row dividers |
 | `showColumnBorders` | `Boolean` | `true` | Vertical column dividers |
 | `theme` | `String` | `'dark'` | `'dark'` or `'light'` — switches the full color palette |
 | `accentColor` | `String` | `'#3ecf8e'` | Primary accent hex color (buttons, indicators, selections) |
+| `totalCount` | `Number` | `null` | Total rows for server-side pagination; enables manual pagination mode and `page-change` event |
 
 ## SDK Events
 
@@ -142,6 +143,8 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 | `delete-rows` | `Array<string>` (IDs) | Delete confirmation accepted |
 | `refresh` | — | Refresh button clicked |
 | `selection-action` | `(actionKey, rows[])` | Custom action triggered |
+| `page-change` | `{ pageIndex, pageSize }` | Page navigation in server-side pagination mode |
+| `column-resize` | `Object<colId, number>` | User finishes resizing a column |
 
 ## Column Definition
 

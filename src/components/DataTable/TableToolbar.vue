@@ -10,7 +10,8 @@ const props = defineProps({
   columnFilters: { type: Array, default: () => [] },
   columnVisibility: { type: Object, default: () => ({}) },
   defaultColumnVisibility: { type: Object, default: () => ({}) },
-  editable: { type: Boolean, default: true },
+  editable: { type: Object, default: () => ({ insert: true, update: true, delete: true }) },
+  loading: { type: Boolean, default: false },
   defaultInsertLabel: { type: String, default: null },
   // Sub-table support
   subTableColumns: { type: Array, default: null },
@@ -93,10 +94,11 @@ const subTableColumnList = computed(() => {
       <button
         class="p-1.5 rounded transition-colors"
         :style="{ color: 'var(--st-text-secondary)' }"
+        :disabled="loading"
         title="Refresh"
         @click="emit('refresh')"
       >
-        <svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+        <svg class="w-4 h-4" :class="loading ? 'animate-spin' : ''" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 3a5 5 0 104.546 2.914.5.5 0 01.908-.418A6 6 0 118 2v1z"/>
           <path d="M8 4.466V.534a.25.25 0 01.41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 018 4.466z"/>
         </svg>
@@ -177,7 +179,7 @@ const subTableColumnList = computed(() => {
       </div>
 
       <!-- Insert button -->
-      <div v-if="editable" class="relative">
+      <div v-if="editable.insert" class="relative">
         <!-- Split button: default action + dropdown arrow -->
         <div v-if="defaultInsertLabel" class="flex items-center">
           <button

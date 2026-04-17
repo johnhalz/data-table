@@ -3,12 +3,15 @@ import { computed } from 'vue'
 
 const props = defineProps({
   table: { type: Object, required: true },
+  totalCount: { type: Number, default: null },
 })
 
 const pageIndex = computed(() => props.table.getState().pagination.pageIndex)
 const pageSize = computed(() => props.table.getState().pagination.pageSize)
 const pageCount = computed(() => props.table.getPageCount())
-const totalRecords = computed(() => props.table.getFilteredRowModel().rows.length)
+const totalRecords = computed(() =>
+  props.totalCount !== null ? props.totalCount : props.table.getFilteredRowModel().rows.length
+)
 
 function goToPage(page) {
   const p = Math.max(0, Math.min(page, pageCount.value - 1))

@@ -78,13 +78,15 @@ const rows = ref([
 | `columns` | `Array` | **required** | TanStack column definitions with `meta` for type info |
 | `rows` | `Array` | **required** | Array of row data objects |
 | `tableName` | `String` | `'table'` | Display name shown in the edit panel header |
-| `loading` | `Boolean` | `false` | Loading state (reserved for future use) |
+| `loading` | `Boolean` | `false` | Spins the refresh button icon and disables it while true |
+| `error` | `String` | `null` | Displays a dismissible error banner above the grid. Clears automatically when the prop value changes |
 | `defaultColumnVisibility` | `Object` | `{}` | Initial column visibility. Keys are column IDs, values are booleans. `{ col_name: false }` hides `col_name` on load |
 | `showDataTypes` | `Boolean` | `true` | Show data type labels (e.g. `varchar`, `int8`) in column headers and panels |
-| `editable` | `Boolean` | `true` | Enable insert, update, and delete operations. When `false`, the table is read-only |
+| `editable` | `Boolean \| Object` | `true` | `true`/`false` enables or disables all mutations. Pass `{ insert, update, delete }` booleans to control each operation independently |
 | `selectionActions` | `Array` | `[]` | Custom actions shown in the Actions dropdown when rows are selected. Each item: `{ key: string, label: string }` |
 | `showRowBorders` | `Boolean` | `true` | Show horizontal borders between rows |
 | `showColumnBorders` | `Boolean` | `true` | Show vertical borders between columns |
+| `totalCount` | `Number` | `null` | Total row count for server-side pagination. When set, the table switches to manual pagination mode and emits `page-change` instead of paginating client-side |
 
 ## Events
 
@@ -95,6 +97,8 @@ const rows = ref([
 | `delete-rows` | `Array<string>` (row IDs) | User confirmed deletion of selected rows |
 | `refresh` | — | User clicked the refresh button |
 | `selection-action` | `(actionKey: string, rows: Object[])` | User triggered a custom selection action |
+| `page-change` | `{ pageIndex: number, pageSize: number }` | Page navigation while `totalCount` is set (server-side pagination mode) |
+| `column-resize` | `Object<colId, number>` | User finished resizing a column; payload is the full column sizing map |
 
 ## Column Definition
 
@@ -214,6 +218,86 @@ function onAction(actionKey, selectedRows) {
   :columns="columns"
   :rows="rows"
   :default-column-visibility="{ internal_id: false, metadata: false }"
+/>
+```
+
+### Granular Permissions
+
+```vue
+<!-- Insert-only: allow inserts but block edits and deletes -->
+<DataTable
+  :columns="columns"
+  :rows="rows"
+  :editable="{ insert: true, update: false, delete: false }"
+  @insert-row="handleInsert"
+/>
+```
+
+### Error Banner
+
+```vue
+<script setup>
+const error = ref(null)
+
+async function handleRefresh() {
+  try {
+    rows.value = await fetchRows()
+    error.value = null
+  } catch (e) {
+    error.value = e.message
+  }
+}
+</script>
+
+<template>
+  <DataTable
+    :columns="columns"
+    :rows="rows"
+    :loading="isLoading"
+    :error="error"
+    @refresh="handleRefresh"
+  />
+</template>
+```
+
+### Server-Side Pagination
+
+```vue
+<script setup>
+const rows = ref([])
+const totalCount = ref(0)
+const isLoading = ref(false)
+
+async function loadPage({ pageIndex, pageSize }) {
+  isLoading.value = true
+  const result = await api.getRows({ page: pageIndex, limit: pageSize })
+  rows.value = result.data
+  totalCount.value = result.total
+  isLoading.value = false
+}
+
+onMounted(() => loadPage({ pageIndex: 0, pageSize: 100 }))
+</script>
+
+<template>
+  <DataTable
+    :columns="columns"
+    :rows="rows"
+    :total-count="totalCount"
+    :loading="isLoading"
+    @page-change="loadPage"
+    @refresh="() => loadPage({ pageIndex: 0, pageSize: 100 })"
+  />
+</template>
+```
+
+### Persisting Column Widths
+
+```vue
+<DataTable
+  :columns="columns"
+  :rows="rows"
+  @column-resize="widths => localStorage.setItem('col-widths', JSON.stringify(widths))"
 />
 ```
 

@@ -48,7 +48,7 @@ function handleClick() {
 }
 
 function handleDoubleClick() {
-  if (!editable.value || isBoolean || meta.progressBar || cellButtons.length > 0) return
+  if (!editable.value?.update || isBoolean || meta.progressBar || cellButtons.length > 0) return
   isEditing.value = true
   editValue.value = props.cell.getValue() ?? ''
   nextTick(() => {
@@ -89,7 +89,7 @@ function handleKeydown(e) {
 }
 
 function toggleBoolean() {
-  if (!editable.value) return
+  if (!editable.value?.update) return
   emit('update', !props.cell.getValue())
 }
 </script>

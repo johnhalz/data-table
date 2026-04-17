@@ -66,17 +66,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Teleport to="body">
-    <!-- Overlay -->
-    <div
-      class="fixed inset-0 z-40"
-      :style="{ ...themeVars, backgroundColor: 'var(--st-bg-panel-overlay)' }"
-      @click="emit('close')"
-    />
-
     <!-- Panel -->
     <div
-      class="fixed top-0 right-0 bottom-0 w-[520px] z-50 flex flex-col shadow-2xl"
+      class="w-[420px] shrink-0 flex flex-col shadow-2xl overflow-hidden"
       :style="{ ...themeVars, backgroundColor: 'var(--st-bg)', borderLeft: '1px solid var(--st-border)' }"
     >
       <!-- Header -->
@@ -220,9 +212,18 @@ onUnmounted(() => {
           @click="handleSave"
         >
           Save
-          <kbd class="text-[10px] opacity-60">&#8984;&#8629;</kbd>
+          <span class="opacity-60 flex items-center gap-0.5">
+            <!-- lucide: command -->
+            <svg viewBox="0 0 24 24" class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/>
+            </svg>
+            <!-- lucide: corner-down-left -->
+            <svg viewBox="0 0 24 24" class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 10 4 15 9 20"/>
+              <path d="M20 4v7a4 4 0 0 1-4 4H4"/>
+            </svg>
+          </span>
         </button>
       </div>
     </div>
-  </Teleport>
 </template>
