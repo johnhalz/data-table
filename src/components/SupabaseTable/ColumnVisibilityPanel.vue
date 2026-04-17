@@ -10,7 +10,7 @@ const props = defineProps({
   tableName: { type: String, default: 'table' },
 })
 
-const emit = defineEmits(['update:columnVisibility', 'update:sub-table-column-visibility', 'close'])
+const emit = defineEmits(['update:column-visibility', 'update:sub-table-column-visibility', 'close'])
 
 const showDataTypes = inject('showDataTypes', true)
 
@@ -41,7 +41,7 @@ const totalColumns = computed(() => columns.value.length + subColumns.value.leng
 function toggle(colId) {
   const newVisibility = { ...props.columnVisibility }
   newVisibility[colId] = newVisibility[colId] === false ? true : false
-  emit('update:columnVisibility', newVisibility)
+  emit('update:column-visibility', newVisibility)
 }
 
 function toggleSub(colId) {
@@ -53,7 +53,7 @@ function toggleSub(colId) {
 function showAll() {
   const newVisibility = {}
   columns.value.forEach(c => { newVisibility[c.id] = true })
-  emit('update:columnVisibility', newVisibility)
+  emit('update:column-visibility', newVisibility)
   if (hasSubTable.value) {
     const newSubVisibility = {}
     subColumns.value.forEach(c => { newSubVisibility[c.id] = true })
@@ -62,7 +62,7 @@ function showAll() {
 }
 
 function resetToDefault() {
-  emit('update:columnVisibility', { ...props.defaultColumnVisibility })
+  emit('update:column-visibility', { ...props.defaultColumnVisibility })
   if (hasSubTable.value) {
     emit('update:sub-table-column-visibility', {})
   }
