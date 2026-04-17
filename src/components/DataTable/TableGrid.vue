@@ -4,7 +4,7 @@ import { FlexRender } from '@tanstack/vue-table'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import TableColumnHeader from './TableColumnHeader.vue'
 import TableCell from './TableCell.vue'
-import SupabaseTable from './SupabaseTable.vue'
+import DataTable from './DataTable.vue'
 
 const props = defineProps({
   table: { type: Object, required: true },
@@ -294,7 +294,7 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
                   backgroundColor: 'var(--st-bg)',
                 }"
               >
-                <SupabaseTable
+                <DataTable
                   v-bind="subTableCache[rows[vRow.index].id]"
                   :theme="subTableCache[rows[vRow.index].id].theme ?? parentTheme"
                   :accent-color="subTableCache[rows[vRow.index].id].accentColor ?? parentAccentColor"

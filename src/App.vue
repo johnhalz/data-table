@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { SupabaseTable } from './components/SupabaseTable'
+import { DataTable } from './components/DataTable'
 import { columns, employeeColumns } from './demo/demoColumns.js'
 import { stores, employeesByStore } from './demo/demoData.js'
 
@@ -253,7 +253,7 @@ const dividerColor = (dark) => dark ? '#333' : '#e4e4e7'
     </nav>
 
     <!-- The component -->
-    <SupabaseTable
+    <DataTable
       :columns="columns"
       :rows="isEmpty ? [] : rows"
       table-name="stores"

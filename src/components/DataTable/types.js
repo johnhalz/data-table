@@ -23,7 +23,7 @@
 
 /**
  * Configuration returned by the `getSubTable` prop for expandable row groups.
- * Any SupabaseTable prop can be included and will be forwarded to the nested table.
+ * Any DataTable prop can be included and will be forwarded to the nested table.
  *
  * @typedef {Object} SubTableConfig
  * @property {Array} columns - TanStack column definitions for the sub-table (required)
