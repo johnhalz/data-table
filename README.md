@@ -1,6 +1,6 @@
-# SupabaseTable
+# DataTable
 
-A feature-rich Vue 3 data table component inspired by the Supabase Table Editor. Built on [TanStack Table v8](https://tanstack.com/table/v8) with Tailwind CSS dark theme styling.
+A feature-rich Vue 3 data table component built on [TanStack Table v8](https://tanstack.com/table/v8) with Tailwind CSS dark theme styling.
 
 ## Quick Start
 
@@ -23,7 +23,7 @@ npm run dev
 ```vue
 <script setup>
 import { ref } from 'vue'
-import { SupabaseTable } from './components/SupabaseTable'
+import { DataTable } from './components/DataTable'
 import { createColumnHelper } from '@tanstack/vue-table'
 
 const col = createColumnHelper()
@@ -59,7 +59,7 @@ const rows = ref([
 </script>
 
 <template>
-  <SupabaseTable
+  <DataTable
     :columns="columns"
     :rows="rows"
     table-name="companies"
@@ -162,7 +162,7 @@ Slide-in panel from the right for inserting or updating rows:
 ### Read-Only Table
 
 ```vue
-<SupabaseTable
+<DataTable
   :columns="columns"
   :rows="rows"
   :editable="false"
@@ -172,7 +172,7 @@ Slide-in panel from the right for inserting or updating rows:
 ### Minimal Chrome
 
 ```vue
-<SupabaseTable
+<DataTable
   :columns="columns"
   :rows="rows"
   :show-data-types="false"
@@ -198,7 +198,7 @@ function onAction(actionKey, selectedRows) {
 </script>
 
 <template>
-  <SupabaseTable
+  <DataTable
     :columns="columns"
     :rows="rows"
     :selection-actions="actions"
@@ -210,7 +210,7 @@ function onAction(actionKey, selectedRows) {
 ### Default Hidden Columns
 
 ```vue
-<SupabaseTable
+<DataTable
   :columns="columns"
   :rows="rows"
   :default-column-visibility="{ internal_id: false, metadata: false }"

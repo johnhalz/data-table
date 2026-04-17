@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-SupabaseTable is a Vue 3 data table component inspired by the Supabase Table Editor. It is a single reusable component (`<SupabaseTable>`) built on TanStack Table v8 with Tailwind CSS v4, supporting dark and light themes with customizable accent colors.
+DataTable is a Vue 3 data table component. It is a single reusable component (`<DataTable>`) built on TanStack Table v8 with Tailwind CSS v4, supporting dark and light themes with customizable accent colors.
 
 ## Tech Stack
 
@@ -26,13 +26,13 @@ There is no test suite, linter, or type checker configured.
 
 ```
 src/
-  App.vue                          # Demo app — uses SupabaseTable with sample data
+  App.vue                          # Demo app — uses DataTable with sample data
   demo/
     demoColumns.js                 # Column definitions for the demo
     demoData.js                    # Sample row data for the demo
-  components/SupabaseTable/
-    index.js                       # Named export: { SupabaseTable }
-    SupabaseTable.vue              # Root component — all SDK props, state, provide/inject hub
+  components/DataTable/
+    index.js                       # Named export: { DataTable }
+    DataTable.vue                  # Root component — all SDK props, state, provide/inject hub
     TableToolbar.vue               # Toolbar: filter bar, sort, columns, insert, refresh
     SelectionToolbar.vue           # Appears when rows selected: delete, actions, clear/select all
     TableGrid.vue                  # Table element: headers, rows, cells, checkboxes, row numbers
@@ -52,7 +52,7 @@ src/
 
 ### Data flow
 
-`SupabaseTable.vue` is the only public component. It:
+`DataTable.vue` is the only public component. It:
 1. Accepts `columns` and `rows` props from the parent
 2. Creates a TanStack `useVueTable` instance with all state (sorting, filters, pagination, selection, column visibility, column sizing)
 3. Distributes the table instance and configuration to children via `provide/inject`
@@ -64,7 +64,7 @@ TanStack's `useVueTable` returns a non-reactive object. All table state is store
 
 ### Provide/inject map
 
-These values are provided by `SupabaseTable.vue` and injected by child components:
+These values are provided by `DataTable.vue` and injected by child components:
 
 | Key                | Type       | Consumers |
 |--------------------|------------|-----------|
@@ -81,7 +81,7 @@ These values are provided by `SupabaseTable.vue` and injected by child component
 
 ### Theming system
 
-All colors are driven by CSS custom properties (`--st-*`) set on the root `<div>` of `SupabaseTable.vue` via a `themeVars` computed property. This approach was chosen over provide/inject because:
+All colors are driven by CSS custom properties (`--st-*`) set on the root `<div>` of `DataTable.vue` via a `themeVars` computed property. This approach was chosen over provide/inject because:
 - CSS variables cascade naturally through the DOM, including into Teleported elements (dropdowns, modals)
 - Zero JS overhead for distributing colors to deeply nested components
 - Works with both inline `:style` bindings and `<style scoped>` blocks

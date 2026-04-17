@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, provide, watch, triggerRef, shallowRef } from 'vue'
+import { ref, computed, provide, watch, shallowRef } from 'vue'
 import {
   useVueTable,
   getCoreRowModel,
@@ -113,7 +113,7 @@ const emit = defineEmits([
   'sub-table-event',
 ])
 
-const data = ref(props.rows)
+const data = shallowRef(props.rows)
 watch(() => props.rows, (val) => { data.value = val })
 
 const sorting = ref(props.controlledSorting ?? [])
@@ -125,22 +125,19 @@ const columnVisibility = ref(props.controlledColumnVisibility ?? { ...props.defa
 
 // Sync externally controlled state into internal refs (for nested sub-tables)
 watch(() => props.controlledSorting, (val) => {
-  if (val !== null) { sorting.value = val; rerenderKey.value++ }
+  if (val !== null) sorting.value = val
 }, { deep: true })
 watch(() => props.controlledColumnFilters, (val) => {
-  if (val !== null) { columnFilters.value = val; rerenderKey.value++ }
+  if (val !== null) columnFilters.value = val
 }, { deep: true })
 watch(() => props.controlledColumnVisibility, (val) => {
-  if (val !== null) { columnVisibility.value = val; rerenderKey.value++ }
+  if (val !== null) columnVisibility.value = val
 }, { deep: true })
 
 // Sub-table state (managed by parent toolbar, applied to all nested sub-tables)
 const subTableSorting = ref([])
 const subTableColumnFilters = ref([])
 const subTableColumnVisibility = ref({})
-
-// Rerender key — incremented on state change to force re-render
-const rerenderKey = ref(0)
 
 // Expand state for row groups
 const internalExpanded = ref({})
@@ -156,7 +153,6 @@ function toggleRowExpanded(rowId) {
       [rowId]: !internalExpanded.value[rowId],
     }
   }
-  rerenderKey.value++
 }
 
 // Custom filter function that supports operator-based filtering
@@ -211,27 +207,21 @@ const table = useVueTable({
   },
   onSortingChange: updater => {
     sorting.value = typeof updater === 'function' ? updater(sorting.value) : updater
-    rerenderKey.value++
   },
   onColumnFiltersChange: updater => {
     columnFilters.value = typeof updater === 'function' ? updater(columnFilters.value) : updater
-    rerenderKey.value++
   },
   onRowSelectionChange: updater => {
     rowSelection.value = typeof updater === 'function' ? updater(rowSelection.value) : updater
-    rerenderKey.value++
   },
   onPaginationChange: updater => {
     pagination.value = typeof updater === 'function' ? updater(pagination.value) : updater
-    rerenderKey.value++
   },
   onColumnSizingChange: updater => {
     columnSizing.value = typeof updater === 'function' ? updater(columnSizing.value) : updater
-    rerenderKey.value++
   },
   onColumnVisibilityChange: updater => {
     columnVisibility.value = typeof updater === 'function' ? updater(columnVisibility.value) : updater
-    rerenderKey.value++
   },
   getCoreRowModel: getCoreRowModel(),
   getSortedRowModel: getSortedRowModel(),
@@ -240,7 +230,7 @@ const table = useVueTable({
   enableRowSelection: true,
   enableMultiRowSelection: true,
   enableColumnResizing: true,
-  columnResizeMode: 'onChange',
+  columnResizeMode: 'onEnd',
   getRowId: (row) => String(row.id),
 })
 
@@ -302,7 +292,6 @@ function handleFilterByValue(colId, val) {
   } else {
     columnFilters.value = [...columnFilters.value, { id: colId, value: { operator: '=', value: val } }]
   }
-  rerenderKey.value++
 }
 
 provide('themeVars', themeVars)
@@ -312,10 +301,8 @@ provide('showDataTypes', props.showDataTypes)
 provide('editable', computed(() => props.editable))
 provide('showRowBorders', props.showRowBorders)
 provide('showColumnBorders', props.showColumnBorders)
-provide('emit', emit)
-provide('openEditPanel', openEditPanel)
+provide('insertRow', () => emit('insert-row'))
 provide('openInsertPanel', openInsertPanel)
-provide('openContextMenu', openContextMenu)
 provide('emptyTitle', computed(() => props.emptyTitle))
 provide('emptyMessage', computed(() => props.emptyMessage))
 provide('defaultInsertLabel', computed(() => props.defaultInsertLabel))
@@ -339,7 +326,7 @@ watch(() => props.rows, () => {
 <template>
   <div
     class="flex flex-col text-[13px]"
-    :class="nestingDepth === 0 ? 'flex-1 min-h-0' : ''"
+    :class="nestingDepth === 0 ? 'flex-1 min-h-0 min-w-0' : ''"
     :style="{ ...themeVars, backgroundColor: 'var(--st-bg)', color: 'var(--st-text)' }"
   >
     <template v-if="showToolbar">
@@ -349,7 +336,6 @@ watch(() => props.rows, () => {
         :table="table"
         :editable="editable"
         :selection-actions="selectionActions"
-        :key="'sel-' + rerenderKey"
         @delete-rows="handleDeleteRows"
         @selection-action="(action, rows) => emit('selection-action', action, rows)"
       />
@@ -381,13 +367,12 @@ watch(() => props.rows, () => {
 
     <TableGrid
       :table="table"
-      :rerender-key="rerenderKey"
       @update-cell="(rowId, colId, value) => emit('update-row', { id: rowId, changes: { [colId]: value } })"
       @context-menu="openContextMenu"
       @edit-row="openEditPanel"
     />
 
-    <TablePagination v-if="showPagination" :table="table" :key="'pag-' + rerenderKey" />
+    <TablePagination v-if="showPagination" :table="table" />
 
     <RowEditPanel
       v-if="editable && editPanel.open"

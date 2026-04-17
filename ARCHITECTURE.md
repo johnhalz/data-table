@@ -3,7 +3,7 @@
 ## Component Tree
 
 ```
-SupabaseTable.vue                 ← only public component; all state lives here
+DataTable.vue                 ← only public component; all state lives here
 ├── SelectionToolbar.vue          ← shown when rows are selected (replaces toolbar)
 │   └── [Teleport] delete confirmation dialog
 ├── TableToolbar.vue              ← shown when no rows selected
@@ -21,7 +21,7 @@ SupabaseTable.vue                 ← only public component; all state lives her
 
 ## State Management
 
-All table state is owned by `SupabaseTable.vue` as Vue `ref()`s:
+All table state is owned by `DataTable.vue` as Vue `ref()`s:
 
 | Ref | Type | Controls |
 |-----|------|----------|
@@ -57,7 +57,7 @@ Parent App
   │
   │  props: columns, rows, tableName, editable, ...
   ▼
-SupabaseTable.vue
+DataTable.vue
   │
   │  emit: insert-row, update-row, delete-rows, refresh, selection-action
   ▲
@@ -66,10 +66,10 @@ Parent App
 
 ### Provide/inject for deep config
 
-Configuration props that need to reach deeply nested components (TableCell, TableColumnHeader) are provided by `SupabaseTable.vue` and injected by consumers:
+Configuration props that need to reach deeply nested components (TableCell, TableColumnHeader) are provided by `DataTable.vue` and injected by consumers:
 
 ```
-SupabaseTable.vue ──provide──► showDataTypes
+DataTable.vue ──provide──► showDataTypes
                                editable
                                showRowBorders
                                showColumnBorders
@@ -124,7 +124,7 @@ Columns are defined using TanStack's `createColumnHelper()`. The `meta` object i
 
 | File | Responsibility | Props received | Events emitted |
 |------|---------------|---------------|----------------|
-| `SupabaseTable.vue` | State hub, provide/inject, layout | SDK props | SDK events |
+| `DataTable.vue` | State hub, provide/inject, layout | SDK props | SDK events |
 | `TableToolbar.vue` | Toolbar layout, panel toggles | `table`, `sorting`, `columnFilters`, `columnVisibility`, `defaultColumnVisibility`, `editable` | `update:sorting`, `update:column-filters`, `update:column-visibility`, `insert-row`, `refresh` |
 | `SelectionToolbar.vue` | Selection actions, delete confirm | `selectedCount`, `table`, `editable`, `selectionActions` | `delete-rows`, `selection-action` |
 | `TableGrid.vue` | Scrollable table, row rendering | `table`, `rerenderKey` | `update-cell`, `context-menu`, `edit-row` |

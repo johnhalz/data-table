@@ -1,14 +1,13 @@
 <script setup>
-import { ref, computed, inject, defineAsyncComponent } from 'vue'
+import { ref, computed, inject, useTemplateRef } from 'vue'
 import { FlexRender } from '@tanstack/vue-table'
+import { useVirtualizer } from '@tanstack/vue-virtual'
 import TableColumnHeader from './TableColumnHeader.vue'
 import TableCell from './TableCell.vue'
-
-const SupabaseTable = defineAsyncComponent(() => import('./SupabaseTable.vue'))
+import DataTable from './DataTable.vue'
 
 const props = defineProps({
   table: { type: Object, required: true },
-  rerenderKey: { type: Number, default: 0 },
 })
 
 const editable = inject('editable', true)
@@ -18,7 +17,7 @@ const emptyTitle = inject('emptyTitle', 'No rows found')
 const emptyMessage = inject('emptyMessage', 'Get started by inserting a new row.')
 const openInsertPanel = inject('openInsertPanel', null)
 const defaultInsertLabel = inject('defaultInsertLabel', null)
-const emitParent = inject('emit', null)
+const insertRow = inject('insertRow', () => {})
 
 const showEmptyInsertMenu = ref(false)
 
@@ -33,42 +32,24 @@ const subTableSorting = inject('subTableSorting', ref([]))
 const subTableColumnFilters = inject('subTableColumnFilters', ref([]))
 const subTableColumnVisibility = inject('subTableColumnVisibility', ref({}))
 
-const emit = defineEmits(['update-cell', 'context-menu'])
+const emit = defineEmits(['update-cell', 'context-menu', 'edit-row'])
 
 const selectedCell = ref(null)
 
-// Force computed to depend on rerenderKey so these recompute on state changes
-const headerGroups = computed(() => {
-  void props.rerenderKey
-  return props.table.getHeaderGroups()
-})
+const headerGroups = computed(() => props.table.getHeaderGroups())
 
 // Total table width = sticky columns (44 + 40) + sum of all visible column sizes
 const totalTableWidth = computed(() => {
-  void props.rerenderKey
   const dataColWidth = props.table.getVisibleLeafColumns().reduce((sum, col) => sum + col.getSize(), 0)
   return 84 + dataColWidth
 })
 
-const rows = computed(() => {
-  void props.rerenderKey
-  return props.table.getRowModel().rows
-})
+const rows = computed(() => props.table.getRowModel().rows)
 
-const paginationState = computed(() => {
-  void props.rerenderKey
-  return props.table.getState().pagination
-})
+const paginationState = computed(() => props.table.getState().pagination)
 
-const isAllSelected = computed(() => {
-  void props.rerenderKey
-  return props.table.getIsAllRowsSelected()
-})
-
-const isSomeSelected = computed(() => {
-  void props.rerenderKey
-  return props.table.getIsSomeRowsSelected()
-})
+const isAllSelected = computed(() => props.table.getIsAllRowsSelected())
+const isSomeSelected = computed(() => props.table.getIsSomeRowsSelected())
 
 function selectCell(rowId, colId) {
   selectedCell.value = `${rowId}:${colId}`
@@ -102,15 +83,6 @@ function toggleRow(row, event, rowIndex) {
   lastClickedRowIndex.value = rowIndex
 }
 
-function isRowSelected(row) {
-  void props.rerenderKey
-  return row.getIsSelected()
-}
-
-function openEditPanel(rowOriginal) {
-  emit('edit-row', rowOriginal)
-}
-
 const stickyColShadow = computed(() => {
   const border = showColumnBorders ? 'inset -1px 0 0 var(--st-border)' : ''
   const shadow = '2px 0 4px var(--st-shadow-sticky)'
@@ -120,7 +92,6 @@ const stickyColShadow = computed(() => {
 // Expandable row groups
 const subTableCache = computed(() => {
   if (!getSubTable) return {}
-  void props.rerenderKey
   const cache = {}
   for (const row of rows.value) {
     const config = getSubTable(row.original)
@@ -137,15 +108,34 @@ function isExpanded(row) {
   return !!expanded.value[row.id]
 }
 
-const totalColspan = computed(() => {
-  void props.rerenderKey
-  return 2 + props.table.getVisibleLeafColumns().length
-})
+const totalColspan = computed(() => 2 + props.table.getVisibleLeafColumns().length)
+
+// --- Virtualization ---
+// Each row model entry is one virtual item. Expanded sub-tables are measured
+// dynamically via `measureElement` so their variable height is respected.
+const scrollerRef = useTemplateRef('scroller')
+
+const virtualizer = useVirtualizer(
+  computed(() => ({
+    count: rows.value.length,
+    getScrollElement: () => scrollerRef.value,
+    estimateSize: () => 33,
+    overscan: 8,
+    getItemKey: (index) => rows.value[index]?.id ?? index,
+  }))
+)
+
+const virtualRows = computed(() => virtualizer.value.getVirtualItems())
+const totalHeight = computed(() => virtualizer.value.getTotalSize())
 </script>
 
 <template>
   <div :class="nestingDepth === 0 ? 'flex-1 min-h-0 relative' : 'overflow-auto'">
-  <div :class="nestingDepth === 0 ? 'absolute inset-0 overflow-auto flex flex-col' : 'flex flex-col'" @click.self="clearSelection">
+  <div
+    ref="scroller"
+    :class="nestingDepth === 0 ? 'absolute inset-0 overflow-auto flex flex-col' : 'flex flex-col'"
+    @click.self="clearSelection"
+  >
     <table class="border-collapse table-fixed shrink-0" :style="{ width: totalTableWidth + 'px' }">
       <thead class="sticky top-0 z-20">
         <tr
@@ -192,35 +182,49 @@ const totalColspan = computed(() => {
           />
         </tr>
       </thead>
-      <tbody>
-        <template v-for="(row, rowIndex) in rows" :key="row.id">
-          <!-- Data row -->
+      <tbody
+        :style="{
+          display: 'block',
+          position: 'relative',
+          height: totalHeight + 'px',
+          width: totalTableWidth + 'px',
+        }"
+      >
+        <template v-for="vRow in virtualRows" :key="vRow.key">
           <tr
-            class="group transition-colors"
-            :style="{ backgroundColor: isRowSelected(row) ? 'var(--st-bg-selected)' : 'transparent' }"
-            @mouseenter="$event.currentTarget.style.backgroundColor = isRowSelected(row) ? 'var(--st-bg-selected)' : 'var(--st-bg-row-hover)'"
-            @mouseleave="$event.currentTarget.style.backgroundColor = isRowSelected(row) ? 'var(--st-bg-selected)' : 'transparent'"
+            :ref="el => el && virtualizer.measureElement(el)"
+            :data-index="vRow.index"
+            class="st-row group"
+            :class="{ 'st-row--selected': rows[vRow.index].getIsSelected() }"
+            :style="{
+              position: 'absolute',
+              top: '0px',
+              left: '0px',
+              width: '100%',
+              transform: `translateY(${vRow.start}px)`,
+              display: 'table',
+              tableLayout: 'fixed',
+            }"
           >
             <!-- Row number -->
             <td
-              class="py-1.5 sticky left-0 z-10"
+              class="py-1.5 sticky left-0 z-10 st-sticky-cell"
               :style="{
                 width: '44px', minWidth: '44px',
-                backgroundColor: isRowSelected(row) ? 'var(--st-bg-selected-cell)' : 'var(--st-bg)',
                 borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
               }"
             >
               <div class="flex items-center justify-end pr-1.5 pl-0.5">
                 <!-- Expand toggle for expandable rows -->
                 <button
-                  v-if="isExpandable(row)"
+                  v-if="isExpandable(rows[vRow.index])"
                   class="flex items-center justify-center w-4 h-4 shrink-0 transition-transform duration-150"
                   :style="{
-                    color: isExpanded(row) ? 'var(--st-accent)' : 'var(--st-text-secondary)',
-                    transform: isExpanded(row) ? 'rotate(90deg)' : 'rotate(0deg)',
+                    color: isExpanded(rows[vRow.index]) ? 'var(--st-accent)' : 'var(--st-text-secondary)',
+                    transform: isExpanded(rows[vRow.index]) ? 'rotate(90deg)' : 'rotate(0deg)',
                   }"
                   title="Toggle sub-table"
-                  @click.stop="toggleRowExpanded(row.id)"
+                  @click.stop="toggleRowExpanded(rows[vRow.index].id)"
                 >
                   <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M6 3l5 5-5 5V3z" />
@@ -232,23 +236,22 @@ const totalColspan = computed(() => {
                   class="invisible group-hover:visible flex items-center justify-center w-4 h-4 shrink-0"
                   :style="{ color: 'var(--st-text-secondary)' }"
                   title="Expand row"
-                  @click.stop="emit('edit-row', row.original)"
+                  @click.stop="emit('edit-row', rows[vRow.index].original)"
                 >
                   <svg class="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M6 2h8v8M14 2L6 10" />
                   </svg>
                 </button>
                 <span class="text-xs text-right flex-1" :style="{ color: 'var(--st-text-tertiary)' }">
-                  {{ paginationState.pageIndex * paginationState.pageSize + rowIndex + 1 }}
+                  {{ paginationState.pageIndex * paginationState.pageSize + vRow.index + 1 }}
                 </span>
               </div>
             </td>
             <!-- Checkbox -->
             <td
-              class="px-1 py-1.5 text-center align-middle sticky z-10"
+              class="px-1 py-1.5 text-center align-middle sticky z-10 st-sticky-cell"
               :style="{
                 width: '40px', minWidth: '40px', left: '44px',
-                backgroundColor: isRowSelected(row) ? 'var(--st-bg-selected-cell)' : 'var(--st-bg)',
                 borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
                 boxShadow: stickyColShadow,
               }"
@@ -257,29 +260,31 @@ const totalColspan = computed(() => {
                 type="checkbox"
                 class="cursor-pointer align-middle"
                 :style="{ accentColor: 'var(--st-accent)' }"
-                :checked="isRowSelected(row)"
-                @click="(e) => toggleRow(row, e, rowIndex)"
+                :checked="rows[vRow.index].getIsSelected()"
+                @click="(e) => toggleRow(rows[vRow.index], e, vRow.index)"
               />
             </td>
             <!-- Data cells -->
             <TableCell
-              v-for="cell in row.getVisibleCells()"
+              v-for="cell in rows[vRow.index].getVisibleCells()"
               :key="cell.id"
               :cell="cell"
-              :is-selected="selectedCell === `${row.id}:${cell.column.id}`"
-              @select="selectCell(row.id, cell.column.id)"
-              @update="(value) => emit('update-cell', row.id, cell.column.id, value)"
-              @contextmenu.prevent="handleRowContextMenu($event, row, cell)"
+              :is-selected="selectedCell === `${rows[vRow.index].id}:${cell.column.id}`"
+              @select="selectCell(rows[vRow.index].id, cell.column.id)"
+              @update="(value) => emit('update-cell', rows[vRow.index].id, cell.column.id, value)"
+              @contextmenu.prevent="handleRowContextMenu($event, rows[vRow.index], cell)"
             />
-          </tr>
 
-          <!-- Expansion row: sub-table -->
-          <tr v-if="isExpanded(row)" :key="row.id + '-sub'">
+            <!-- Expansion sub-table sits inside the measured row so its height is part of the virtual item -->
             <td
+              v-if="isExpanded(rows[vRow.index])"
               :colspan="totalColspan"
+              class="st-subtable-cell"
               :style="{
                 padding: 0,
                 borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
+                display: 'block',
+                width: '100%',
               }"
             >
               <div
@@ -289,10 +294,10 @@ const totalColspan = computed(() => {
                   backgroundColor: 'var(--st-bg)',
                 }"
               >
-                <SupabaseTable
-                  v-bind="subTableCache[row.id]"
-                  :theme="subTableCache[row.id].theme ?? parentTheme"
-                  :accent-color="subTableCache[row.id].accentColor ?? parentAccentColor"
+                <DataTable
+                  v-bind="subTableCache[rows[vRow.index].id]"
+                  :theme="subTableCache[rows[vRow.index].id].theme ?? parentTheme"
+                  :accent-color="subTableCache[rows[vRow.index].id].accentColor ?? parentAccentColor"
                   :nesting-depth="nestingDepth + 1"
                   :controlled-sorting="subTableSorting"
                   :controlled-column-filters="subTableColumnFilters"
@@ -302,7 +307,6 @@ const totalColspan = computed(() => {
             </td>
           </tr>
         </template>
-
       </tbody>
     </table>
   </div>
@@ -336,7 +340,7 @@ const totalColspan = computed(() => {
           <button
             class="flex items-center gap-1.5 px-3 py-1 rounded-l text-[13px] font-medium transition-colors"
             :style="{ backgroundColor: 'var(--st-accent)', color: 'var(--st-text-on-accent)' }"
-            @click="emitParent('insert-row')"
+            @click="insertRow()"
           >
             {{ defaultInsertLabel }}
           </button>
@@ -392,5 +396,28 @@ const totalColspan = computed(() => {
 <style scoped>
 .hover-menu-item:hover {
   background-color: var(--st-bg-menu-hover);
+}
+
+/* Row hover / selection — avoids per-row JS handlers on mouseenter/mouseleave */
+.st-row {
+  background-color: transparent;
+  transition: background-color 120ms;
+}
+.st-row:hover {
+  background-color: var(--st-bg-row-hover);
+}
+.st-row--selected {
+  background-color: var(--st-bg-selected);
+}
+.st-row--selected:hover {
+  background-color: var(--st-bg-selected);
+}
+
+/* Sticky cells pick up the row's background so they stay opaque when scrolled. */
+.st-sticky-cell {
+  background-color: var(--st-bg);
+}
+.st-row--selected .st-sticky-cell {
+  background-color: var(--st-bg-selected-cell);
 }
 </style>

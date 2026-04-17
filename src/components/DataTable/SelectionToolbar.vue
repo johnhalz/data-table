@@ -90,13 +90,6 @@ function handleCustomAction(action) {
   showActionsMenu.value = false
 }
 
-function clearSelection() {
-  props.table.toggleAllRowsSelected(false)
-}
-
-function selectAll() {
-  props.table.toggleAllRowsSelected(true)
-}
 </script>
 
 <template>
@@ -162,7 +155,7 @@ function selectAll() {
     <button
       class="text-[13px] transition-colors"
       :style="{ color: 'var(--st-text-secondary)' }"
-      @click="clearSelection"
+      @click="table.toggleAllRowsSelected(false)"
     >
       Clear selection
     </button>
@@ -173,7 +166,7 @@ function selectAll() {
     <button
       class="text-[13px] transition-colors"
       :style="{ color: 'var(--st-text-secondary)' }"
-      @click="selectAll"
+      @click="table.toggleAllRowsSelected(true)"
     >
       Select all rows in table
     </button>

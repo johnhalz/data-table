@@ -11,7 +11,7 @@ const emit = defineEmits(['update'])
 const themeVars = inject('themeVars', {})
 
 // colorScheme drives the native date picker's chrome (calendar popup, etc.)
-// themeVars is a ComputedRef injected from SupabaseTable, so we use .value in script context
+// themeVars is a ComputedRef injected from DataTable, so we use .value in script context
 const colorScheme = computed(() => {
   const vars = themeVars?.value ?? themeVars
   return vars?.['--st-bg']?.startsWith('#1') ? 'dark' : 'light'

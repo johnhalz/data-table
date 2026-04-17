@@ -83,7 +83,6 @@ const subTableColumnList = computed(() => {
         :sub-table-columns="subTableColumnList"
         :sub-table-column-filters="subTableColumnFilters"
         :table-name="tableName"
-        :disabled="isEmpty"
         @update:column-filters="val => emit('update:column-filters', val)"
         @update:sub-table-column-filters="val => emit('update:sub-table-column-filters', val)"
         class="flex-1"

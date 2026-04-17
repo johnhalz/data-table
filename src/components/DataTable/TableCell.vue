@@ -218,8 +218,3 @@ function toggleBoolean() {
   </td>
 </template>
 
-<style scoped>
-button:hover {
-  background-color: var(--st-bg-menu-hover);
-}
-</style>
