@@ -152,9 +152,13 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 col.accessor('field', {
   header: 'Field',
   meta: {
-    type: 'varchar',      // 'int8' | 'int4' | 'float8' | 'varchar' | 'text' | 'boolean'
-    isPrimaryKey: false,   // read-only in update mode
-    isNullable: true,      // required vs optional in edit panel
+    type: 'varchar',        // 'int8' | 'int4' | 'float8' | 'varchar' | 'text' | 'boolean'
+    isPrimaryKey: false,    // read-only in update mode
+    isNullable: true,       // required vs optional in edit panel
+    insertable: true,       // set false to hide column from insert panel entirely (e.g. auto-generated ids)
+    defaultValue: '',       // pre-populate the insert form field with this value
+    placeholder: '',        // placeholder text for the insert/update form field
+    readOnly: false,        // show field in insert panel but disable editing (greyed out)
   },
   size: 180,               // column width in px
   enableSorting: true,

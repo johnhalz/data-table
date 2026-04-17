@@ -19,8 +19,16 @@ const columns = computed(() =>
   }))
 )
 
-const requiredFields = computed(() => columns.value.filter(c => c.meta.isNullable === false))
-const optionalFields = computed(() => columns.value.filter(c => c.meta.isNullable !== false))
+// In insert mode, exclude columns where meta.insertable === false
+const visibleColumns = computed(() => {
+  if (props.mode === 'insert') {
+    return columns.value.filter(c => c.meta.insertable !== false)
+  }
+  return columns.value
+})
+
+const requiredFields = computed(() => visibleColumns.value.filter(c => c.meta.isNullable === false))
+const optionalFields = computed(() => visibleColumns.value.filter(c => c.meta.isNullable !== false))
 
 const formData = ref({})
 
@@ -30,7 +38,12 @@ function initForm() {
     if (props.mode === 'update' && props.rowData) {
       data[col.id] = props.rowData[col.id] ?? ''
     } else {
-      data[col.id] = col.meta.type === 'boolean' ? false : ''
+      // Use meta.defaultValue if provided, otherwise fall back to type-based default
+      if (col.meta.defaultValue !== undefined) {
+        data[col.id] = col.meta.defaultValue
+      } else {
+        data[col.id] = col.meta.type === 'boolean' ? false : ''
+      }
     }
   })
   formData.value = data
@@ -113,7 +126,9 @@ onUnmounted(() => {
                 <template v-if="col.meta.type === 'boolean'">
                   <button
                     class="flex items-center gap-2"
-                    @click="formData[col.id] = !formData[col.id]"
+                    :disabled="col.meta.readOnly && mode === 'insert'"
+                    :class="{ 'opacity-50 cursor-not-allowed': col.meta.readOnly && mode === 'insert' }"
+                    @click="!(col.meta.readOnly && mode === 'insert') && (formData[col.id] = !formData[col.id])"
                   >
                     <span
                       class="inline-block w-8 h-[18px] rounded-full relative transition-colors"
@@ -129,7 +144,7 @@ onUnmounted(() => {
                 </template>
                 <template v-else>
                   <input
-                    v-if="col.meta.isPrimaryKey && mode === 'update'"
+                    v-if="(col.meta.isPrimaryKey && mode === 'update') || (col.meta.readOnly && mode === 'insert')"
                     :value="formData[col.id]"
                     class="w-full rounded px-3 py-2 text-[13px] outline-none cursor-not-allowed"
                     :style="{ backgroundColor: 'var(--st-bg-input)', border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)' }"
@@ -141,6 +156,7 @@ onUnmounted(() => {
                     class="w-full rounded px-3 py-2 text-[13px] outline-none resize-y min-h-[36px]"
                     :style="{ backgroundColor: 'var(--st-bg-input)', border: '1px solid var(--st-border-secondary)', color: 'var(--st-text)' }"
                     rows="1"
+                    :placeholder="col.meta.placeholder ?? ''"
                   />
                 </template>
               </div>
@@ -168,7 +184,9 @@ onUnmounted(() => {
                 <template v-if="col.meta.type === 'boolean'">
                   <button
                     class="flex items-center gap-2"
-                    @click="formData[col.id] = !formData[col.id]"
+                    :disabled="col.meta.readOnly && mode === 'insert'"
+                    :class="{ 'opacity-50 cursor-not-allowed': col.meta.readOnly && mode === 'insert' }"
+                    @click="!(col.meta.readOnly && mode === 'insert') && (formData[col.id] = !formData[col.id])"
                   >
                     <span
                       class="inline-block w-8 h-[18px] rounded-full relative transition-colors"
@@ -183,12 +201,20 @@ onUnmounted(() => {
                   </button>
                 </template>
                 <template v-else>
+                  <input
+                    v-if="col.meta.readOnly && mode === 'insert'"
+                    :value="formData[col.id]"
+                    class="w-full rounded px-3 py-2 text-[13px] outline-none cursor-not-allowed"
+                    :style="{ backgroundColor: 'var(--st-bg-input)', border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)' }"
+                    disabled
+                  />
                   <textarea
+                    v-else
                     v-model="formData[col.id]"
                     class="w-full rounded px-3 py-2 text-[13px] outline-none resize-y min-h-[36px]"
                     :style="{ backgroundColor: 'var(--st-bg-input)', border: '1px solid var(--st-border-secondary)', color: 'var(--st-text)' }"
                     rows="1"
-                    placeholder="NULL"
+                    :placeholder="col.meta.placeholder ?? 'NULL'"
                   />
                 </template>
               </div>
