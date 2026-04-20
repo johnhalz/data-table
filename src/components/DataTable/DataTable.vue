@@ -28,6 +28,11 @@ const props = defineProps({
   defaultInsertLabel: { type: String, default: null },
   showRowBorders: { type: Boolean, default: true },
   showColumnBorders: { type: Boolean, default: true },
+  cellButtonVisibility: {
+    type: String,
+    default: 'hover',
+    validator: (v) => ['hover', 'always', 'select'].includes(v),
+  },
   theme: { type: String, default: 'dark' }, // 'dark' | 'light'
   accentColor: { type: String, default: '#3ecf8e' },
   // Expandable row groups
@@ -138,6 +143,14 @@ const columnFilters = ref(props.controlledColumnFilters ?? [])
 const rowSelection = ref({})
 const pagination = ref({ pageIndex: 0, pageSize: 100 })
 const columnSizing = ref({})
+const columnSizingInfo = ref({
+  startOffset: null,
+  startSize: null,
+  deltaOffset: null,
+  deltaPercentage: null,
+  isResizingColumn: false,
+  columnSizingStart: [],
+})
 const columnVisibility = ref(props.controlledColumnVisibility ?? { ...props.defaultColumnVisibility })
 
 // Sync externally controlled state into internal refs (for nested sub-tables)
@@ -230,6 +243,7 @@ const table = useVueTable({
     get rowSelection() { return rowSelection.value },
     get pagination() { return pagination.value },
     get columnSizing() { return columnSizing.value },
+    get columnSizingInfo() { return columnSizingInfo.value },
     get columnVisibility() { return columnVisibility.value },
   },
   onSortingChange: updater => {
@@ -251,7 +265,14 @@ const table = useVueTable({
   onColumnSizingChange: updater => {
     const next = typeof updater === 'function' ? updater(columnSizing.value) : updater
     columnSizing.value = next
-    emit('column-resize', next)
+  },
+  onColumnSizingInfoChange: updater => {
+    const prev = columnSizingInfo.value
+    const next = typeof updater === 'function' ? updater(prev) : updater
+    columnSizingInfo.value = next
+    if (prev.isResizingColumn && !next.isResizingColumn) {
+      emit('column-resize', columnSizing.value)
+    }
   },
   onColumnVisibilityChange: updater => {
     columnVisibility.value = typeof updater === 'function' ? updater(columnVisibility.value) : updater
@@ -268,7 +289,7 @@ const table = useVueTable({
   enableRowSelection: true,
   enableMultiRowSelection: true,
   enableColumnResizing: true,
-  columnResizeMode: 'onEnd',
+  columnResizeMode: 'onChange',
   getRowId: (row) => String(row[primaryKeyField.value] ?? row.id),
 })
 
@@ -339,6 +360,7 @@ provide('showDataTypes', props.showDataTypes)
 provide('editable', editableCaps)
 provide('showRowBorders', props.showRowBorders)
 provide('showColumnBorders', props.showColumnBorders)
+provide('cellButtonVisibility', computed(() => props.cellButtonVisibility))
 provide('insertRow', () => emit('insert-row'))
 provide('openInsertPanel', openInsertPanel)
 provide('emptyTitle', computed(() => props.emptyTitle))

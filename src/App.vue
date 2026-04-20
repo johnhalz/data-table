@@ -49,6 +49,12 @@ const accentColor = ref('#3ecf8e')
 const editable = ref(true)
 const isEmpty = ref(false)
 const showChildTables = ref(true)
+const cellButtonVisibility = ref('hover')
+const cellButtonOptions = [
+  { value: 'hover', label: 'On hover' },
+  { value: 'always', label: 'Always' },
+  { value: 'select', label: 'On select' },
+]
 const showOptionsMenu = ref(false)
 const showThemeMenu = ref(false)
 
@@ -178,6 +184,29 @@ const dividerColor = (dark) => dark ? '#333' : '#e4e4e7'
               />
             </div>
           </div>
+
+          <!-- Cell buttons visibility -->
+          <div class="my-1 mx-3" :style="{ borderTop: '1px solid ' + dividerColor(theme === 'dark') }" />
+          <div class="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider opacity-40">Cell buttons</div>
+          <button
+            v-for="opt in cellButtonOptions"
+            :key="opt.value"
+            class="flex items-center justify-between w-full px-3 py-2 rounded-sm"
+            :style="{
+              color: btnColor(theme === 'dark'),
+              backgroundColor: cellButtonVisibility === opt.value ? menuHoverBg(theme === 'dark') : 'transparent',
+              width: 'calc(100% - 8px)',
+              marginLeft: '4px',
+            }"
+            @mouseenter="$event.currentTarget.style.backgroundColor = menuHoverBg(theme === 'dark')"
+            @mouseleave="$event.currentTarget.style.backgroundColor = cellButtonVisibility === opt.value ? menuHoverBg(theme === 'dark') : 'transparent'"
+            @click="cellButtonVisibility = opt.value"
+          >
+            {{ opt.label }}
+            <svg v-if="cellButtonVisibility === opt.value" class="w-3 h-3 opacity-60" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -262,6 +291,7 @@ const dividerColor = (dark) => dark ? '#333' : '#e4e4e7'
       :editable="editable"
       :default-column-visibility="{ coordinate_system_type: false }"
       :selection-actions="selectionActions"
+      :cell-button-visibility="cellButtonVisibility"
       :get-sub-table="getSubTable"
       :sub-table-columns="employeeColumns"
       @insert-row="handleInsert"

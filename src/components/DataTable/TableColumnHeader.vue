@@ -86,10 +86,11 @@ function autoFitColumn() {
 
   const rows = table.querySelectorAll('tbody tr')
   rows.forEach(row => {
-    const cell = row.children[colIndex]
+    const cellContainer = row.querySelector('.contents-row') || row
+    const cell = cellContainer.children[colIndex]
     if (cell) {
-      const content = cell.querySelector('.truncate, .flex')
-      measurer.textContent = content ? content.textContent : cell.textContent
+      const content = cell.querySelector('.truncate, .whitespace-pre-wrap') || cell
+      measurer.textContent = content.textContent
       maxWidth = Math.max(maxWidth, measurer.offsetWidth)
     }
   })

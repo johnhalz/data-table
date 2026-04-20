@@ -35,6 +35,7 @@ const subTableColumnVisibility = inject('subTableColumnVisibility', ref({}))
 const emit = defineEmits(['update-cell', 'context-menu', 'edit-row'])
 
 const selectedCell = ref(null)
+const editingRowId = ref(null)
 
 const headerGroups = computed(() => props.table.getHeaderGroups())
 
@@ -202,10 +203,12 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
               left: '0px',
               width: '100%',
               transform: `translateY(${vRow.start}px)`,
-              display: 'table',
-              tableLayout: 'fixed',
+              display: 'block',
+              zIndex: editingRowId === rows[vRow.index].id ? 5 : 'auto',
             }"
           >
+            <!-- Inner cell row: uses table layout so cells align with headers -->
+            <div :style="{ display: 'table', tableLayout: 'fixed', width: '100%' }" class="contents-row">
             <!-- Row number -->
             <td
               class="py-1.5 sticky left-0 z-10 st-sticky-cell"
@@ -272,19 +275,18 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
               :is-selected="selectedCell === `${rows[vRow.index].id}:${cell.column.id}`"
               @select="selectCell(rows[vRow.index].id, cell.column.id)"
               @update="(value) => emit('update-cell', rows[vRow.index].id, cell.column.id, value)"
+              @editing-change="(editing) => editingRowId = editing ? rows[vRow.index].id : null"
               @contextmenu.prevent="handleRowContextMenu($event, rows[vRow.index], cell)"
             />
+            </div>
 
             <!-- Expansion sub-table sits inside the measured row so its height is part of the virtual item -->
-            <td
+            <div
               v-if="isExpanded(rows[vRow.index])"
-              :colspan="totalColspan"
-              class="st-subtable-cell"
               :style="{
-                padding: 0,
-                borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
                 display: 'block',
-                width: '100%',
+                width: totalTableWidth + 'px',
+                borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
               }"
             >
               <div
@@ -304,7 +306,7 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
                   :controlled-column-visibility="subTableColumnVisibility"
                 />
               </div>
-            </td>
+            </div>
           </tr>
         </template>
       </tbody>
@@ -401,7 +403,6 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
 /* Row hover / selection — avoids per-row JS handlers on mouseenter/mouseleave */
 .st-row {
   background-color: transparent;
-  transition: background-color 120ms;
 }
 .st-row:hover {
   background-color: var(--st-bg-row-hover);

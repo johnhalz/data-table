@@ -130,6 +130,7 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 | `selectionActions` | `Array` | `[]` | Custom actions: `[{ key: string, label: string }]` |
 | `showRowBorders` | `Boolean` | `true` | Horizontal row dividers |
 | `showColumnBorders` | `Boolean` | `true` | Vertical column dividers |
+| `cellButtonVisibility` | `String` | `'hover'` | `'hover'` \| `'always'` \| `'select'` — when to show trailing cell buttons defined via `meta.cellButtons`. `'select'` uses the existing click-to-select cell state. |
 | `theme` | `String` | `'dark'` | `'dark'` or `'light'` — switches the full color palette |
 | `accentColor` | `String` | `'#3ecf8e'` | Primary accent hex color (buttons, indicators, selections) |
 | `totalCount` | `Number` | `null` | Total rows for server-side pagination; enables manual pagination mode and `page-change` event |

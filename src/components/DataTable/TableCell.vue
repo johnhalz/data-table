@@ -1,5 +1,5 @@
 <script setup>
-import { ref, nextTick, inject, computed } from 'vue'
+import { ref, nextTick, inject, computed, isRef } from 'vue'
 
 const props = defineProps({
   cell: { type: Object, required: true },
@@ -9,8 +9,18 @@ const props = defineProps({
 const editable = inject('editable', true)
 const showRowBorders = inject('showRowBorders', true)
 const showColumnBorders = inject('showColumnBorders', true)
+const cellButtonVisibilityInjected = inject('cellButtonVisibility', 'hover')
 
-const emit = defineEmits(['select', 'update'])
+const cellButtonClass = computed(() => {
+  const mode = isRef(cellButtonVisibilityInjected)
+    ? cellButtonVisibilityInjected.value
+    : cellButtonVisibilityInjected
+  if (mode === 'always') return 'opacity-100'
+  if (mode === 'select') return props.isSelected ? 'opacity-100' : 'opacity-0'
+  return 'opacity-0 group-hover/cell:opacity-100'
+})
+
+const emit = defineEmits(['select', 'update', 'editing-change'])
 
 const isEditing = ref(false)
 const editValue = ref('')
@@ -50,6 +60,7 @@ function handleClick() {
 function handleDoubleClick() {
   if (!editable.value?.update || isBoolean || meta.progressBar || cellButtons.length > 0) return
   isEditing.value = true
+  emit('editing-change', true)
   editValue.value = props.cell.getValue() ?? ''
   nextTick(() => {
     if (textareaRef.value) {
@@ -73,10 +84,12 @@ function saveEdit() {
     : editValue.value
   emit('update', newValue)
   isEditing.value = false
+  emit('editing-change', false)
 }
 
 function cancelEdit() {
   isEditing.value = false
+  emit('editing-change', false)
 }
 
 function handleKeydown(e) {
@@ -96,7 +109,7 @@ function toggleBoolean() {
 
 <template>
   <td
-    class="px-2 py-1.5 relative cursor-default"
+    class="px-2 py-1.5 relative cursor-default group/cell"
     :style="{
       width: `${cell.column.getSize()}px`,
       minWidth: `${cell.column.getSize()}px`,
@@ -104,7 +117,7 @@ function toggleBoolean() {
       borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
       borderRight: showColumnBorders ? '1px solid var(--st-border)' : 'none',
       boxShadow: isSelected && !isEditing ? 'inset 0 0 0 2px var(--st-accent)' : 'none',
-      zIndex: isSelected && !isEditing ? 10 : 'auto',
+      zIndex: isEditing ? 20 : (isSelected ? 10 : 'auto'),
     }"
     @click="handleClick"
     @dblclick="handleDoubleClick"
@@ -112,6 +125,7 @@ function toggleBoolean() {
     <!-- Boolean toggle -->
     <template v-if="isBoolean">
       <button
+        v-if="editable.update"
         class="flex items-center gap-1.5"
         @click.stop="toggleBoolean"
       >
@@ -126,6 +140,12 @@ function toggleBoolean() {
         </span>
         <span class="text-xs" :style="{ color: 'var(--st-text-secondary)' }">{{ cell.getValue() ? 'true' : 'false' }}</span>
       </button>
+      <span v-else class="text-[13px]" :style="{ color: 'var(--st-text)' }">
+        <template v-if="cell.getValue() === null || cell.getValue() === undefined">
+          <span class="italic" :style="{ color: 'var(--st-text-placeholder)' }">NULL</span>
+        </template>
+        <template v-else>{{ cell.getValue() ? 'true' : 'false' }}</template>
+      </span>
     </template>
 
     <!-- Editing mode -->
@@ -181,7 +201,7 @@ function toggleBoolean() {
 
     <!-- Display mode with optional cell buttons -->
     <template v-else>
-      <div class="flex items-start gap-1 group/cell min-w-0">
+      <div class="flex items-start gap-1 min-w-0">
         <!-- Text content -->
         <div class="flex-1 min-w-0 text-[13px]" :style="{ color: 'var(--st-text)' }">
           <template v-if="cell.getValue() === null || cell.getValue() === undefined">
@@ -198,7 +218,7 @@ function toggleBoolean() {
         <!-- Trailing cell buttons -->
         <div
           v-if="cellButtons.length > 0"
-          class="flex items-center gap-0.5 shrink-0 opacity-0 group-hover/cell:opacity-100 transition-opacity"
+          :class="['flex items-center gap-0.5 shrink-0 transition-opacity', cellButtonClass]"
         >
           <button
             v-for="btn in cellButtons"
