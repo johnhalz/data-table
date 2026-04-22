@@ -223,7 +223,13 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
                 borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
               }"
             >
-              <div class="flex items-center justify-end pr-1.5 pl-0.5">
+              <!--
+                h-full makes the flex container fill the table-cell's content
+                height, so items-center unambiguously vertical-centers the
+                expand-button / edit-button / row-number trio — matching the
+                checkbox cell that sits next to it.
+              -->
+              <div class="flex items-center justify-end pr-1.5 pl-0.5 h-full">
                 <!-- Expand toggle for expandable rows -->
                 <button
                   v-if="isExpandable(rows[vRow.index])"
