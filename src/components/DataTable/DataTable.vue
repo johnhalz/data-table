@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, provide, watch, shallowRef } from 'vue'
+import { ref, computed, provide, watch, shallowRef, onMounted, nextTick } from 'vue'
 import {
   useVueTable,
   getCoreRowModel,
@@ -380,6 +380,68 @@ provide('subTableColumnVisibility', subTableColumnVisibility)
 // Reset selection when rows change
 watch(() => props.rows, () => {
   table.resetRowSelection()
+})
+
+// Auto-size columns to fit their content on initial load. Uses canvas text
+// measurement (not DOM) so it works with the virtualized row body and avoids
+// layout thrashing. Runs once per DataTable instance after mount.
+function autoSizeColumnsFromContent() {
+  if (typeof document === 'undefined') return
+  const ctx = document.createElement('canvas').getContext('2d')
+  if (!ctx) return
+
+  // Match the table's rendered font — body cells & headers both use 13px.
+  const fontFamily = getComputedStyle(document.body).fontFamily || 'sans-serif'
+  ctx.font = `13px ${fontFamily}`
+
+  const CELL_PADDING_PX = 16   // px-2 (horizontal padding) on both sides
+  const HEADER_CHROME_PX = 28  // chevron button + sort indicator reserve
+  const TYPE_BADGE_GAP_PX = 6  // gap between name and type badge
+  const CELL_BUTTON_PX = 22    // trailing cell button width
+  const MIN_WIDTH = 60
+  const MAX_WIDTH = 500
+  const SAMPLE_SIZE = 200      // rows measured for perf cap
+
+  const sizing = {}
+  const leafColumns = table.getAllLeafColumns()
+  const sample = data.value.slice(0, SAMPLE_SIZE)
+
+  for (const col of leafColumns) {
+    const meta = col.columnDef.meta || {}
+
+    const headerLabel = typeof col.columnDef.header === 'string'
+      ? col.columnDef.header
+      : String(col.id)
+    let contentWidth = ctx.measureText(headerLabel).width
+
+    if (props.showDataTypes && meta.type) {
+      contentWidth += TYPE_BADGE_GAP_PX + ctx.measureText(meta.type).width
+    }
+
+    const isFixedUiCell = meta.type === 'boolean' || !!meta.progressBar
+    if (!isFixedUiCell) {
+      const accessorKey = col.columnDef.accessorKey ?? col.id
+      for (const row of sample) {
+        const value = row?.[accessorKey]
+        if (value == null) continue
+        const w = ctx.measureText(String(value)).width
+        if (w > contentWidth) contentWidth = w
+      }
+    }
+
+    if (Array.isArray(meta.cellButtons) && meta.cellButtons.length > 0) {
+      contentWidth += meta.cellButtons.length * CELL_BUTTON_PX
+    }
+
+    const finalWidth = Math.ceil(contentWidth) + CELL_PADDING_PX + HEADER_CHROME_PX
+    sizing[col.id] = Math.min(Math.max(finalWidth, MIN_WIDTH), MAX_WIDTH)
+  }
+
+  columnSizing.value = { ...sizing, ...columnSizing.value }
+}
+
+onMounted(() => {
+  nextTick(autoSizeColumnsFromContent)
 })
 </script>
 
