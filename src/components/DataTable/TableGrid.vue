@@ -109,8 +109,6 @@ function isExpanded(row) {
   return !!expanded.value[row.id]
 }
 
-const totalColspan = computed(() => 2 + props.table.getVisibleLeafColumns().length)
-
 // --- Virtualization ---
 // Each row model entry is one virtual item. Expanded sub-tables are measured
 // dynamically via `measureElement` so their variable height is respected.
@@ -183,36 +181,41 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
           />
         </tr>
       </thead>
-      <tbody
-        :style="{
-          display: 'block',
-          position: 'relative',
-          height: totalHeight + 'px',
-          width: totalTableWidth + 'px',
-        }"
-      >
-        <template v-for="vRow in virtualRows" :key="vRow.key">
-          <tr
-            :ref="el => el && virtualizer.measureElement(el)"
-            :data-index="vRow.index"
-            class="st-row group"
-            :class="{ 'st-row--selected': rows[vRow.index].getIsSelected() }"
-            :style="{
-              position: 'absolute',
-              top: '0px',
-              left: '0px',
-              width: '100%',
-              transform: `translateY(${vRow.start}px)`,
-              display: 'block',
-              zIndex: editingRowId === rows[vRow.index].id ? 5 : 'auto',
-            }"
-          >
-            <!-- Inner cell row: uses table layout so cells align with headers -->
-            <div :style="{ display: 'table', tableLayout: 'fixed', width: '100%' }" class="contents-row">
+    </table>
+    <!--
+      Virtualized body lives outside <table> as div-based layout. Cell alignment
+      with the header columns is preserved via explicit widths and CSS table
+      layout (display: table / table-cell), not native table semantics.
+    -->
+    <div
+      :style="{
+        position: 'relative',
+        height: totalHeight + 'px',
+        width: totalTableWidth + 'px',
+      }"
+    >
+      <template v-for="vRow in virtualRows" :key="vRow.key">
+        <div
+          :ref="el => el && virtualizer.measureElement(el)"
+          :data-index="vRow.index"
+          class="st-row group"
+          :class="{ 'st-row--selected': rows[vRow.index].getIsSelected() }"
+          :style="{
+            position: 'absolute',
+            top: '0px',
+            left: '0px',
+            width: '100%',
+            transform: `translateY(${vRow.start}px)`,
+            zIndex: editingRowId === rows[vRow.index].id ? 5 : 'auto',
+          }"
+        >
+          <!-- Inner cell row: uses table layout so cells align with headers -->
+          <div :style="{ display: 'table', tableLayout: 'fixed', width: '100%' }">
             <!-- Row number -->
-            <td
-              class="py-1.5 sticky left-0 z-10 st-sticky-cell"
+            <div
+              class="py-1.5 align-middle sticky left-0 z-10 st-sticky-cell"
               :style="{
+                display: 'table-cell',
                 width: '44px', minWidth: '44px',
                 borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
               }"
@@ -249,11 +252,12 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
                   {{ paginationState.pageIndex * paginationState.pageSize + vRow.index + 1 }}
                 </span>
               </div>
-            </td>
+            </div>
             <!-- Checkbox -->
-            <td
+            <div
               class="px-1 py-1.5 text-center align-middle sticky z-10 st-sticky-cell"
               :style="{
+                display: 'table-cell',
                 width: '40px', minWidth: '40px', left: '44px',
                 borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
                 boxShadow: stickyColShadow,
@@ -266,7 +270,7 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
                 :checked="rows[vRow.index].getIsSelected()"
                 @click="(e) => toggleRow(rows[vRow.index], e, vRow.index)"
               />
-            </td>
+            </div>
             <!-- Data cells -->
             <TableCell
               v-for="cell in rows[vRow.index].getVisibleCells()"
@@ -278,39 +282,38 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
               @editing-change="(editing) => editingRowId = editing ? rows[vRow.index].id : null"
               @contextmenu.prevent="handleRowContextMenu($event, rows[vRow.index], cell)"
             />
-            </div>
+          </div>
 
-            <!-- Expansion sub-table sits inside the measured row so its height is part of the virtual item -->
+          <!-- Expansion sub-table sits inside the measured row so its height is part of the virtual item -->
+          <div
+            v-if="isExpanded(rows[vRow.index])"
+            :style="{
+              display: 'block',
+              width: totalTableWidth + 'px',
+              borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
+            }"
+          >
             <div
-              v-if="isExpanded(rows[vRow.index])"
               :style="{
-                display: 'block',
-                width: totalTableWidth + 'px',
-                borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
+                borderLeft: '3px solid var(--st-accent)',
+                marginLeft: (10 + nestingDepth * 16) + 'px',
+                backgroundColor: 'var(--st-bg)',
               }"
             >
-              <div
-                :style="{
-                  borderLeft: '3px solid var(--st-accent)',
-                  marginLeft: (10 + nestingDepth * 16) + 'px',
-                  backgroundColor: 'var(--st-bg)',
-                }"
-              >
-                <DataTable
-                  v-bind="subTableCache[rows[vRow.index].id]"
-                  :theme="subTableCache[rows[vRow.index].id].theme ?? parentTheme"
-                  :accent-color="subTableCache[rows[vRow.index].id].accentColor ?? parentAccentColor"
-                  :nesting-depth="nestingDepth + 1"
-                  :controlled-sorting="subTableSorting"
-                  :controlled-column-filters="subTableColumnFilters"
-                  :controlled-column-visibility="subTableColumnVisibility"
-                />
-              </div>
+              <DataTable
+                v-bind="subTableCache[rows[vRow.index].id]"
+                :theme="subTableCache[rows[vRow.index].id].theme ?? parentTheme"
+                :accent-color="subTableCache[rows[vRow.index].id].accentColor ?? parentAccentColor"
+                :nesting-depth="nestingDepth + 1"
+                :controlled-sorting="subTableSorting"
+                :controlled-column-filters="subTableColumnFilters"
+                :controlled-column-visibility="subTableColumnVisibility"
+              />
             </div>
-          </tr>
-        </template>
-      </tbody>
-    </table>
+          </div>
+        </div>
+      </template>
+    </div>
   </div>
 
   <!-- Empty state — absolute overlay so it stays centered regardless of horizontal scroll -->

@@ -108,9 +108,10 @@ function toggleBoolean() {
 </script>
 
 <template>
-  <td
-    class="px-2 py-1.5 relative cursor-default group/cell"
+  <div
+    class="px-2 py-1.5 relative cursor-default group/cell align-middle"
     :style="{
+      display: 'table-cell',
       width: `${cell.column.getSize()}px`,
       minWidth: `${cell.column.getSize()}px`,
       maxWidth: `${cell.column.getSize()}px`,
@@ -235,6 +236,6 @@ function toggleBoolean() {
         </div>
       </div>
     </template>
-  </td>
+  </div>
 </template>
 
