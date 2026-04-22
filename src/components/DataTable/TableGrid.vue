@@ -49,8 +49,10 @@ const rows = computed(() => props.table.getRowModel().rows)
 
 const paginationState = computed(() => props.table.getState().pagination)
 
-const isAllSelected = computed(() => props.table.getIsAllRowsSelected())
-const isSomeSelected = computed(() => props.table.getIsSomeRowsSelected())
+// The header checkbox acts on the current page only; the "Select all items"
+// button in SelectionToolbar is what selects across pages.
+const isAllPageSelected = computed(() => props.table.getIsAllPageRowsSelected())
+const isSomePageSelected = computed(() => props.table.getIsSomePageRowsSelected())
 
 function selectCell(rowId, colId) {
   selectedCell.value = `${rowId}:${colId}`
@@ -64,8 +66,8 @@ function handleRowContextMenu(event, row, cell) {
   emit('context-menu', event, row, cell)
 }
 
-function toggleAllRows() {
-  props.table.toggleAllRowsSelected(!isAllSelected.value)
+function toggleAllPageRows() {
+  props.table.toggleAllPageRowsSelected(!isAllPageSelected.value)
 }
 
 const lastClickedRowIndex = ref(null)
@@ -167,9 +169,10 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
               type="checkbox"
               class="cursor-pointer align-middle"
               :style="{ accentColor: 'var(--st-accent)' }"
-              :checked="isAllSelected"
-              :indeterminate="isSomeSelected"
-              @change="toggleAllRows"
+              :checked="isAllPageSelected"
+              :indeterminate="isSomePageSelected"
+              title="Select all rows on this page"
+              @change="toggleAllPageRows"
             />
           </th>
           <!-- Data column headers -->

@@ -13,6 +13,8 @@ const props = defineProps({
   editable: { type: Object, default: () => ({ insert: true, update: true, delete: true }) },
   loading: { type: Boolean, default: false },
   defaultInsertLabel: { type: String, default: null },
+  toolbarActions: { type: Array, default: () => [] },
+  toolbarActionsLabel: { type: String, default: 'Actions' },
   // Sub-table support
   subTableColumns: { type: Array, default: null },
   subTableSorting: { type: Array, default: () => [] },
@@ -25,12 +27,19 @@ const props = defineProps({
 const emit = defineEmits([
   'update:sorting', 'update:column-filters', 'update:column-visibility',
   'update:sub-table-sorting', 'update:sub-table-column-filters', 'update:sub-table-column-visibility',
-  'insert-row', 'refresh',
+  'insert-row', 'refresh', 'toolbar-action',
 ])
 
 const showSortPanel = ref(false)
 const showInsertMenu = ref(false)
 const showColumnsPanel = ref(false)
+const showActionsMenu = ref(false)
+
+function handleToolbarAction(action) {
+  if (action.disabled) return
+  emit('toolbar-action', action.key)
+  showActionsMenu.value = false
+}
 
 const sortCount = computed(() => props.sorting.length + props.subTableSorting.length)
 const filterCount = computed(() => props.columnFilters.length + props.subTableColumnFilters.length)
@@ -139,6 +148,57 @@ const subTableColumnList = computed(() => {
         />
         <Teleport to="body">
           <div v-if="showSortPanel" class="fixed inset-0 z-40" @click="showSortPanel = false" />
+        </Teleport>
+      </div>
+
+      <!-- Custom actions dropdown (SDK-provided) -->
+      <div v-if="toolbarActions.length > 0" class="relative">
+        <button
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[13px] transition-colors"
+          :style="isEmpty
+            ? { border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)', opacity: 0.4, cursor: 'default' }
+            : { border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)' }"
+          :disabled="isEmpty"
+          @click="!isEmpty && (showActionsMenu = !showActionsMenu)"
+        >
+          <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 4a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0 5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0 5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/>
+          </svg>
+          {{ toolbarActionsLabel }}
+          <svg class="w-3 h-3 opacity-60" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M4.427 6.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 6H4.604a.25.25 0 00-.177.427z"/>
+          </svg>
+        </button>
+
+        <div
+          v-if="showActionsMenu"
+          class="absolute top-full left-0 mt-1 min-w-[12rem] rounded shadow-xl z-50 py-1 text-[13px]"
+          :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"
+        >
+          <template v-for="(action, idx) in toolbarActions" :key="action.key ?? `divider-${idx}`">
+            <div
+              v-if="action.divider"
+              class="my-1"
+              :style="{ borderTop: '1px solid var(--st-border-secondary)' }"
+            />
+            <button
+              v-else
+              class="w-full text-left px-3 py-1.5 hover-menu-item flex items-center gap-2"
+              :style="{
+                color: 'var(--st-text)',
+                opacity: action.disabled ? 0.4 : 1,
+                cursor: action.disabled ? 'not-allowed' : 'pointer',
+              }"
+              :disabled="action.disabled"
+              @click="handleToolbarAction(action)"
+            >
+              <span v-if="action.icon" class="shrink-0 flex items-center" v-html="action.icon" />
+              <span class="flex-1">{{ action.label }}</span>
+            </button>
+          </template>
+        </div>
+        <Teleport to="body">
+          <div v-if="showActionsMenu" class="fixed inset-0 z-40" @click="showActionsMenu = false" />
         </Teleport>
       </div>
 

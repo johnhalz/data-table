@@ -25,6 +25,12 @@ const props = defineProps({
   // editable: true | false | { insert, update, delete }
   editable: { type: [Boolean, Object], default: true },
   selectionActions: { type: Array, default: () => [] },
+  // When true, show a "Select all items" button in the selection toolbar that
+  // selects every row across all pages (not just the current page).
+  enableSelectAll: { type: Boolean, default: true },
+  // Custom dropdown next to the Sort button. Each item: { key, label, icon?, disabled?, divider? }
+  toolbarActions: { type: Array, default: () => [] },
+  toolbarActionsLabel: { type: String, default: 'Actions' },
   defaultInsertLabel: { type: String, default: null },
   showRowBorders: { type: Boolean, default: true },
   showColumnBorders: { type: Boolean, default: true },
@@ -117,6 +123,7 @@ const emit = defineEmits([
   'delete-column',
   'refresh',
   'selection-action',
+  'toolbar-action',
   'view-change',
   'update:expanded-rows',
   'sub-table-event',
@@ -458,6 +465,7 @@ onMounted(() => {
         :table="table"
         :editable="editableCaps"
         :selection-actions="selectionActions"
+        :enable-select-all="enableSelectAll"
         @delete-rows="handleDeleteRows"
         @selection-action="(action, rows) => emit('selection-action', action, rows)"
       />
@@ -472,6 +480,8 @@ onMounted(() => {
         :loading="loading"
         :is-empty="data.length === 0"
         :default-insert-label="defaultInsertLabel"
+        :toolbar-actions="toolbarActions"
+        :toolbar-actions-label="toolbarActionsLabel"
         :sub-table-columns="subTableColumns"
         :sub-table-sorting="subTableSorting"
         :sub-table-column-filters="subTableColumnFilters"
@@ -485,6 +495,7 @@ onMounted(() => {
         @update:sub-table-column-visibility="val => subTableColumnVisibility = val"
         @insert-row="openInsertPanel"
         @refresh="emit('refresh')"
+        @toolbar-action="(key) => emit('toolbar-action', key)"
       />
     </template>
 

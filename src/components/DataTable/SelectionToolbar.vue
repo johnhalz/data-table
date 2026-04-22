@@ -1,5 +1,5 @@
 <script setup>
-import { ref, inject } from 'vue'
+import { ref, computed, inject } from 'vue'
 
 const themeVars = inject('themeVars', {})
 
@@ -8,7 +8,13 @@ const props = defineProps({
   table: { type: Object, required: true },
   editable: { type: Object, default: () => ({ insert: true, update: true, delete: true }) },
   selectionActions: { type: Array, default: () => [] },
+  enableSelectAll: { type: Boolean, default: true },
 })
+
+// Total row count across all pages (post-filter). Used to decide whether the
+// "Select all items" button should appear and to show an accurate count.
+const totalRowCount = computed(() => props.table.getFilteredRowModel().rows.length)
+const allItemsSelected = computed(() => props.selectedCount >= totalRowCount.value)
 
 const emit = defineEmits(['delete-rows', 'selection-action'])
 
@@ -160,16 +166,17 @@ function handleCustomAction(action) {
       Clear selection
     </button>
 
-    <div class="flex-1"></div>
-
-    <!-- Select all -->
+    <!-- Select all items (across all pages) — opt-in via enableSelectAll prop -->
     <button
+      v-if="enableSelectAll && !allItemsSelected"
       class="text-[13px] transition-colors"
-      :style="{ color: 'var(--st-text-secondary)' }"
+      :style="{ color: 'var(--st-accent)' }"
       @click="table.toggleAllRowsSelected(true)"
     >
-      Select all rows in table
+      Select all {{ totalRowCount }} item{{ totalRowCount === 1 ? '' : 's' }}
     </button>
+
+    <div class="flex-1"></div>
 
     <!-- Delete confirmation dialog -->
     <Teleport to="body">

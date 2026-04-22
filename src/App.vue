@@ -44,6 +44,40 @@ function handleSelectionAction(actionKey, selectedRows) {
   console.log(`Action: ${actionKey}`, selectedRows)
 }
 
+const toolbarActions = [
+  { key: 'export-all-csv', label: 'Export all as CSV' },
+  { key: 'export-all-json', label: 'Export all as JSON' },
+  { divider: true },
+  { key: 'open-docs', label: 'Open documentation' },
+]
+
+function handleToolbarAction(actionKey) {
+  if (actionKey === 'export-all-csv') {
+    const headers = Object.keys(rows.value[0] || {})
+    const csv = [
+      headers.join(','),
+      ...rows.value.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(',')),
+    ].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'stores.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  } else if (actionKey === 'export-all-json') {
+    const blob = new Blob([JSON.stringify(rows.value, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'stores.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  } else if (actionKey === 'open-docs') {
+    window.open('https://tanstack.com/table/v8', '_blank')
+  }
+}
+
 const theme = ref('dark')
 const accentColor = ref('#3ecf8e')
 const editable = ref(true)
@@ -291,6 +325,7 @@ const dividerColor = (dark) => dark ? '#333' : '#e4e4e7'
       :editable="editable"
       :default-column-visibility="{ coordinate_system_type: false }"
       :selection-actions="selectionActions"
+      :toolbar-actions="toolbarActions"
       :cell-button-visibility="cellButtonVisibility"
       :get-sub-table="getSubTable"
       :sub-table-columns="employeeColumns"
@@ -299,6 +334,7 @@ const dividerColor = (dark) => dark ? '#333' : '#e4e4e7'
       @delete-rows="handleDelete"
       @refresh="handleRefresh"
       @selection-action="handleSelectionAction"
+      @toolbar-action="handleToolbarAction"
     />
 
   </div>

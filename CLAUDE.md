@@ -128,6 +128,9 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 | `showDataTypes` | `Boolean` | `true` | Show type badges in headers and panels |
 | `editable` | `Boolean\|Object` | `true` | `true`/`false` gates all mutations; or `{ insert, update, delete }` booleans for per-operation control |
 | `selectionActions` | `Array` | `[]` | Custom actions: `[{ key: string, label: string }]` |
+| `enableSelectAll` | `Boolean` | `true` | When `true`, shows a "Select all N items" button next to "Clear selection" in the selection toolbar. Selects every row across all pages (post-filter). The header checkbox itself only toggles the current page. |
+| `toolbarActions` | `Array` | `[]` | Custom dropdown next to the Sort button. Items: `[{ key, label, icon?, disabled?, divider? }]`. `divider: true` renders a separator. `icon` is raw SVG markup. Emits `toolbar-action` with the `key`. The button is hidden when this array is empty. |
+| `toolbarActionsLabel` | `String` | `'Actions'` | Label shown on the `toolbarActions` dropdown trigger button. |
 | `showRowBorders` | `Boolean` | `true` | Horizontal row dividers |
 | `showColumnBorders` | `Boolean` | `true` | Vertical column dividers |
 | `cellButtonVisibility` | `String` | `'hover'` | `'hover'` \| `'always'` \| `'select'` — when to show trailing cell buttons defined via `meta.cellButtons`. `'select'` uses the existing click-to-select cell state. |
@@ -144,6 +147,7 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 | `delete-rows` | `Array<string>` (IDs) | Delete confirmation accepted |
 | `refresh` | — | Refresh button clicked |
 | `selection-action` | `(actionKey, rows[])` | Custom action triggered |
+| `toolbar-action` | `actionKey` | User picked an item from the `toolbarActions` dropdown |
 | `page-change` | `{ pageIndex, pageSize }` | Page navigation in server-side pagination mode |
 | `column-resize` | `Object<colId, number>` | User finishes resizing a column |
 
