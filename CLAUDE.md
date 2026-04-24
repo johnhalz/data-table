@@ -137,6 +137,7 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 | `theme` | `String` | `'dark'` | `'dark'` or `'light'` — switches the full color palette |
 | `accentColor` | `String` | `'#3ecf8e'` | Primary accent hex color (buttons, indicators, selections) |
 | `totalCount` | `Number` | `null` | Total rows for server-side pagination; enables manual pagination mode and `page-change` event |
+| `stagedEdits` | `Boolean` | `false` | When `true`, inserts/updates/deletes are queued locally instead of emitting immediately. The footer shows a "N pending changes" badge with **Commit** and **Clear edits** buttons. Individual `insert-row` / `update-row` / `delete-rows` events do NOT fire in this mode — the parent receives a single `commit-edits` event with the full batch. Pending edits are visually marked in the grid (modified cells get an accent stripe + previous-value tooltip; inserted rows are tinted; deleted rows are struck-through) and each can be undone via the right-click context menu before commit. |
 
 ## SDK Events
 
@@ -150,6 +151,8 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 | `toolbar-action` | `actionKey` | User picked an item from the `toolbarActions` dropdown |
 | `page-change` | `{ pageIndex, pageSize }` | Page navigation in server-side pagination mode |
 | `column-resize` | `Object<colId, number>` | User finishes resizing a column |
+| `commit-edits` | `({ inserts, updates, deletes }, done)` | User clicked **Commit** in staged-edits mode. `inserts` is `Array<rowData>`, `updates` is `Array<{ id, changes }>`, `deletes` is `Array<id>`. The parent **must** call `done(true)` when the batch has been applied successfully (clears the queue) or `done(false)` on failure (queue is preserved for retry). The Commit button shows a spinner until `done` is called. |
+| `discard-edits` | — | User clicked **Clear edits** and confirmed the dialog. |
 
 ## Column Definition
 

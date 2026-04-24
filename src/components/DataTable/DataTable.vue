@@ -13,6 +13,7 @@ import TableGrid from './TableGrid.vue'
 import TablePagination from './TablePagination.vue'
 import RowEditPanel from './RowEditPanel.vue'
 import ContextMenu from './ContextMenu.vue'
+import { PENDING_EDIT_KINDS, PENDING_INSERT_ID_PREFIX } from './types.js'
 
 const props = defineProps({
   columns: { type: Array, required: true },
@@ -52,10 +53,19 @@ const props = defineProps({
   emptyMessage: { type: String, default: 'Get started by inserting a new row.' },
   // Server-side pagination: pass totalCount to enable manual pagination mode
   totalCount: { type: Number, default: null },
+  // When false, the pagination footer hides random-access controls (page input / jump-to-page).
+  // Useful for cursor-based APIs where only sequential prev/next navigation is meaningful.
+  hasRandomAccess: { type: Boolean, default: true },
+  // v-model:column-filters — let the parent observe/control top-level column filter state
+  columnFilters: { type: Array, default: null },
   // Externally controlled state (used by parent to push sub-table state into nested instances)
   controlledSorting: { type: Array, default: null },
   controlledColumnFilters: { type: Array, default: null },
   controlledColumnVisibility: { type: Object, default: null },
+  // When true, mutations (insert/update/delete) are queued locally and surfaced
+  // in the footer instead of being emitted immediately. The parent applies them
+  // as a batch by handling the `commit-edits` event.
+  stagedEdits: { type: Boolean, default: false },
 })
 
 // Theme CSS custom properties
@@ -129,6 +139,9 @@ const emit = defineEmits([
   'sub-table-event',
   'column-resize',
   'page-change',
+  'update:column-filters',
+  'commit-edits',
+  'discard-edits',
 ])
 
 // Normalize editable prop to { insert, update, delete }
@@ -143,10 +156,14 @@ const errorDismissed = ref(false)
 watch(() => props.error, () => { errorDismissed.value = false })
 
 const data = shallowRef(props.rows)
-watch(() => props.rows, (val) => { data.value = val })
+watch(() => props.rows, (val) => {
+  // When staged-edits is off, the data ref is driven directly from props.
+  // When it's on, we route through effectiveRows below.
+  if (!props.stagedEdits) data.value = val
+})
 
 const sorting = ref(props.controlledSorting ?? [])
-const columnFilters = ref(props.controlledColumnFilters ?? [])
+const columnFilters = ref(props.controlledColumnFilters ?? props.columnFilters ?? [])
 const rowSelection = ref({})
 const pagination = ref({ pageIndex: 0, pageSize: 100 })
 const columnSizing = ref({})
@@ -165,6 +182,9 @@ watch(() => props.controlledSorting, (val) => {
   if (val !== null) sorting.value = val
 }, { deep: true })
 watch(() => props.controlledColumnFilters, (val) => {
+  if (val !== null) columnFilters.value = val
+}, { deep: true })
+watch(() => props.columnFilters, (val) => {
   if (val !== null) columnFilters.value = val
 }, { deep: true })
 watch(() => props.controlledColumnVisibility, (val) => {
@@ -239,6 +259,189 @@ const primaryKeyField = computed(() => {
 
 const isServerPagination = computed(() => props.totalCount !== null)
 
+// --- Staged edits state ---
+// Map<rowId, { kind, changes?, snapshot? }> — kind: 'insert' | 'update' | 'delete'
+// - insert: `changes` holds the full new row; id is a synthetic PENDING_INSERT_ID_PREFIX + uuid.
+// - update: `changes` holds a per-column diff; `snapshot` preserves the original row for undo/tooltips.
+// - delete: `snapshot` holds the original row so we can keep rendering it struck-through.
+const pendingEdits = ref(new Map())
+const committing = ref(false)
+let pendingInsertCounter = 0
+
+function nextInsertId() {
+  pendingInsertCounter += 1
+  return `${PENDING_INSERT_ID_PREFIX}${Date.now()}_${pendingInsertCounter}`
+}
+
+function getRowById(rowId) {
+  const key = primaryKeyField.value
+  return props.rows.find(r => String(r[key] ?? r.id) === String(rowId))
+}
+
+const hasPendingEdits = computed(() => pendingEdits.value.size > 0)
+const pendingEditCount = computed(() => pendingEdits.value.size)
+
+// Rows rendered by the grid with pending edits merged in.
+const effectiveRows = computed(() => {
+  if (!props.stagedEdits || pendingEdits.value.size === 0) return props.rows
+  const key = primaryKeyField.value
+  const inserts = []
+  const result = props.rows.map(row => {
+    const rowId = String(row[key] ?? row.id)
+    const entry = pendingEdits.value.get(rowId)
+    if (!entry) return row
+    if (entry.kind === PENDING_EDIT_KINDS.UPDATE) {
+      return { ...row, ...entry.changes }
+    }
+    // 'delete' — keep original row; the grid renders it struck-through via pending state
+    return row
+  })
+  for (const [rowId, entry] of pendingEdits.value) {
+    if (entry.kind === PENDING_EDIT_KINDS.INSERT) {
+      // Carry the synthetic id in a reserved field so TanStack's getRowId can
+      // uniquely identify the pending row even when the user's PK value
+      // collides with an existing committed row (or is left blank).
+      inserts.push({ ...entry.changes, __stagedId: rowId })
+    }
+  }
+  return [...result, ...inserts]
+})
+
+function queueInsert(insertData) {
+  const id = nextInsertId()
+  const next = new Map(pendingEdits.value)
+  next.set(id, { kind: PENDING_EDIT_KINDS.INSERT, changes: { ...insertData } })
+  pendingEdits.value = next
+}
+
+function queueUpdate(rowId, changes) {
+  const key = String(rowId)
+  const next = new Map(pendingEdits.value)
+  const existing = next.get(key)
+  if (existing?.kind === PENDING_EDIT_KINDS.INSERT) {
+    next.set(key, { kind: PENDING_EDIT_KINDS.INSERT, changes: { ...existing.changes, ...changes } })
+  } else if (existing?.kind === PENDING_EDIT_KINDS.DELETE) {
+    // Editing a row that's queued for delete cancels the delete and becomes an update.
+    const snapshot = existing.snapshot ?? getRowById(key)
+    next.set(key, { kind: PENDING_EDIT_KINDS.UPDATE, changes: { ...changes }, snapshot })
+  } else if (existing?.kind === PENDING_EDIT_KINDS.UPDATE) {
+    const mergedChanges = { ...existing.changes, ...changes }
+    // If the merged changes all match the snapshot, drop the entry.
+    const snapshot = existing.snapshot
+    const stillDiffers = Object.keys(mergedChanges).some(k => mergedChanges[k] !== snapshot?.[k])
+    if (stillDiffers) {
+      next.set(key, { kind: PENDING_EDIT_KINDS.UPDATE, changes: mergedChanges, snapshot })
+    } else {
+      next.delete(key)
+    }
+  } else {
+    const snapshot = getRowById(key)
+    // No-op if the new value already matches the current row.
+    const stillDiffers = Object.keys(changes).some(k => changes[k] !== snapshot?.[k])
+    if (stillDiffers) {
+      next.set(key, { kind: PENDING_EDIT_KINDS.UPDATE, changes: { ...changes }, snapshot })
+    }
+  }
+  pendingEdits.value = next
+}
+
+function queueDelete(ids) {
+  const next = new Map(pendingEdits.value)
+  for (const rawId of ids) {
+    const id = String(rawId)
+    const existing = next.get(id)
+    if (existing?.kind === PENDING_EDIT_KINDS.INSERT) {
+      // Deleting a pending insert just discards the insert.
+      next.delete(id)
+    } else {
+      const snapshot = existing?.snapshot ?? getRowById(id)
+      next.set(id, { kind: PENDING_EDIT_KINDS.DELETE, snapshot })
+    }
+  }
+  pendingEdits.value = next
+}
+
+function undoRowEdit(rowId) {
+  const next = new Map(pendingEdits.value)
+  next.delete(String(rowId))
+  pendingEdits.value = next
+}
+
+function undoCellEdit(rowId, colId) {
+  const key = String(rowId)
+  const entry = pendingEdits.value.get(key)
+  if (!entry || entry.kind !== PENDING_EDIT_KINDS.UPDATE) return
+  const { [colId]: _dropped, ...rest } = entry.changes
+  const next = new Map(pendingEdits.value)
+  if (Object.keys(rest).length === 0) {
+    next.delete(key)
+  } else {
+    next.set(key, { ...entry, changes: rest })
+  }
+  pendingEdits.value = next
+}
+
+function getRowPendingState(rowId) {
+  return pendingEdits.value.get(String(rowId))?.kind ?? null
+}
+
+function getCellPendingState(rowId, colId) {
+  const entry = pendingEdits.value.get(String(rowId))
+  if (!entry) return null
+  if (entry.kind === PENDING_EDIT_KINDS.UPDATE && colId in entry.changes) return 'modified'
+  return null
+}
+
+function getCellPreviousValue(rowId, colId) {
+  const entry = pendingEdits.value.get(String(rowId))
+  if (!entry || entry.kind !== PENDING_EDIT_KINDS.UPDATE) return undefined
+  return entry.snapshot?.[colId]
+}
+
+function buildCommitPayload() {
+  const inserts = []
+  const updates = []
+  const deletes = []
+  for (const [rowId, entry] of pendingEdits.value) {
+    if (entry.kind === PENDING_EDIT_KINDS.INSERT) {
+      inserts.push({ ...entry.changes })
+    } else if (entry.kind === PENDING_EDIT_KINDS.UPDATE) {
+      updates.push({ id: rowId, changes: { ...entry.changes } })
+    } else if (entry.kind === PENDING_EDIT_KINDS.DELETE) {
+      deletes.push(rowId)
+    }
+  }
+  return { inserts, updates, deletes }
+}
+
+function commitEdits() {
+  if (committing.value || !hasPendingEdits.value) return
+  const payload = buildCommitPayload()
+  committing.value = true
+  // The parent calls `done(ok)` to signal completion: ok=true clears the queue,
+  // ok=false leaves it intact so the user can retry or discard.
+  const done = (ok) => {
+    committing.value = false
+    if (ok) pendingEdits.value = new Map()
+  }
+  emit('commit-edits', payload, done)
+}
+
+function discardEdits() {
+  pendingEdits.value = new Map()
+  emit('discard-edits')
+}
+
+// Route effectiveRows into the TanStack data ref when staged mode is active.
+watch(
+  () => [props.stagedEdits, effectiveRows.value],
+  ([staged, rows]) => {
+    if (staged) data.value = rows
+    else data.value = props.rows
+  },
+  { immediate: true }
+)
+
 const table = useVueTable({
   data: data,
   get columns() { return props.columns },
@@ -258,6 +461,7 @@ const table = useVueTable({
   },
   onColumnFiltersChange: updater => {
     columnFilters.value = typeof updater === 'function' ? updater(columnFilters.value) : updater
+    emit('update:column-filters', columnFilters.value)
   },
   onRowSelectionChange: updater => {
     rowSelection.value = typeof updater === 'function' ? updater(rowSelection.value) : updater
@@ -297,7 +501,7 @@ const table = useVueTable({
   enableMultiRowSelection: true,
   enableColumnResizing: true,
   columnResizeMode: 'onChange',
-  getRowId: (row) => String(row[primaryKeyField.value] ?? row.id),
+  getRowId: (row) => row.__stagedId ? String(row.__stagedId) : String(row[primaryKeyField.value] ?? row.id),
 })
 
 const selectedCount = computed(() => Object.keys(rowSelection.value).length)
@@ -320,16 +524,36 @@ function closeEditPanel() {
 
 function handleSavePanel(data) {
   if (editPanel.value.mode === 'insert') {
-    emit('insert-row', data)
+    if (props.stagedEdits) queueInsert(data)
+    else emit('insert-row', data)
   } else {
-    emit('update-row', { id: data.id, changes: data })
+    if (props.stagedEdits) {
+      const key = primaryKeyField.value
+      const rowId = String(data[key] ?? data.id)
+      // Diff against the current row so we only queue actual changes.
+      const original = getRowById(rowId) ?? {}
+      const changes = {}
+      for (const k of Object.keys(data)) {
+        if (k === key) continue
+        if (data[k] !== original[k]) changes[k] = data[k]
+      }
+      if (Object.keys(changes).length > 0) queueUpdate(rowId, changes)
+    } else {
+      emit('update-row', { id: data.id, changes: data })
+    }
   }
   closeEditPanel()
 }
 
 function handleDeleteRows(ids) {
-  emit('delete-rows', ids)
+  if (props.stagedEdits) queueDelete(ids)
+  else emit('delete-rows', ids)
   table.resetRowSelection()
+}
+
+function handleUpdateCell(rowId, colId, value) {
+  if (props.stagedEdits) queueUpdate(rowId, { [colId]: value })
+  else emit('update-row', { id: rowId, changes: { [colId]: value } })
 }
 
 // Context menu state
@@ -383,6 +607,13 @@ provide('parentAccentColor', computed(() => props.accentColor))
 provide('subTableSorting', subTableSorting)
 provide('subTableColumnFilters', subTableColumnFilters)
 provide('subTableColumnVisibility', subTableColumnVisibility)
+// Staged edits
+provide('stagedEditsEnabled', computed(() => props.stagedEdits))
+provide('getRowPendingState', getRowPendingState)
+provide('getCellPendingState', getCellPendingState)
+provide('getCellPreviousValue', getCellPreviousValue)
+provide('undoRowEdit', undoRowEdit)
+provide('undoCellEdit', undoCellEdit)
 
 // Reset selection when rows change
 watch(() => props.rows, () => {
@@ -520,12 +751,22 @@ onMounted(() => {
       <div class="flex flex-col flex-1 min-w-0 min-h-0">
         <TableGrid
           :table="table"
-          @update-cell="(rowId, colId, value) => emit('update-row', { id: rowId, changes: { [colId]: value } })"
+          @update-cell="handleUpdateCell"
           @context-menu="openContextMenu"
           @edit-row="openEditPanel"
         />
 
-        <TablePagination v-if="showPagination" :table="table" :total-count="totalCount" />
+        <TablePagination
+          v-if="showPagination"
+          :table="table"
+          :total-count="totalCount"
+          :has-random-access="hasRandomAccess"
+          :staged-edits="stagedEdits"
+          :pending-edit-count="pendingEditCount"
+          :committing="committing || loading"
+          @commit="commitEdits"
+          @discard="discardEdits"
+        />
       </div>
 
       <Transition name="slide-panel">
@@ -551,6 +792,8 @@ onMounted(() => {
       @edit-row="openEditPanel(contextMenu.row.original)"
       @delete-row="handleDeleteRows([contextMenu.row.id])"
       @filter-by-value="handleFilterByValue"
+      @undo-row="undoRowEdit(contextMenu.row.id)"
+      @undo-cell="(colId) => undoCellEdit(contextMenu.row.id, colId)"
     />
   </div>
 </template>

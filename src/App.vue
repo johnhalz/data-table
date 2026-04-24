@@ -83,6 +83,31 @@ const accentColor = ref('#3ecf8e')
 const editable = ref(true)
 const isEmpty = ref(false)
 const showChildTables = ref(true)
+const stagedEdits = ref(false)
+
+function handleCommitEdits({ inserts, updates, deletes }, done) {
+  // Simulate an async API call so the user can see the loading spinner.
+  setTimeout(() => {
+    let nextId = rows.value.length > 0 ? Math.max(...rows.value.map(r => r.id)) : 0
+    let next = [...rows.value]
+    for (const row of inserts) {
+      nextId += 1
+      next.push({ ...row, id: nextId })
+    }
+    if (updates.length > 0) {
+      next = next.map(r => {
+        const match = updates.find(u => String(u.id) === String(r.id))
+        return match ? { ...r, ...match.changes } : r
+      })
+    }
+    if (deletes.length > 0) {
+      const idSet = new Set(deletes.map(String))
+      next = next.filter(r => !idSet.has(String(r.id)))
+    }
+    rows.value = next
+    done(true)
+  }, 600)
+}
 const cellButtonVisibility = ref('hover')
 const cellButtonOptions = [
   { value: 'hover', label: 'On hover' },
@@ -219,6 +244,26 @@ const dividerColor = (dark) => dark ? '#333' : '#e4e4e7'
             </div>
           </div>
 
+          <!-- Staged edits toggle -->
+          <div
+            class="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer rounded-sm mx-1"
+            :style="{ color: btnColor(theme === 'dark') }"
+            @mouseenter="$event.currentTarget.style.backgroundColor = menuHoverBg(theme === 'dark')"
+            @mouseleave="$event.currentTarget.style.backgroundColor = 'transparent'"
+            @click="stagedEdits = !stagedEdits"
+          >
+            <span>Staged edits</span>
+            <div
+              class="relative w-8 h-4 rounded-full transition-colors duration-200 shrink-0"
+              :style="{ backgroundColor: stagedEdits ? accentColor : (theme === 'dark' ? '#444' : '#d4d4d8') }"
+            >
+              <div
+                class="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-200"
+                :style="{ transform: stagedEdits ? 'translateX(18px)' : 'translateX(2px)' }"
+              />
+            </div>
+          </div>
+
           <!-- Cell buttons visibility -->
           <div class="my-1 mx-3" :style="{ borderTop: '1px solid ' + dividerColor(theme === 'dark') }" />
           <div class="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider opacity-40">Cell buttons</div>
@@ -323,6 +368,7 @@ const dividerColor = (dark) => dark ? '#333' : '#e4e4e7'
       :theme="theme"
       :accent-color="accentColor"
       :editable="editable"
+      :staged-edits="stagedEdits"
       :default-column-visibility="{ coordinate_system_type: false }"
       :selection-actions="selectionActions"
       :toolbar-actions="toolbarActions"
@@ -332,6 +378,7 @@ const dividerColor = (dark) => dark ? '#333' : '#e4e4e7'
       @insert-row="handleInsert"
       @update-row="handleUpdate"
       @delete-rows="handleDelete"
+      @commit-edits="handleCommitEdits"
       @refresh="handleRefresh"
       @selection-action="handleSelectionAction"
       @toolbar-action="handleToolbarAction"

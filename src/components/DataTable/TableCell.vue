@@ -10,6 +10,19 @@ const editable = inject('editable', true)
 const showRowBorders = inject('showRowBorders', true)
 const showColumnBorders = inject('showColumnBorders', true)
 const cellButtonVisibilityInjected = inject('cellButtonVisibility', 'hover')
+const getCellPendingState = inject('getCellPendingState', () => null)
+const getCellPreviousValue = inject('getCellPreviousValue', () => undefined)
+const getRowPendingState = inject('getRowPendingState', () => null)
+
+const cellPendingState = computed(() =>
+  getCellPendingState(props.cell.row.id, props.cell.column.id)
+)
+const rowPendingState = computed(() => getRowPendingState(props.cell.row.id))
+const previousValue = computed(() =>
+  getCellPreviousValue(props.cell.row.id, props.cell.column.id)
+)
+const isCellModified = computed(() => cellPendingState.value === 'modified')
+const isRowDeleted = computed(() => rowPendingState.value === 'delete')
 
 const cellButtonClass = computed(() => {
   const mode = isRef(cellButtonVisibilityInjected)
@@ -117,9 +130,12 @@ function toggleBoolean() {
       maxWidth: `${cell.column.getSize()}px`,
       borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
       borderRight: showColumnBorders ? '1px solid var(--st-border)' : 'none',
-      boxShadow: isSelected && !isEditing ? 'inset 0 0 0 2px var(--st-accent)' : 'none',
+      boxShadow: isSelected && !isEditing
+        ? 'inset 0 0 0 2px var(--st-accent)'
+        : (isCellModified ? 'inset 3px 0 0 var(--st-accent)' : 'none'),
       zIndex: isEditing ? 20 : (isSelected ? 10 : 'auto'),
     }"
+    :title="isCellModified && previousValue !== undefined ? `Was: ${previousValue === null || previousValue === '' ? '(empty)' : previousValue}` : undefined"
     @click="handleClick"
     @dblclick="handleDoubleClick"
   >
@@ -202,7 +218,10 @@ function toggleBoolean() {
 
     <!-- Display mode with optional cell buttons -->
     <template v-else>
-      <div class="flex items-start gap-1 min-w-0">
+      <div
+        class="flex items-start gap-1 min-w-0"
+        :style="isRowDeleted ? { textDecoration: 'line-through', opacity: 0.5 } : {}"
+      >
         <!-- Text content -->
         <div class="flex-1 min-w-0 text-[13px]" :style="{ color: 'var(--st-text)' }">
           <template v-if="cell.getValue() === null || cell.getValue() === undefined">

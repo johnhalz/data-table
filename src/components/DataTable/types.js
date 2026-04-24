@@ -64,3 +64,11 @@ export const PAGE_SIZE_OPTIONS = [100, 500, 1000]
 export const DEFAULT_COLUMN_WIDTH = 180
 export const ROW_NUMBER_WIDTH = 60
 export const CHECKBOX_WIDTH = 50
+
+export const PENDING_EDIT_KINDS = {
+  INSERT: 'insert',
+  UPDATE: 'update',
+  DELETE: 'delete',
+}
+
+export const PENDING_INSERT_ID_PREFIX = '__pending_'

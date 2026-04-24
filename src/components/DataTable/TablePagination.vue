@@ -1,10 +1,16 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   table: { type: Object, required: true },
   totalCount: { type: Number, default: null },
+  hasRandomAccess: { type: Boolean, default: true },
+  stagedEdits: { type: Boolean, default: false },
+  pendingEditCount: { type: Number, default: 0 },
+  committing: { type: Boolean, default: false },
 })
+
+const emit = defineEmits(['commit', 'discard'])
 
 const pageIndex = computed(() => props.table.getState().pagination.pageIndex)
 const pageSize = computed(() => props.table.getState().pagination.pageSize)
@@ -23,6 +29,19 @@ function handlePageInput(e) {
   if (!isNaN(val)) {
     goToPage(val - 1)
   }
+}
+
+// Discard confirmation
+const showDiscardConfirm = ref(false)
+
+function requestDiscard() {
+  if (props.pendingEditCount === 0) return
+  showDiscardConfirm.value = true
+}
+
+function confirmDiscard() {
+  emit('discard')
+  showDiscardConfirm.value = false
 }
 </script>
 
@@ -46,6 +65,7 @@ function handlePageInput(e) {
     <div class="flex items-center gap-1.5">
       <span>Page</span>
       <input
+        v-if="hasRandomAccess"
         type="number"
         :value="pageIndex + 1"
         min="1"
@@ -54,6 +74,7 @@ function handlePageInput(e) {
         :style="{ backgroundColor: 'var(--st-bg-input)', border: '1px solid var(--st-border-secondary)', color: 'var(--st-text)' }"
         @change="handlePageInput"
       />
+      <span v-else class="tabular-nums" :style="{ color: 'var(--st-text)' }">{{ pageIndex + 1 }}</span>
       <span>of {{ pageCount }}</span>
     </div>
 
@@ -87,9 +108,97 @@ function handlePageInput(e) {
 
     <div class="flex-1"></div>
 
+    <!-- Staged edits: count + Clear / Commit -->
+    <template v-if="stagedEdits && pendingEditCount > 0">
+      <span
+        class="tabular-nums px-2 py-0.5 rounded"
+        :style="{
+          color: 'var(--st-accent)',
+          backgroundColor: 'var(--st-accent-bg)',
+          border: '1px solid var(--st-accent-border-light)',
+        }"
+      >
+        {{ pendingEditCount }} pending change{{ pendingEditCount !== 1 ? 's' : '' }}
+      </span>
+      <button
+        class="px-2 py-0.5 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        :style="{
+          border: '1px solid var(--st-border-secondary)',
+          color: 'var(--st-text-secondary)',
+          backgroundColor: 'transparent',
+        }"
+        :disabled="committing"
+        @click="requestDiscard"
+      >
+        Clear edits
+      </button>
+      <button
+        class="flex items-center gap-1.5 px-2.5 py-0.5 rounded font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        :style="{
+          backgroundColor: 'var(--st-accent)',
+          color: 'var(--st-text-on-accent)',
+        }"
+        :disabled="committing"
+        @click="emit('commit')"
+      >
+        <svg
+          v-if="committing"
+          class="w-3 h-3 animate-spin"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M8 1.5a6.5 6.5 0 1 1-6.5 6.5" stroke-linecap="round" />
+        </svg>
+        {{ committing ? 'Committing…' : 'Commit' }}
+      </button>
+      <div class="w-px h-4 mx-1" :style="{ backgroundColor: 'var(--st-border)' }"></div>
+    </template>
+
     <!-- Record count -->
     <span :style="{ color: 'var(--st-text-tertiary)' }">
       {{ totalRecords.toLocaleString() }} record{{ totalRecords !== 1 ? 's' : '' }}
     </span>
+
+    <!-- Discard confirmation modal -->
+    <Teleport to="body">
+      <div
+        v-if="showDiscardConfirm"
+        class="fixed inset-0 z-[100] flex items-center justify-center"
+        :style="{ backgroundColor: 'var(--st-bg-overlay)' }"
+        @click.self="showDiscardConfirm = false"
+      >
+        <div
+          class="rounded-lg shadow-xl p-5 w-80"
+          :style="{
+            backgroundColor: 'var(--st-bg-surface)',
+            border: '1px solid var(--st-border-secondary)',
+            color: 'var(--st-text)',
+          }"
+        >
+          <h3 class="font-semibold text-[14px] mb-2">Clear all pending edits?</h3>
+          <p class="text-[13px] mb-4" :style="{ color: 'var(--st-text-secondary)' }">
+            This will discard {{ pendingEditCount }} pending change{{ pendingEditCount !== 1 ? 's' : '' }}. This action cannot be undone.
+          </p>
+          <div class="flex items-center justify-end gap-2">
+            <button
+              class="px-3 py-1 rounded text-[13px]"
+              :style="{ border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)' }"
+              @click="showDiscardConfirm = false"
+            >
+              Cancel
+            </button>
+            <button
+              class="px-3 py-1 rounded text-[13px] font-medium"
+              style="background-color: #ef4444; color: white;"
+              @click="confirmDiscard"
+            >
+              Clear edits
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

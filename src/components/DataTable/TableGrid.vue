@@ -32,6 +32,9 @@ const subTableSorting = inject('subTableSorting', ref([]))
 const subTableColumnFilters = inject('subTableColumnFilters', ref([]))
 const subTableColumnVisibility = inject('subTableColumnVisibility', ref({}))
 
+// Staged edits — used to tint inserted rows and mark deleted rows
+const getRowPendingState = inject('getRowPendingState', () => null)
+
 const emit = defineEmits(['update-cell', 'context-menu', 'edit-row'])
 
 const selectedCell = ref(null)
@@ -137,8 +140,11 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
     :class="nestingDepth === 0 ? 'absolute inset-0 overflow-auto flex flex-col' : 'flex flex-col'"
     @click.self="clearSelection"
   >
-    <table class="border-collapse table-fixed shrink-0" :style="{ width: totalTableWidth + 'px' }">
-      <thead class="sticky top-0 z-20">
+    <table
+      class="border-collapse table-fixed shrink-0 sticky top-0 z-20"
+      :style="{ width: totalTableWidth + 'px', backgroundColor: 'var(--st-bg-header)' }"
+    >
+      <thead>
         <tr
           v-for="headerGroup in headerGroups"
           :key="headerGroup.id"
@@ -202,7 +208,11 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
           :ref="el => el && virtualizer.measureElement(el)"
           :data-index="vRow.index"
           class="st-row group"
-          :class="{ 'st-row--selected': rows[vRow.index].getIsSelected() }"
+          :class="{
+            'st-row--selected': rows[vRow.index].getIsSelected(),
+            'st-row--pending-insert': getRowPendingState(rows[vRow.index].id) === 'insert',
+            'st-row--pending-delete': getRowPendingState(rows[vRow.index].id) === 'delete',
+          }"
           :style="{
             position: 'absolute',
             top: '0px',
@@ -432,5 +442,25 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
 }
 .st-row--selected .st-sticky-cell {
   background-color: var(--st-bg-selected-cell);
+}
+
+/* Staged edits: pending-insert rows tinted with accent, pending-delete rows dimmed. */
+.st-row--pending-insert {
+  background-color: var(--st-accent-bg);
+}
+.st-row--pending-insert:hover {
+  background-color: var(--st-accent-bg);
+}
+.st-row--pending-insert .st-sticky-cell {
+  background-color: var(--st-accent-bg);
+}
+.st-row--pending-delete {
+  background-color: rgba(239, 68, 68, 0.08);
+}
+.st-row--pending-delete:hover {
+  background-color: rgba(239, 68, 68, 0.12);
+}
+.st-row--pending-delete .st-sticky-cell {
+  background-color: rgba(239, 68, 68, 0.08);
 }
 </style>
