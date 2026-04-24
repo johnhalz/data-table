@@ -180,9 +180,9 @@ function handleCustomAction(action) {
 
     <!-- Delete confirmation dialog -->
     <Teleport to="body">
-      <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center" :style="themeVars">
+      <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center" :style="{ ...themeVars }">
         <div class="fixed inset-0" :style="{ backgroundColor: 'var(--st-bg-overlay)' }" @click="showDeleteConfirm = false" />
-        <div class="relative rounded-lg shadow-2xl w-96 text-[13px]" :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }">
+        <div class="relative rounded-lg shadow-2xl w-96 text-[13px]" :style="{ ...themeVars, backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }">
           <div class="px-5 pt-5 pb-4">
             <h3 class="font-medium text-sm mb-2" :style="{ color: 'var(--st-text)' }">Confirm deletion</h3>
             <p :style="{ color: 'var(--st-text-secondary)' }">
