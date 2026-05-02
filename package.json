@@ -1,30 +1,37 @@
 {
   "name": "data-table",
-  "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Feature-rich Vue 3 data grid built on TanStack Table",
   "type": "module",
+  "files": ["dist", "src/components/DataTable/index.d.ts"],
   "exports": {
     ".": {
       "types": "./src/components/DataTable/index.d.ts",
-      "default": "./src/components/DataTable/index.js"
+      "default": "./dist/data-table.js"
     },
-    "./style.css": "./src/style.css"
+    "./style.css": "./dist/data-table.css"
   },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:lib": "BUILD_LIB=true vite build",
+    "prepare": "test -f dist/data-table.js || BUILD_LIB=true vite build",
     "preview": "vite preview"
   },
-  "dependencies": {
-    "@tanstack/vue-table": "^8.21.3",
-    "@tanstack/vue-virtual": "^3.13.24",
-    "@vueuse/core": "^14.2.1",
-    "vue": "^3.5.33"
+  "peerDependencies": {
+    "@tanstack/vue-table": "^8.21",
+    "@tanstack/vue-virtual": "^3.13",
+    "@vueuse/core": "^14.2",
+    "vue": "^3.5"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.4",
+    "@tanstack/vue-table": "^8.21.3",
+    "@tanstack/vue-virtual": "^3.13.24",
     "@vitejs/plugin-vue": "^6.0.6",
+    "@vueuse/core": "^14.3.0",
     "tailwindcss": "^4.2.4",
-    "vite": "^8.0.9"
+    "vite": "^8.0.10",
+    "vue": "^3.5.33"
   }
 }

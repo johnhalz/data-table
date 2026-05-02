@@ -35,6 +35,7 @@
  * @property {boolean} [showDataTypes] - Show type badges in sub-table headers
  * @property {boolean} [showRowBorders] - Horizontal row dividers in sub-table
  * @property {boolean} [showColumnBorders] - Vertical column dividers in sub-table
+ * @property {string} [fontFamily] - Same as `fontFamily` on `DataTable` (CSS stack)
  * @property {Function} [getSubTable] - Recursive: allows nested sub-tables within sub-tables
  */
 

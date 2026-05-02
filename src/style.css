@@ -1,13 +1,30 @@
 @import "tailwindcss";
 
-* {
+/**
+ * All embeddable table UI typography + scrollbars are scoped under `.data-table-root`
+ * so importing `data-table/style.css` does not reshape the host page `<body>` / `*`.
+ */
+
+.data-table-root {
+  isolation: isolate;
+  /* --dt-font-family is always set inline on this element (bundled default or `fontFamily` prop). */
+  font-family: var(--dt-font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
   scrollbar-width: thin;
+}
+
+.data-table-root * {
+  scrollbar-width: inherit;
+}
+
+.data-table-root[data-st-theme='dark'],
+.data-table-root[data-st-theme='dark'] * {
   scrollbar-color: #444 transparent;
 }
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+.data-table-root[data-st-theme='light'],
+.data-table-root[data-st-theme='light'] * {
+  scrollbar-color: #a8a29e transparent;
 }
