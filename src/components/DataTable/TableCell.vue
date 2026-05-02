@@ -31,7 +31,7 @@ const cellButtonClass = computed(() => {
     : cellButtonVisibilityInjected
   if (mode === 'always') return 'opacity-100'
   if (mode === 'select') return props.isSelected ? 'opacity-100' : 'opacity-0'
-  return 'opacity-0 group-hover/cell:opacity-100'
+  return 'opacity-0 group-hover/row:opacity-100'
 })
 
 const emit = defineEmits(['select', 'update', 'editing-change'])
@@ -170,7 +170,7 @@ function toggleBoolean() {
 
 <template>
   <div
-    class="px-2 py-1.5 relative cursor-default group/cell align-middle"
+    class="px-2 py-1.5 relative cursor-default align-middle"
     :style="{
       display: 'table-cell',
       width: `${cell.column.getSize()}px`,
@@ -310,7 +310,7 @@ function toggleBoolean() {
         <!-- Trailing cell buttons -->
         <div
           v-if="cellButtons.length > 0"
-          :class="['flex items-center gap-0.5 shrink-0 transition-opacity', cellButtonClass]"
+          :class="['flex items-center gap-0.5 shrink-0', cellButtonClass]"
         >
           <button
             v-for="btn in cellButtons"
