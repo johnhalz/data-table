@@ -1,16 +1,23 @@
 <script setup>
-import { ref, computed, inject, useTemplateRef, toValue } from 'vue'
-import { FlexRender } from '@tanstack/vue-table'
-import { useVirtualizer } from '@tanstack/vue-virtual'
+import { ref, computed, inject, useTemplateRef, unref, toValue } from 'vue'
 import TableColumnHeader from './TableColumnHeader.vue'
-import TableCell from './TableCell.vue'
-import DataTable from './DataTable.vue'
+import TableGridVirtualRows from './TableGridVirtualRows.vue'
+import TableGridFlowRows from './TableGridFlowRows.vue'
+
+/** Rows at or below this render in document flow (scrollbar track size is stable); above uses TanStack Virtual. */
+const ROW_VIRTUALIZATION_THRESHOLD = 500
 
 const props = defineProps({
   table: { type: Object, required: true },
 })
 
-const editable = inject('editable', true)
+const editableInject = inject('editable', true)
+const editable = computed(() => {
+  const e = unref(editableInject)
+  if (e === true) return { insert: true, update: true, delete: true }
+  if (e === false) return { insert: false, update: false, delete: false }
+  return { insert: true, update: true, delete: true, ...e }
+})
 const showRowBorders = inject('showRowBorders', true)
 const showColumnBorders = inject('showColumnBorders', true)
 const emptyTitle = inject('emptyTitle', 'No rows found')
@@ -20,20 +27,7 @@ const defaultInsertLabel = inject('defaultInsertLabel', null)
 const insertRow = inject('insertRow', () => {})
 
 const showEmptyInsertMenu = ref(false)
-
-// Expandable row groups
-const expanded = inject('expanded', ref({}))
-const toggleRowExpanded = inject('toggleRowExpanded', () => {})
-const getSubTable = inject('getSubTable', null)
 const nestingDepth = inject('nestingDepth', 0)
-const parentTheme = inject('parentTheme', 'dark')
-const parentAccentColor = inject('parentAccentColor', '#3ecf8e')
-const subTableSorting = inject('subTableSorting', ref([]))
-const subTableColumnFilters = inject('subTableColumnFilters', ref([]))
-const subTableColumnVisibility = inject('subTableColumnVisibility', ref({}))
-
-// Staged edits — used to tint inserted rows and mark deleted rows
-const getRowPendingState = inject('getRowPendingState', () => null)
 
 const emit = defineEmits(['update-cell', 'context-menu', 'edit-row'])
 
@@ -95,42 +89,12 @@ const stickyColShadow = computed(() => {
   return border ? `${border}, ${shadow}` : shadow
 })
 
-// Expandable row groups
-const subTableCache = computed(() => {
-  if (!getSubTable) return {}
-  const cache = {}
-  for (const row of rows.value) {
-    const config = getSubTable(row.original)
-    if (config) cache[row.id] = config
-  }
-  return cache
-})
-
-function isExpandable(row) {
-  return !!subTableCache.value[row.id]
-}
-
-function isExpanded(row) {
-  return !!expanded.value[row.id]
-}
-
-// --- Virtualization ---
-// Each row model entry is one virtual item. Expanded sub-tables are measured
-// dynamically via `measureElement` so their variable height is respected.
+const scrollVirtualRows = computed(() => rows.value.length > ROW_VIRTUALIZATION_THRESHOLD)
 const scrollerRef = useTemplateRef('scroller')
 
-const virtualizer = useVirtualizer(
-  computed(() => ({
-    count: rows.value.length,
-    getScrollElement: () => scrollerRef.value,
-    estimateSize: () => 33,
-    overscan: 8,
-    getItemKey: (index) => rows.value[index]?.id ?? index,
-  }))
-)
-
-const virtualRows = computed(() => virtualizer.value.getVirtualItems())
-const totalHeight = computed(() => virtualizer.value.getTotalSize())
+function editingChange(editing, rowId) {
+  editingRowId.value = editing ? rowId : null
+}
 
 /** Scroll shell for horizontal clipping: root uses `scroller`; nested uses its parent `overflow-auto` wrapper */
 function getViewportScrollShell() {
@@ -159,6 +123,7 @@ defineExpose({
         ? 'absolute inset-0 overflow-auto flex flex-col items-start min-h-0'
         : 'flex flex-col items-start'
     "
+    style="scrollbar-gutter: stable"
     @click.self="clearSelection"
   >
     <!-- Sticky shell: vertical stick is on this block, not only on <th>, so it still works
@@ -220,148 +185,36 @@ defineExpose({
         </thead>
       </table>
     </div>
-    <!--
-      Virtualized body lives outside <table> as div-based layout. Cell alignment
-      with the header columns is preserved via explicit widths and CSS table
-      layout (display: table / table-cell), not native table semantics.
-    -->
-    <div
-      :style="{
-        position: 'relative',
-        height: totalHeight + 'px',
-        width: totalTableWidth + 'px',
-      }"
-    >
-      <template v-for="vRow in virtualRows" :key="vRow.key">
-        <div
-          :ref="el => el && virtualizer.measureElement(el)"
-          :data-index="vRow.index"
-          class="st-row group"
-          :class="{
-            'st-row--selected': rows[vRow.index].getIsSelected(),
-            'st-row--pending-insert': getRowPendingState(rows[vRow.index].id) === 'insert',
-            'st-row--pending-delete': getRowPendingState(rows[vRow.index].id) === 'delete',
-          }"
-          :style="{
-            position: 'absolute',
-            top: '0px',
-            left: '0px',
-            width: '100%',
-            transform: `translateY(${vRow.start}px)`,
-            zIndex: editingRowId === rows[vRow.index].id ? 5 : 'auto',
-          }"
-        >
-          <!-- Inner cell row: uses table layout so cells align with headers -->
-          <div :style="{ display: 'table', tableLayout: 'fixed', width: '100%' }">
-            <!-- Row number -->
-            <div
-              class="py-1.5 align-middle sticky left-0 z-10 st-sticky-cell"
-              :style="{
-                display: 'table-cell',
-                width: '44px', minWidth: '44px',
-                borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
-              }"
-            >
-              <!--
-                h-full makes the flex container fill the table-cell's content
-                height, so items-center unambiguously vertical-centers the
-                expand-button / edit-button / row-number trio — matching the
-                checkbox cell that sits next to it.
-              -->
-              <div class="flex items-center justify-end pr-1.5 pl-0.5 h-full">
-                <!-- Expand toggle for expandable rows -->
-                <button
-                  v-if="isExpandable(rows[vRow.index])"
-                  class="flex items-center justify-center w-4 h-4 shrink-0 transition-transform duration-150"
-                  :style="{
-                    color: isExpanded(rows[vRow.index]) ? 'var(--st-accent)' : 'var(--st-text-secondary)',
-                    transform: isExpanded(rows[vRow.index]) ? 'rotate(90deg)' : 'rotate(0deg)',
-                  }"
-                  title="Toggle sub-table"
-                  @click.stop="toggleRowExpanded(rows[vRow.index].id)"
-                >
-                  <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M6 3l5 5-5 5V3z" />
-                  </svg>
-                </button>
-                <!-- Edit row button (non-expandable rows only) -->
-                <button
-                  v-else-if="editable.update"
-                  class="invisible group-hover:visible flex items-center justify-center w-4 h-4 shrink-0"
-                  :style="{ color: 'var(--st-text-secondary)' }"
-                  title="Expand row"
-                  @click.stop="emit('edit-row', rows[vRow.index].original)"
-                >
-                  <svg class="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M6 2h8v8M14 2L6 10" />
-                  </svg>
-                </button>
-                <span class="text-xs text-right flex-1" :style="{ color: 'var(--st-text-tertiary)' }">
-                  {{ paginationState.pageIndex * paginationState.pageSize + vRow.index + 1 }}
-                </span>
-              </div>
-            </div>
-            <!-- Checkbox -->
-            <div
-              class="px-1 py-1.5 text-center align-middle sticky z-10 st-sticky-cell"
-              :style="{
-                display: 'table-cell',
-                width: '40px', minWidth: '40px', left: '44px',
-                borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
-                boxShadow: stickyColShadow,
-              }"
-            >
-              <input
-                type="checkbox"
-                class="cursor-pointer align-middle"
-                :style="{ accentColor: 'var(--st-accent)' }"
-                :checked="rows[vRow.index].getIsSelected()"
-                @click="(e) => toggleRow(rows[vRow.index], e, vRow.index)"
-              />
-            </div>
-            <!-- Data cells -->
-            <TableCell
-              v-for="cell in rows[vRow.index].getVisibleCells()"
-              :key="cell.id"
-              :cell="cell"
-              :is-selected="selectedCell === `${rows[vRow.index].id}:${cell.column.id}`"
-              @select="selectCell(rows[vRow.index].id, cell.column.id)"
-              @update="(value) => emit('update-cell', rows[vRow.index].id, cell.column.id, value)"
-              @editing-change="(editing) => editingRowId = editing ? rows[vRow.index].id : null"
-              @contextmenu.prevent="handleRowContextMenu($event, rows[vRow.index], cell)"
-            />
-          </div>
-
-          <!-- Expansion sub-table sits inside the measured row so its height is part of the virtual item -->
-          <div
-            v-if="isExpanded(rows[vRow.index])"
-            :style="{
-              display: 'block',
-              width: totalTableWidth + 'px',
-              borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
-            }"
-          >
-            <div
-              :style="{
-                borderLeft: '3px solid var(--st-accent)',
-                marginLeft: (10 + nestingDepth * 16) + 'px',
-                backgroundColor: 'var(--st-bg)',
-              }"
-            >
-              <DataTable
-                v-bind="subTableCache[rows[vRow.index].id]"
-                :theme="subTableCache[rows[vRow.index].id].theme ?? parentTheme"
-                :accent-color="subTableCache[rows[vRow.index].id].accentColor ?? parentAccentColor"
-                :nesting-depth="nestingDepth + 1"
-                :controlled-sorting="subTableSorting"
-                :controlled-column-filters="subTableColumnFilters"
-                :controlled-column-visibility="subTableColumnVisibility"
-              />
-            </div>
-          </div>
-        </div>
-      </template>
-    </div>
+    <!-- ≤ threshold: native flow (stable scrollbar); > threshold: TanStack Virtual -->
+    <TableGridVirtualRows
+      v-if="rows.length > 0 && scrollVirtualRows"
+      :rows="rows"
+      :scroll-element-ref="scrollerRef"
+      :total-table-width="totalTableWidth"
+      :selected-cell="selectedCell"
+      :editing-row-id="editingRowId"
+      :pagination-state="paginationState"
+      @toggle-row-select="toggleRow"
+      @edit-row="(o) => emit('edit-row', o)"
+      @context-menu="handleRowContextMenu"
+      @select-cell="selectCell"
+      @update-cell="(rid, cid, val) => emit('update-cell', rid, cid, val)"
+      @editing-change="editingChange"
+    />
+    <TableGridFlowRows
+      v-else-if="rows.length > 0"
+      :rows="rows"
+      :total-table-width="totalTableWidth"
+      :selected-cell="selectedCell"
+      :editing-row-id="editingRowId"
+      :pagination-state="paginationState"
+      @toggle-row-select="toggleRow"
+      @edit-row="(o) => emit('edit-row', o)"
+      @context-menu="handleRowContextMenu"
+      @select-cell="selectCell"
+      @update-cell="(rid, cid, val) => emit('update-cell', rid, cid, val)"
+      @editing-change="editingChange"
+    />
   </div>
 
   <!-- Empty state — absolute overlay so it stays centered regardless of horizontal scroll -->
@@ -449,47 +302,5 @@ defineExpose({
 <style scoped>
 .hover-menu-item:hover {
   background-color: var(--st-bg-menu-hover);
-}
-
-/* Row hover / selection — avoids per-row JS handlers on mouseenter/mouseleave */
-.st-row {
-  background-color: transparent;
-}
-.st-row:hover {
-  background-color: var(--st-bg-row-hover);
-}
-.st-row--selected {
-  background-color: var(--st-bg-selected);
-}
-.st-row--selected:hover {
-  background-color: var(--st-bg-selected);
-}
-
-/* Sticky cells pick up the row's background so they stay opaque when scrolled. */
-.st-sticky-cell {
-  background-color: var(--st-bg);
-}
-.st-row--selected .st-sticky-cell {
-  background-color: var(--st-bg-selected-cell);
-}
-
-/* Staged edits: pending-insert rows tinted with accent, pending-delete rows dimmed. */
-.st-row--pending-insert {
-  background-color: var(--st-accent-bg);
-}
-.st-row--pending-insert:hover {
-  background-color: var(--st-accent-bg);
-}
-.st-row--pending-insert .st-sticky-cell {
-  background-color: var(--st-accent-bg);
-}
-.st-row--pending-delete {
-  background-color: rgba(239, 68, 68, 0.08);
-}
-.st-row--pending-delete:hover {
-  background-color: rgba(239, 68, 68, 0.12);
-}
-.st-row--pending-delete .st-sticky-cell {
-  background-color: rgba(239, 68, 68, 0.08);
 }
 </style>
