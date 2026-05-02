@@ -1,0 +1,11 @@
+/** Standalone Vite demo only — not bundled with library entry. */
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+#app {
+  height: 100%;
+}

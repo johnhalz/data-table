@@ -141,7 +141,7 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
     @click.self="clearSelection"
   >
     <table
-      class="border-collapse table-fixed shrink-0 sticky top-0 z-20"
+      class="border-collapse table-fixed shrink-0"
       :style="{ width: totalTableWidth + 'px', backgroundColor: 'var(--st-bg-header)' }"
     >
       <thead>
@@ -151,7 +151,7 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
         >
           <!-- Row number header -->
           <th
-            class="px-1.5 py-1.5 text-right font-normal sticky left-0 z-30"
+            class="px-1.5 py-1.5 text-right font-normal sticky top-0 left-0 z-[40]"
             :style="{
               width: '44px', minWidth: '44px',
               backgroundColor: 'var(--st-bg-header)',
@@ -163,7 +163,7 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
           </th>
           <!-- Checkbox header -->
           <th
-            class="px-1 py-1.5 text-center align-middle sticky z-30"
+            class="px-1 py-1.5 text-center align-middle sticky top-0 z-[39]"
             :style="{
               width: '40px', minWidth: '40px', left: '44px',
               backgroundColor: 'var(--st-bg-header)',

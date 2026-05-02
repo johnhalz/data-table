@@ -105,7 +105,7 @@ function autoFitColumn() {
 <template>
   <th
     ref="thRef"
-    class="text-left font-normal relative select-none group/header"
+    class="sticky top-0 z-[21] text-left font-normal select-none group/header"
     :style="{
       width: `${header.getSize()}px`,
       minWidth: `${header.getSize()}px`,
@@ -160,7 +160,7 @@ function autoFitColumn() {
       <div
         v-if="showDropdown"
         class="fixed w-52 rounded shadow-xl z-50 py-1 text-[13px]"
-        :style="{ ...themeVars, top: dropdownPos.top + 'px', left: dropdownPos.left + 'px', backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)', color: 'var(--st-text)' }"
+        :style="{ ...themeVars, fontFamily: 'var(--dt-font-family)', top: dropdownPos.top + 'px', left: dropdownPos.left + 'px', backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)', color: 'var(--st-text)' }"
         @click.stop
       >
         <button class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="sortAsc">

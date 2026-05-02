@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, provide, watch, shallowRef, onMounted, nextTick } from 'vue'
+import { ref, computed, provide, inject, watch, shallowRef, onMounted, nextTick, unref } from 'vue'
 import {
   useVueTable,
   getCoreRowModel,
@@ -14,6 +14,13 @@ import TablePagination from './TablePagination.vue'
 import RowEditPanel from './RowEditPanel.vue'
 import ContextMenu from './ContextMenu.vue'
 import { PENDING_EDIT_KINDS, PENDING_INSERT_ID_PREFIX } from './types.js'
+
+/** Provide/inject: resolved font stacks for nesting (see `fontFamily` prop). */
+const DT_FONT_FAMILY_KEY = Symbol('dataTable.fontFamily')
+
+/** Default UI stack when `font-family` prop is omitted (matches shipped CSS fallback). */
+const DEFAULT_DT_FONT =
+  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
 
 const props = defineProps({
   columns: { type: Array, required: true },
@@ -42,6 +49,8 @@ const props = defineProps({
   },
   theme: { type: String, default: 'dark' }, // 'dark' | 'light'
   accentColor: { type: String, default: '#3ecf8e' },
+  /** Optional CSS `font-family` stack (same syntax as CSS). Cascades into nested/sub-tables. Omit to use bundled system UI stack. */
+  fontFamily: { type: String, default: null },
   // Expandable row groups
   getSubTable: { type: Function, default: null }, // (rowData) => SubTableConfig | null
   subTableColumns: { type: Array, default: null }, // shared column defs for all sub-tables
@@ -123,6 +132,32 @@ const themeVars = computed(() => {
     '--st-shadow-sticky':    dark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.08)',
   }
 })
+
+const parentFontFamily = inject(DT_FONT_FAMILY_KEY, null)
+
+const resolvedFontFamily = computed(() => {
+  if (props.fontFamily != null && String(props.fontFamily).trim() !== '') {
+    return String(props.fontFamily).trim()
+  }
+  const p = parentFontFamily == null ? null : unref(parentFontFamily)
+  if (p != null && String(p).trim() !== '') return String(p).trim()
+  return null
+})
+
+provide(DT_FONT_FAMILY_KEY, resolvedFontFamily)
+
+const fontCssVars = computed(() => ({
+  '--dt-font-family': resolvedFontFamily.value || DEFAULT_DT_FONT,
+}))
+
+const mergedRootStyles = computed(() => ({
+  ...themeVars.value,
+  ...fontCssVars.value,
+  backgroundColor: 'var(--st-bg)',
+  color: 'var(--st-text)',
+}))
+
+const rootElRef = ref(null)
 
 const emit = defineEmits([
   'insert-row',
@@ -584,7 +619,7 @@ function handleFilterByValue(colId, val) {
   }
 }
 
-provide('themeVars', themeVars)
+provide('themeVars', computed(() => ({ ...themeVars.value, ...fontCssVars.value })))
 provide('table', table)
 provide('tableName', props.tableName)
 provide('showDataTypes', props.showDataTypes)
@@ -628,8 +663,12 @@ function autoSizeColumnsFromContent() {
   const ctx = document.createElement('canvas').getContext('2d')
   if (!ctx) return
 
-  // Match the table's rendered font — body cells & headers both use 13px.
-  const fontFamily = getComputedStyle(document.body).fontFamily || 'sans-serif'
+  let fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  if (rootElRef.value) {
+    const fromRoot = getComputedStyle(rootElRef.value).fontFamily
+    if (fromRoot && fromRoot.trim() !== '') fontFamily = fromRoot
+  }
+
   ctx.font = `13px ${fontFamily}`
 
   const CELL_PADDING_PX = 16   // px-2 (horizontal padding) on both sides
@@ -685,9 +724,11 @@ onMounted(() => {
 
 <template>
   <div
-    class="flex flex-col text-[13px]"
+    ref="rootElRef"
+    class="data-table-root flex flex-col text-[13px]"
     :class="nestingDepth === 0 ? 'flex-1 min-h-0 min-w-0' : ''"
-    :style="{ ...themeVars, backgroundColor: 'var(--st-bg)', color: 'var(--st-text)' }"
+    :data-st-theme="theme"
+    :style="mergedRootStyles"
   >
     <template v-if="showToolbar">
       <SelectionToolbar
