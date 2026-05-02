@@ -147,14 +147,47 @@ export const columns = [
   }),
   col.accessor('address', {
     id: 'address_multiline',
-    header: 'address (multi)',
+    header: 'address (wrap)',
     meta: {
       type: 'text',
       isNullable: true,
-      multiline: true,
+      overflow: 'wrap',
     },
     size: 200,
     enableSorting: false,
+    enableColumnFilter: false,
+  }),
+  col.accessor((row) => (row.is_active ? 'Active' : 'Closed'), {
+    id: 'status_badge',
+    header: 'status (badge)',
+    meta: {
+      type: 'varchar',
+      isNullable: false,
+      badge: (value) => (value === 'Active' ? { color: '#22c55e' } : { color: '#ef4444' }),
+    },
+    size: 140,
+    enableSorting: true,
+    enableColumnFilter: false,
+  }),
+  col.accessor('name', {
+    id: 'name_icon',
+    header: 'name (icon)',
+    meta: {
+      type: 'varchar',
+      isNullable: false,
+      suffixIcon: (value, row) =>
+        row.is_active
+          ? {
+              svg: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 16A8 8 0 108 0a8 8 0 000 16zm3.78-9.72a.75.75 0 00-1.06-1.06L6.75 9.19 5.28 7.72a.75.75 0 00-1.06 1.06l2 2a.75.75 0 001.06 0l4.5-4.5z"/></svg>',
+              color: '#22c55e',
+            }
+          : {
+              svg: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M2.343 13.657A8 8 0 1113.657 2.343 8 8 0 012.343 13.657zM6.03 4.97a.75.75 0 00-1.06 1.06L6.94 8 4.97 9.97a.75.75 0 101.06 1.06L8 9.06l1.97 1.97a.75.75 0 101.06-1.06L9.06 8l1.97-1.97a.75.75 0 10-1.06-1.06L8 6.94 6.03 4.97z"/></svg>',
+              color: '#ef4444',
+            },
+    },
+    size: 240,
+    enableSorting: true,
     enableColumnFilter: false,
   }),
   col.accessor('phone', {

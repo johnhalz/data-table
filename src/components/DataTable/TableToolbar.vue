@@ -13,6 +13,7 @@ const props = defineProps({
   editable: { type: Object, default: () => ({ insert: true, update: true, delete: true }) },
   loading: { type: Boolean, default: false },
   defaultInsertLabel: { type: String, default: null },
+  insertActions: { type: Array, default: () => [] },
   toolbarActions: { type: Array, default: () => [] },
   toolbarActionsLabel: { type: String, default: 'Actions' },
   // Sub-table support
@@ -27,7 +28,7 @@ const props = defineProps({
 const emit = defineEmits([
   'update:sorting', 'update:column-filters', 'update:column-visibility',
   'update:sub-table-sorting', 'update:sub-table-column-filters', 'update:sub-table-column-visibility',
-  'insert-row', 'refresh', 'toolbar-action',
+  'insert-row', 'insert-action', 'refresh', 'toolbar-action',
 ])
 
 const showSortPanel = ref(false)
@@ -238,10 +239,16 @@ const subTableColumnList = computed(() => {
         </Teleport>
       </div>
 
-      <!-- Insert button -->
+      <!-- Insert button
+           Cases:
+           A) defaultInsertLabel + insertActions  → split button (left fires insert-row, chevron opens custom dropdown)
+           B) defaultInsertLabel, no insertActions → plain accent button (fires insert-row directly)
+           C) no defaultInsertLabel + insertActions → "Insert ▼" dropdown with custom actions
+           D) neither                              → "Insert ▼" dropdown with hardcoded items
+      -->
       <div v-if="editable.insert" class="relative">
-        <!-- Split button: default action + dropdown arrow -->
-        <div v-if="defaultInsertLabel" class="flex items-center">
+        <!-- A: split button -->
+        <div v-if="defaultInsertLabel && insertActions.length > 0" class="flex items-center">
           <button
             class="flex items-center gap-1.5 px-3 py-1 rounded-l text-[13px] font-medium transition-colors"
             :style="{ backgroundColor: 'var(--st-accent)', color: 'var(--st-text-on-accent)' }"
@@ -259,7 +266,18 @@ const subTableColumnList = computed(() => {
             </svg>
           </button>
         </div>
-        <!-- Single dropdown button: no default action -->
+
+        <!-- B: plain button — fires insert-row directly, no dropdown -->
+        <button
+          v-else-if="defaultInsertLabel"
+          class="flex items-center gap-1.5 px-3 py-1 rounded text-[13px] font-medium transition-colors"
+          :style="{ backgroundColor: 'var(--st-accent)', color: 'var(--st-text-on-accent)' }"
+          @click="emit('insert-row')"
+        >
+          {{ defaultInsertLabel }}
+        </button>
+
+        <!-- C & D: "Insert ▼" dropdown button -->
         <button
           v-else
           class="flex items-center gap-1.5 px-3 py-1 rounded text-[13px] font-medium transition-colors"
@@ -272,23 +290,41 @@ const subTableColumnList = computed(() => {
           </svg>
         </button>
 
-        <!-- Insert dropdown -->
+        <!-- Dropdown (cases A, C, D) -->
         <div
           v-if="showInsertMenu"
-          class="absolute top-full right-0 mt-1 w-48 rounded shadow-xl z-50 py-1 text-[13px]"
+          class="absolute top-full right-0 mt-1 min-w-[11rem] rounded shadow-xl z-50 py-1 text-[13px]"
           :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"
         >
-          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="emit('insert-row'); showInsertMenu = false">
-            Insert row
-          </button>
-          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="showInsertMenu = false">
-            Insert column
-          </button>
-          <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
-          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="showInsertMenu = false">
-            Import data from CSV
-          </button>
+          <!-- Custom insertActions (cases A & C) -->
+          <template v-if="insertActions.length > 0">
+            <button
+              v-for="action in insertActions"
+              :key="action.key"
+              class="w-full text-left px-3 py-1.5 hover-menu-item flex items-center gap-2"
+              :style="{ color: 'var(--st-text)' }"
+              @click="emit('insert-action', action.key); showInsertMenu = false"
+            >
+              <span v-if="action.icon" class="w-3.5 h-3.5 shrink-0 flex items-center justify-center" v-html="action.icon" />
+              {{ action.label }}
+            </button>
+          </template>
+
+          <!-- Hardcoded items (case D) -->
+          <template v-else>
+            <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="emit('insert-row'); showInsertMenu = false">
+              Insert row
+            </button>
+            <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="showInsertMenu = false">
+              Insert column
+            </button>
+            <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
+            <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="showInsertMenu = false">
+              Import data from CSV
+            </button>
+          </template>
         </div>
+
         <Teleport to="body">
           <div v-if="showInsertMenu" class="fixed inset-0 z-40" @click="showInsertMenu = false" />
         </Teleport>

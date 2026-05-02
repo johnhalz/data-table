@@ -13,7 +13,7 @@ DataTable.vue                 ← only public component; all state lives here
 │   └── ColumnVisibilityPanel.vue ← dropdown: toggle columns, show all / default
 ├── TableGrid.vue                 ← scrollable table with sticky columns
 │   ├── TableColumnHeader.vue     ← per-column: name, type, sort indicator, dropdown
-│   └── TableCell.vue             ← per-cell: display, inline edit, boolean toggle
+│   └── TableCell.vue             ← per-cell: display, badge, inline edit, boolean toggle
 ├── TablePagination.vue           ← page nav, rows per page, record count
 ├── RowEditPanel.vue              ← slide-in form (insert or update)
 └── ContextMenu.vue               ← right-click menu (Teleported to body)
@@ -104,7 +104,7 @@ This means row IDs in `delete-rows` payloads, `rowSelection` state, and TanStack
 When `totalCount` prop is set (non-null), `DataTable.vue` configures TanStack with `manualPagination: true` and derives `pageCount` from `totalCount / pageSize`. In this mode:
 - The table does **not** slice `rows` — the parent is responsible for passing the correct page slice
 - Every page navigation emits `page-change: { pageIndex, pageSize }` for the parent to fetch the next slice
-- `TablePagination` shows `totalCount` as the record count instead of `filteredRowModel.rows.length`
+- `TablePagination` shows `totalCount` as the count line instead of `filteredRowModel.rows.length`; wording uses `countLabelSingular` / `countLabelPlural` (default record/records)
 - Client-side filtering/sorting still works on the current page slice only
 
 ## Column Definition Schema

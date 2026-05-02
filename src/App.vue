@@ -114,6 +114,52 @@ const cellButtonOptions = [
   { value: 'always', label: 'Always' },
   { value: 'select', label: 'On select' },
 ]
+
+const cellOverflow = ref('truncate')
+const cellOverflowOptions = [
+  { value: 'truncate', label: 'Truncate' },
+  { value: 'wrap', label: 'Wrap' },
+]
+
+// Demo column visibility toggles — controls which new-feature demo columns are shown
+const showBadgeDemo = ref(false)
+const showIconDemo = ref(false)
+
+// Custom insert actions demo
+const showInsertActionsDemo = ref(false)
+const insertActionsDemo = [
+  {
+    key: 'csv',
+    label: 'Import from CSV',
+    icon: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 1H3.5A1.5 1.5 0 002 2.5v11A1.5 1.5 0 003.5 15H12a1.5 1.5 0 001.5-1.5V6L9 1z"/><path d="M9 1v5h4.5"/></svg>',
+  },
+  {
+    key: 'json',
+    label: 'Import from JSON',
+    icon: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4a1 1 0 00-1 1v1a1 1 0 01-1 1 1 1 0 011 1v1a1 1 0 001 1M11 4a1 1 0 011 1v1a1 1 0 001 1 1 1 0 00-1 1v1a1 1 0 01-1 1M8 7.5v1"/></svg>',
+  },
+  {
+    key: 'clipboard',
+    label: 'Paste from clipboard',
+    icon: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="4" width="8" height="10" rx="1"/><path d="M3 12H2a1 1 0 01-1-1V2a1 1 0 011-1h7a1 1 0 011 1v1"/><path d="M8 1h2v2H8z"/></svg>',
+  },
+]
+
+function handleInsertAction(key) {
+  console.log('Insert action:', key)
+}
+
+// Controlled column visibility — lets Options toggles show/hide demo columns
+const controlledColumnVisibility = ref({
+  coordinate_system_type: false,
+  status_badge: false,
+  name_icon: false,
+})
+
+function setDemoColVisibility(colId, visible) {
+  controlledColumnVisibility.value = { ...controlledColumnVisibility.value, [colId]: visible }
+}
+
 const showOptionsMenu = ref(false)
 const showThemeMenu = ref(false)
 
@@ -264,6 +310,29 @@ const dividerColor = (dark) => dark ? '#333' : '#e4e4e7'
             </div>
           </div>
 
+          <!-- Cell overflow -->
+          <div class="my-1 mx-3" :style="{ borderTop: '1px solid ' + dividerColor(theme === 'dark') }" />
+          <div class="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider opacity-40">Cell overflow</div>
+          <button
+            v-for="opt in cellOverflowOptions"
+            :key="opt.value"
+            class="flex items-center justify-between w-full px-3 py-2 rounded-sm"
+            :style="{
+              color: btnColor(theme === 'dark'),
+              backgroundColor: cellOverflow === opt.value ? menuHoverBg(theme === 'dark') : 'transparent',
+              width: 'calc(100% - 8px)',
+              marginLeft: '4px',
+            }"
+            @mouseenter="$event.currentTarget.style.backgroundColor = menuHoverBg(theme === 'dark')"
+            @mouseleave="$event.currentTarget.style.backgroundColor = cellOverflow === opt.value ? menuHoverBg(theme === 'dark') : 'transparent'"
+            @click="cellOverflow = opt.value"
+          >
+            {{ opt.label }}
+            <svg v-if="cellOverflow === opt.value" class="w-3 h-3 opacity-60" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+            </svg>
+          </button>
+
           <!-- Cell buttons visibility -->
           <div class="my-1 mx-3" :style="{ borderTop: '1px solid ' + dividerColor(theme === 'dark') }" />
           <div class="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider opacity-40">Cell buttons</div>
@@ -286,6 +355,72 @@ const dividerColor = (dark) => dark ? '#333' : '#e4e4e7'
               <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
             </svg>
           </button>
+
+          <!-- Demo columns -->
+          <div class="my-1 mx-3" :style="{ borderTop: '1px solid ' + dividerColor(theme === 'dark') }" />
+          <div class="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider opacity-40">Demo columns</div>
+
+          <!-- Badge demo toggle -->
+          <div
+            class="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer rounded-sm mx-1"
+            :style="{ color: btnColor(theme === 'dark') }"
+            @mouseenter="$event.currentTarget.style.backgroundColor = menuHoverBg(theme === 'dark')"
+            @mouseleave="$event.currentTarget.style.backgroundColor = 'transparent'"
+            @click="showBadgeDemo = !showBadgeDemo; setDemoColVisibility('status_badge', showBadgeDemo)"
+          >
+            <span>Badge cells</span>
+            <div
+              class="relative w-8 h-4 rounded-full transition-colors duration-200 shrink-0"
+              :style="{ backgroundColor: showBadgeDemo ? accentColor : (theme === 'dark' ? '#444' : '#d4d4d8') }"
+            >
+              <div
+                class="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-200"
+                :style="{ transform: showBadgeDemo ? 'translateX(18px)' : 'translateX(2px)' }"
+              />
+            </div>
+          </div>
+
+          <!-- Icon demo toggle -->
+          <div
+            class="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer rounded-sm mx-1"
+            :style="{ color: btnColor(theme === 'dark') }"
+            @mouseenter="$event.currentTarget.style.backgroundColor = menuHoverBg(theme === 'dark')"
+            @mouseleave="$event.currentTarget.style.backgroundColor = 'transparent'"
+            @click="showIconDemo = !showIconDemo; setDemoColVisibility('name_icon', showIconDemo)"
+          >
+            <span>Suffix icons</span>
+            <div
+              class="relative w-8 h-4 rounded-full transition-colors duration-200 shrink-0"
+              :style="{ backgroundColor: showIconDemo ? accentColor : (theme === 'dark' ? '#444' : '#d4d4d8') }"
+            >
+              <div
+                class="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-200"
+                :style="{ transform: showIconDemo ? 'translateX(18px)' : 'translateX(2px)' }"
+              />
+            </div>
+          </div>
+
+          <!-- Custom insert actions toggle -->
+          <div class="my-1 mx-3" :style="{ borderTop: '1px solid ' + dividerColor(theme === 'dark') }" />
+          <div class="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider opacity-40">Import actions</div>
+          <div
+            class="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer rounded-sm mx-1"
+            :style="{ color: btnColor(theme === 'dark') }"
+            @mouseenter="$event.currentTarget.style.backgroundColor = menuHoverBg(theme === 'dark')"
+            @mouseleave="$event.currentTarget.style.backgroundColor = 'transparent'"
+            @click="showInsertActionsDemo = !showInsertActionsDemo"
+          >
+            <span>Custom import options</span>
+            <div
+              class="relative w-8 h-4 rounded-full transition-colors duration-200 shrink-0"
+              :style="{ backgroundColor: showInsertActionsDemo ? accentColor : (theme === 'dark' ? '#444' : '#d4d4d8') }"
+            >
+              <div
+                class="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-200"
+                :style="{ transform: showInsertActionsDemo ? 'translateX(18px)' : 'translateX(2px)' }"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -369,13 +504,16 @@ const dividerColor = (dark) => dark ? '#333' : '#e4e4e7'
       :accent-color="accentColor"
       :editable="editable"
       :staged-edits="stagedEdits"
-      :default-column-visibility="{ coordinate_system_type: false }"
+      :controlled-column-visibility="controlledColumnVisibility"
+      :cell-overflow="cellOverflow"
+      :cell-button-visibility="cellButtonVisibility"
+      :insert-actions="showInsertActionsDemo ? insertActionsDemo : []"
       :selection-actions="selectionActions"
       :toolbar-actions="toolbarActions"
-      :cell-button-visibility="cellButtonVisibility"
       :get-sub-table="getSubTable"
       :sub-table-columns="employeeColumns"
       @insert-row="handleInsert"
+      @insert-action="handleInsertAction"
       @update-row="handleUpdate"
       @delete-rows="handleDelete"
       @commit-edits="handleCommitEdits"

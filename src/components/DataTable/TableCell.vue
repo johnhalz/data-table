@@ -10,6 +10,7 @@ const editable = inject('editable', true)
 const showRowBorders = inject('showRowBorders', true)
 const showColumnBorders = inject('showColumnBorders', true)
 const cellButtonVisibilityInjected = inject('cellButtonVisibility', 'hover')
+const cellOverflowInjected = inject('cellOverflow', 'truncate')
 const getCellPendingState = inject('getCellPendingState', () => null)
 const getCellPreviousValue = inject('getCellPreviousValue', () => undefined)
 const getRowPendingState = inject('getRowPendingState', () => null)
@@ -58,11 +59,58 @@ const progressPercent = computed(() => {
   return Math.min(100, Math.max(0, Number(value)))
 })
 
-// Multiline: meta.multiline = true — wraps text instead of truncating
-const isMultiline = !!meta.multiline
+// Overflow mode: meta.overflow = 'truncate' | 'wrap' | 'extend'
+// Backward compat: meta.multiline = true → 'wrap'
+// Falls back to the table-level cellOverflow prop default.
+const overflowMode = computed(() => {
+  if (meta.overflow) return meta.overflow
+  if (meta.multiline) return 'wrap'
+  const global = isRef(cellOverflowInjected) ? cellOverflowInjected.value : cellOverflowInjected
+  return global || 'truncate'
+})
 
 // Cell buttons: meta.cellButtons = [{ icon: '<svg…>', label: 'string', onClick: (row) => void }]
 const cellButtons = meta.cellButtons ?? []
+
+// Badge: meta.badge = true | { color?: CSSColor } | (value, row) => { color?: CSSColor } | null
+// Works for any column type (varchar, text, int*, boolean, etc.). When set on a boolean column,
+// the pill replaces the toggle. `color` accepts any valid CSS color (hex, rgb/hsl, named, var(--token), …).
+const badgeStyle = computed(() => {
+  if (!meta.badge) return null
+  const value = props.cell.getValue()
+  if (value === null || value === undefined) return null
+  let config = meta.badge
+  if (typeof config === 'function') {
+    config = config(value, props.cell.row.original)
+    if (!config) return null
+  }
+  const color = typeof config === 'object' && config !== null ? config.color : null
+  if (color) {
+    return {
+      backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`,
+      color,
+      border: `1px solid color-mix(in srgb, ${color} 35%, transparent)`,
+    }
+  }
+  return {
+    backgroundColor: 'var(--st-border-secondary)',
+    color: 'var(--st-text)',
+    border: '1px solid var(--st-border)',
+  }
+})
+
+const useBooleanToggle = computed(() => isBoolean && !meta.badge)
+
+// Suffix icon: meta.suffixIcon = { svg, color? } | (value, row) => { svg, color? } | null
+// Renders a small inline icon after the cell text.
+const suffixIcon = computed(() => {
+  if (!meta.suffixIcon) return null
+  const value = props.cell.getValue()
+  if (typeof meta.suffixIcon === 'function') {
+    return meta.suffixIcon(value, props.cell.row.original) || null
+  }
+  return meta.suffixIcon
+})
 
 function handleClick() {
   if (!isEditing.value) {
@@ -71,7 +119,7 @@ function handleClick() {
 }
 
 function handleDoubleClick() {
-  if (!editable.value?.update || isBoolean || meta.progressBar || cellButtons.length > 0) return
+  if (!editable.value?.update || useBooleanToggle.value || meta.progressBar || cellButtons.length > 0) return
   isEditing.value = true
   emit('editing-change', true)
   editValue.value = props.cell.getValue() ?? ''
@@ -128,6 +176,7 @@ function toggleBoolean() {
       width: `${cell.column.getSize()}px`,
       minWidth: `${cell.column.getSize()}px`,
       maxWidth: `${cell.column.getSize()}px`,
+      overflow: 'hidden',
       borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
       borderRight: showColumnBorders ? '1px solid var(--st-border)' : 'none',
       boxShadow: isSelected && !isEditing
@@ -139,8 +188,8 @@ function toggleBoolean() {
     @click="handleClick"
     @dblclick="handleDoubleClick"
   >
-    <!-- Boolean toggle -->
-    <template v-if="isBoolean">
+    <!-- Boolean toggle (badge meta takes precedence — any type can use meta.badge) -->
+    <template v-if="useBooleanToggle">
       <button
         v-if="editable.update"
         class="flex items-center gap-1.5"
@@ -216,24 +265,47 @@ function toggleBoolean() {
       </div>
     </template>
 
-    <!-- Display mode with optional cell buttons -->
+    <!-- Display mode: text / badge / overflow variants + suffix icon + cell buttons -->
     <template v-else>
       <div
-        class="flex items-start gap-1 min-w-0"
+        class="flex items-center gap-1 min-w-0"
         :style="isRowDeleted ? { textDecoration: 'line-through', opacity: 0.5 } : {}"
       >
-        <!-- Text content -->
-        <div class="flex-1 min-w-0 text-[13px]" :style="{ color: 'var(--st-text)' }">
+        <!-- Text / badge content -->
+        <div
+          class="flex-1 min-w-0 text-[13px]"
+          :style="{ color: 'var(--st-text)' }"
+        >
           <template v-if="cell.getValue() === null || cell.getValue() === undefined">
             <span class="italic" :style="{ color: 'var(--st-text-placeholder)' }">NULL</span>
           </template>
-          <template v-else-if="isMultiline">
+
+          <!-- Badge style -->
+          <template v-else-if="badgeStyle">
+            <span
+              class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium leading-tight"
+              :style="badgeStyle"
+            >{{ cell.getValue() }}</span>
+          </template>
+
+          <!-- Wrap overflow -->
+          <template v-else-if="overflowMode === 'wrap'">
             <span class="block whitespace-pre-wrap break-words">{{ cell.getValue() }}</span>
           </template>
+
+          <!-- Truncate (default) -->
           <template v-else>
             <span class="truncate block" :title="String(cell.getValue())">{{ cell.getValue() }}</span>
           </template>
         </div>
+
+        <!-- Suffix icon: rendered between text and cell buttons -->
+        <span
+          v-if="suffixIcon"
+          class="w-3.5 h-3.5 shrink-0 flex items-center justify-center"
+          :style="{ color: suffixIcon.color || 'var(--st-text-secondary)' }"
+          v-html="suffixIcon.svg"
+        />
 
         <!-- Trailing cell buttons -->
         <div
@@ -257,4 +329,3 @@ function toggleBoolean() {
     </template>
   </div>
 </template>
-

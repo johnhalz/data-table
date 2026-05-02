@@ -37,7 +37,7 @@ src/
     SelectionToolbar.vue           # Appears when rows selected: delete, actions, clear/select all
     TableGrid.vue                  # Table element: headers, rows, cells, checkboxes, row numbers
     TableColumnHeader.vue          # Single column header: name, type badge, sort indicator, dropdown
-    TableCell.vue                  # Single cell: display, inline edit, boolean toggle
+    TableCell.vue                  # Single cell: text, badge, progress bar, suffix icon, inline edit, boolean toggle
     TablePagination.vue            # Bottom bar: page nav, rows per page, record count
     RowEditPanel.vue               # Slide-in panel for insert/update row forms
     ColumnVisibilityPanel.vue      # Dropdown panel to show/hide columns
@@ -75,6 +75,7 @@ These values are provided by `DataTable.vue` and injected by child components:
 | `showRowBorders`   | Boolean      | TableGrid, TableColumnHeader, TableCell |
 | `showColumnBorders`| Boolean      | TableGrid, TableColumnHeader, TableCell |
 | `openInsertPanel`  | Function     | TableGrid (empty state insert button) |
+| `cellOverflow`     | `ComputedRef<string>` | `TableCell` — default `'truncate'` \| `'wrap'`; columns override via `meta.overflow` |
 
 The `editable` inject value is always the normalized object shape `{ insert: boolean, update: boolean, delete: boolean }` — never a raw boolean. Consumers check specific keys: `editable.value.update`, `editable.delete`, etc.
 
@@ -128,22 +129,39 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 | `showDataTypes` | `Boolean` | `true` | Show type badges in headers and panels |
 | `editable` | `Boolean\|Object` | `true` | `true`/`false` gates all mutations; or `{ insert, update, delete }` booleans for per-operation control |
 | `selectionActions` | `Array` | `[]` | Custom actions: `[{ key: string, label: string }]` |
-| `enableSelectAll` | `Boolean` | `true` | When `true`, shows a "Select all N items" button next to "Clear selection" in the selection toolbar. Selects every row across all pages (post-filter). The header checkbox itself only toggles the current page. |
+| `enableSelectAll` | `Boolean` | `true` | When `true`, shows **Select all N** next to **Clear selection** in the selection toolbar (uses `countLabelSingular` / `countLabelPlural`). Selects every row across all pages (post-filter). The header checkbox only toggles the current page. |
 | `toolbarActions` | `Array` | `[]` | Custom dropdown next to the Sort button. Items: `[{ key, label, icon?, disabled?, divider? }]`. `divider: true` renders a separator. `icon` is raw SVG markup. Emits `toolbar-action` with the `key`. The button is hidden when this array is empty. |
 | `toolbarActionsLabel` | `String` | `'Actions'` | Label shown on the `toolbarActions` dropdown trigger button. |
 | `showRowBorders` | `Boolean` | `true` | Horizontal row dividers |
 | `showColumnBorders` | `Boolean` | `true` | Vertical column dividers |
 | `cellButtonVisibility` | `String` | `'hover'` | `'hover'` \| `'always'` \| `'select'` — when to show trailing cell buttons defined via `meta.cellButtons`. `'select'` uses the existing click-to-select cell state. |
+| `cellOverflow` | `String` | `'truncate'` | Default text cell overflow: `'truncate'` or `'wrap'`. Per-column `meta.overflow` overrides. |
+| `insertActions` | `Array` | `[]` | Custom insert/import menu items: `{ key, label, icon? (SVG HTML) }`. Emits `insert-action` with `key`. With `defaultInsertLabel`, items appear in the chevron dropdown; without it, under **Insert ▼**. |
+| `defaultInsertLabel` | `String` | `null` | Primary insert button label; click emits `insert-row`. Plain button if `insertActions` empty; split button if both are set. |
+| `countLabelSingular` | `String` | `'record'` | Singular noun after total count in pagination footer and in **Select all N …** |
+| `countLabelPlural` | `String` | `'records'` | Plural noun when count ≠ 1 |
 | `theme` | `String` | `'dark'` | `'dark'` or `'light'` — switches the full color palette |
 | `accentColor` | `String` | `'#3ecf8e'` | Primary accent hex color (buttons, indicators, selections) |
+| `fontFamily` | `String` | `null` | Optional CSS `font-family`; cascades to nested tables via provide/inject CSS vars |
+| `showToolbar` | `Boolean` | `true` | Toolbar + selection bar visibility |
+| `showPagination` | `Boolean` | `true` | Footer pagination visibility |
+| `emptyTitle` | `String` | `'No rows found'` | Empty state title |
+| `emptyMessage` | `String` | `'Get started…'` | Empty state message |
 | `totalCount` | `Number` | `null` | Total rows for server-side pagination; enables manual pagination mode and `page-change` event |
+| `hasRandomAccess` | `Boolean` | `true` | When `false`, hides page number input in footer (sequential prev/next only) |
+| `columnFilters` | `Array` | `null` | `v-model:column-filters` — parent-controlled filter state |
+| `controlledSorting` | `Array` | `null` | External sort state (nested tables) |
+| `controlledColumnFilters` | `Array` | `null` | External filter state (nested tables) |
+| `controlledColumnVisibility` | `Object` | `null` | External column visibility map |
+| `getSubTable` / `subTableColumns` / `expandedRows` | — | `null` | Expandable row / nested `DataTable` API |
 | `stagedEdits` | `Boolean` | `false` | When `true`, inserts/updates/deletes are queued locally instead of emitting immediately. The footer shows a "N pending changes" badge with **Commit** and **Clear edits** buttons. Individual `insert-row` / `update-row` / `delete-rows` events do NOT fire in this mode — the parent receives a single `commit-edits` event with the full batch. Pending edits are visually marked in the grid (modified cells get an accent stripe + previous-value tooltip; inserted rows are tinted; deleted rows are struck-through) and each can be undone via the right-click context menu before commit. |
 
 ## SDK Events
 
 | Event | Payload | When |
 |-------|---------|------|
-| `insert-row` | `Object` (row data) | User submits insert form |
+| `insert-row` | `Object` (row data) | Insert form submit, or primary insert button when `defaultInsertLabel` is set |
+| `insert-action` | `actionKey` (string) | User chose an item from `insertActions` |
 | `update-row` | `{ id, changes }` | Cell edit or edit panel save |
 | `delete-rows` | `Array<string>` (IDs) | Delete confirmation accepted |
 | `refresh` | — | Refresh button clicked |
@@ -167,6 +185,12 @@ col.accessor('field', {
     defaultValue: '',       // pre-populate the insert form field with this value
     placeholder: '',        // placeholder text for the insert/update form field
     readOnly: false,        // show field in insert panel but disable editing (greyed out)
+    // Presentation (optional)
+    overflow: 'truncate',   // 'truncate' | 'wrap' — overrides table `cellOverflow`; `multiline: true` is legacy alias for wrap
+    progressBar: true,      // or { min, max } or (value, row) => 0–100
+    cellButtons: [{ label, icon? (SVG HTML), onClick(row) }],
+    badge: true,            // or { color?: CSSColor } or (value, row) => { color? } | null — pill for any type; boolean columns show a pill instead of the toggle when set. `color`: any CSS color (hex, rgb/hsl, named, var(--…))
+    suffixIcon: { svg, color? }, // or (value, row) => { svg, color? } | null — icon after text
   },
   size: 180,               // column width in px
   enableSorting: true,
