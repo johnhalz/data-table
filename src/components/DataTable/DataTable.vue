@@ -711,7 +711,7 @@ function autoSizeColumnsFromContent() {
       contentWidth += TYPE_BADGE_GAP_PX + ctx.measureText(meta.type).width
     }
 
-    const isFixedUiCell = meta.type === 'boolean' || !!meta.progressBar
+    const isFixedUiCell = (meta.type === 'boolean' && !meta.badge) || !!meta.progressBar
     if (!isFixedUiCell) {
       const accessorKey = col.columnDef.accessorKey ?? col.id
       for (const row of sample) {

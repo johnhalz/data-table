@@ -13,7 +13,7 @@ DataTable.vue                 ← only public component; all state lives here
 │   └── ColumnVisibilityPanel.vue ← dropdown: toggle columns, show all / default
 ├── TableGrid.vue                 ← scrollable table with sticky columns
 │   ├── TableColumnHeader.vue     ← per-column: name, type, sort indicator, dropdown
-│   └── TableCell.vue             ← per-cell: display, inline edit, boolean toggle
+│   └── TableCell.vue             ← per-cell: display, badge, inline edit, boolean toggle
 ├── TablePagination.vue           ← page nav, rows per page, record count
 ├── RowEditPanel.vue              ← slide-in form (insert or update)
 └── ContextMenu.vue               ← right-click menu (Teleported to body)

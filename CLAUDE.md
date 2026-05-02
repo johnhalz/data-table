@@ -37,7 +37,7 @@ src/
     SelectionToolbar.vue           # Appears when rows selected: delete, actions, clear/select all
     TableGrid.vue                  # Table element: headers, rows, cells, checkboxes, row numbers
     TableColumnHeader.vue          # Single column header: name, type badge, sort indicator, dropdown
-    TableCell.vue                  # Single cell: display, inline edit, boolean toggle
+    TableCell.vue                  # Single cell: text, badge, progress bar, suffix icon, inline edit, boolean toggle
     TablePagination.vue            # Bottom bar: page nav, rows per page, record count
     RowEditPanel.vue               # Slide-in panel for insert/update row forms
     ColumnVisibilityPanel.vue      # Dropdown panel to show/hide columns
@@ -189,7 +189,7 @@ col.accessor('field', {
     overflow: 'truncate',   // 'truncate' | 'wrap' — overrides table `cellOverflow`; `multiline: true` is legacy alias for wrap
     progressBar: true,      // or { min, max } or (value, row) => 0–100
     cellButtons: [{ label, icon? (SVG HTML), onClick(row) }],
-    badge: true,            // or { color } or (value, row) => { color } | null — pill style
+    badge: true,            // or { color?: CSSColor } or (value, row) => { color? } | null — pill for any type; boolean columns show a pill instead of the toggle when set. `color`: any CSS color (hex, rgb/hsl, named, var(--…))
     suffixIcon: { svg, color? }, // or (value, row) => { svg, color? } | null — icon after text
   },
   size: 180,               // column width in px

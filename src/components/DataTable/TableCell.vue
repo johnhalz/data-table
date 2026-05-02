@@ -72,8 +72,9 @@ const overflowMode = computed(() => {
 // Cell buttons: meta.cellButtons = [{ icon: '<svg…>', label: 'string', onClick: (row) => void }]
 const cellButtons = meta.cellButtons ?? []
 
-// Badge: meta.badge = true | { color } | (value, row) => { color } | null
-// Renders the cell value as a pill/chip. Per-color badges derive bg and border from the color.
+// Badge: meta.badge = true | { color?: CSSColor } | (value, row) => { color?: CSSColor } | null
+// Works for any column type (varchar, text, int*, boolean, etc.). When set on a boolean column,
+// the pill replaces the toggle. `color` accepts any valid CSS color (hex, rgb/hsl, named, var(--token), …).
 const badgeStyle = computed(() => {
   if (!meta.badge) return null
   const value = props.cell.getValue()
@@ -98,6 +99,8 @@ const badgeStyle = computed(() => {
   }
 })
 
+const useBooleanToggle = computed(() => isBoolean && !meta.badge)
+
 // Suffix icon: meta.suffixIcon = { svg, color? } | (value, row) => { svg, color? } | null
 // Renders a small inline icon after the cell text.
 const suffixIcon = computed(() => {
@@ -116,7 +119,7 @@ function handleClick() {
 }
 
 function handleDoubleClick() {
-  if (!editable.value?.update || isBoolean || meta.progressBar || cellButtons.length > 0) return
+  if (!editable.value?.update || useBooleanToggle.value || meta.progressBar || cellButtons.length > 0) return
   isEditing.value = true
   emit('editing-change', true)
   editValue.value = props.cell.getValue() ?? ''
@@ -185,8 +188,8 @@ function toggleBoolean() {
     @click="handleClick"
     @dblclick="handleDoubleClick"
   >
-    <!-- Boolean toggle -->
-    <template v-if="isBoolean">
+    <!-- Boolean toggle (badge meta takes precedence — any type can use meta.badge) -->
+    <template v-if="useBooleanToggle">
       <button
         v-if="editable.update"
         class="flex items-center gap-1.5"

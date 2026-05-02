@@ -166,7 +166,7 @@ col.accessor('field_name', {
 | `multiline` | `Boolean` | **Legacy:** `true` is equivalent to `overflow: 'wrap'`. |
 | `progressBar` | `Boolean \| { min, max } \| (value, row) => number` | Renders a bar; value or mapped 0–100. Double-click edit disabled. |
 | `cellButtons` | `Array` | Trailing buttons: `{ label, icon? (SVG HTML), onClick(row) }`. |
-| `badge` | `Boolean \| { color } \| (value, row) => { color } \| null` | Renders the cell value as a pill. With `{ color: '#hex' }` or a function returning `{ color }`, tints the badge; `true` uses neutral styling. |
+| `badge` | `Boolean \| { color? } \| (value, row) => { color? } \| null` | Renders the **cell value as a pill** for **any** column type (`varchar`, `text`, numbers, etc.). On **boolean** columns, `meta.badge` replaces the default toggle with a pill (double‑click to edit still works when `editable.update` is true). Set **`color`** to any CSS color (`#hex`, `rgb()`, `hsl()`, named colors, `var(--token)`). Omit `color` or use `badge: true` for neutral styling. |
 | `suffixIcon` | `{ svg, color? } \| (value, row) => { svg, color? } \| null` | Small inline SVG **after** the cell text. `svg` is raw markup; `color` is an optional CSS color. |
 
 ## Features
