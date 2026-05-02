@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, provide, inject, watch, shallowRef, onMounted, nextTick, unref } from 'vue'
+import { ref, computed, provide, inject, watch, shallowRef, onMounted, onUnmounted, nextTick, unref } from 'vue'
 import {
   useVueTable,
   getCoreRowModel,
@@ -13,6 +13,7 @@ import TableGrid from './TableGrid.vue'
 import TablePagination from './TablePagination.vue'
 import RowEditPanel from './RowEditPanel.vue'
 import ContextMenu from './ContextMenu.vue'
+import { distributeWidthsLargestRemainder, DATA_TABLE_STICKY_CHROME_PX } from './columnSizingFill.js'
 import { PENDING_EDIT_KINDS, PENDING_INSERT_ID_PREFIX } from './types.js'
 
 /** Provide/inject: resolved font stacks for nesting (see `fontFamily` prop). */
@@ -172,6 +173,7 @@ const mergedRootStyles = computed(() => ({
 }))
 
 const rootElRef = ref(null)
+const tableGridRef = ref(null)
 
 const emit = defineEmits([
   'insert-row',
@@ -671,13 +673,12 @@ watch(() => props.rows, () => {
   table.resetRowSelection()
 })
 
-// Auto-size columns to fit their content on initial load. Uses canvas text
-// measurement (not DOM) so it works with the virtualized row body and avoids
-// layout thrashing. Runs once per DataTable instance after mount.
-function autoSizeColumnsFromContent() {
-  if (typeof document === 'undefined') return
+/** Canvas/content-based widths (min 60, max 500) for every leaf column. */
+function computeContentSizedColumns() {
+  const sizing = {}
+  if (typeof document === 'undefined') return sizing
   const ctx = document.createElement('canvas').getContext('2d')
-  if (!ctx) return
+  if (!ctx) return sizing
 
   let fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
   if (rootElRef.value) {
@@ -695,7 +696,6 @@ function autoSizeColumnsFromContent() {
   const MAX_WIDTH = 500
   const SAMPLE_SIZE = 200      // rows measured for perf cap
 
-  const sizing = {}
   const leafColumns = table.getAllLeafColumns()
   const sample = data.value.slice(0, SAMPLE_SIZE)
 
@@ -730,11 +730,84 @@ function autoSizeColumnsFromContent() {
     sizing[col.id] = Math.min(Math.max(finalWidth, MIN_WIDTH), MAX_WIDTH)
   }
 
-  columnSizing.value = { ...sizing, ...columnSizing.value }
+  return sizing
+}
+
+/**
+ * Applies content widths; if viewport is wide enough (from TableGrid scroll shell),
+ * scales visible leaf columns proportionally so data columns consume `viewport - sticky chrome`.
+ */
+function applyAutoSizedColumnsForViewport(viewportInnerWidth) {
+  const sizing = computeContentSizedColumns()
+  const out = { ...sizing }
+
+  let vw = viewportInnerWidth
+  if (!(typeof vw === 'number' && Number.isFinite(vw)) || vw <= 0) {
+    columnSizing.value = out
+    return
+  }
+
+  const visibleLeaves = table.getVisibleLeafColumns()
+  const visibleIds = visibleLeaves.map((c) => c.id)
+
+  /** No visible leaf columns → only chrome / empty toolbar width; keep measured map */
+  if (visibleIds.length === 0) {
+    columnSizing.value = out
+    return
+  }
+
+  const baselines = visibleIds.map((id) => out[id] ?? 60)
+
+  const sumVisible = baselines.reduce((a, b) => a + b, 0)
+  const usable = Math.max(0, Math.floor(vw - DATA_TABLE_STICKY_CHROME_PX))
+
+  /** Under-filled viewport: proportional stretch beyond 500px cap is allowed here */
+  if (sumVisible > 0 && sumVisible <= usable && visibleIds.length > 0) {
+    const filled = distributeWidthsLargestRemainder(visibleIds, baselines, usable)
+    visibleIds.forEach((id) => {
+      out[id] = filled[id]
+    })
+  }
+
+  columnSizing.value = out
+}
+
+let viewportResizeObserver = null
+
+function disconnectViewportSizingObserver() {
+  viewportResizeObserver?.disconnect()
+  viewportResizeObserver = null
 }
 
 onMounted(() => {
-  nextTick(autoSizeColumnsFromContent)
+  const flushLayoutAndSize = async () => {
+    await nextTick()
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => resolve())
+    })
+    const vw = tableGridRef.value?.getScrollViewportInnerWidth?.() ?? 0
+    applyAutoSizedColumnsForViewport(vw)
+    if (vw > 0) return
+
+    const observeEl = typeof tableGridRef.value?.getViewportResizeObserveTarget === 'function'
+      ? tableGridRef.value.getViewportResizeObserveTarget()
+      : null
+    if (observeEl && typeof ResizeObserver !== 'undefined') {
+      disconnectViewportSizingObserver()
+      viewportResizeObserver = new ResizeObserver(() => {
+        const w = tableGridRef.value?.getScrollViewportInnerWidth?.() ?? 0
+        if (w <= 0) return
+        applyAutoSizedColumnsForViewport(w)
+        disconnectViewportSizingObserver()
+      })
+      viewportResizeObserver.observe(observeEl)
+    }
+  }
+  flushLayoutAndSize()
+})
+
+onUnmounted(() => {
+  disconnectViewportSizingObserver()
 })
 </script>
 
@@ -811,6 +884,7 @@ onMounted(() => {
     <div class="flex flex-1 min-h-0 min-w-0">
       <div class="flex flex-col flex-1 min-w-0 min-h-0">
         <TableGrid
+          ref="tableGridRef"
           :table="table"
           @update-cell="handleUpdateCell"
           @context-menu="openContextMenu"

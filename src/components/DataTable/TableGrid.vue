@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, inject, useTemplateRef } from 'vue'
+import { ref, computed, inject, useTemplateRef, toValue } from 'vue'
 import { FlexRender } from '@tanstack/vue-table'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import TableColumnHeader from './TableColumnHeader.vue'
@@ -131,6 +131,23 @@ const virtualizer = useVirtualizer(
 
 const virtualRows = computed(() => virtualizer.value.getVirtualItems())
 const totalHeight = computed(() => virtualizer.value.getTotalSize())
+
+/** Scroll shell for horizontal clipping: root uses `scroller`; nested uses its parent `overflow-auto` wrapper */
+function getViewportScrollShell() {
+  const inner = scrollerRef.value
+  if (!inner) return null
+  const depth = toValue(nestingDepth)
+  return depth && depth > 0 ? inner.parentElement : inner
+}
+
+function getScrollViewportInnerWidth() {
+  return getViewportScrollShell()?.clientWidth ?? 0
+}
+
+defineExpose({
+  getScrollViewportInnerWidth,
+  getViewportResizeObserveTarget: getViewportScrollShell,
+})
 </script>
 
 <template>
