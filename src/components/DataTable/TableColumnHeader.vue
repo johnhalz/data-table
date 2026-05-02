@@ -65,39 +65,57 @@ function onResizeStart(e) {
 function autoFitColumn() {
   const colId = props.header.column.id
   const th = thRef.value
-  if (!th) return
-  const table = th.closest('table')
-  if (!table) return
+  if (typeof document === 'undefined' || !th) return
 
-  const headerRow = th.parentElement
-  const colIndex = Array.from(headerRow.children).indexOf(th)
+  const ctx = document.createElement('canvas').getContext('2d')
+  if (!ctx) return
 
-  const measurer = document.createElement('span')
-  measurer.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font-size:13px;font-family:inherit;'
-  document.body.appendChild(measurer)
+  const ff = getComputedStyle(th).fontFamily
+  const fontFamily = ff && ff.trim() !== '' ? ff : '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
 
-  let maxWidth = 0
+  ctx.font = `13px ${fontFamily}`
 
-  const headerContent = th.querySelector('.flex > span')
-  if (headerContent) {
-    measurer.textContent = headerContent.textContent
-    maxWidth = Math.max(maxWidth, measurer.offsetWidth)
+  const col = props.header.column
+  const colMeta = col.columnDef.meta || {}
+  const CELL_PADDING_PX = 16
+  const HEADER_CHROME_PX = 28
+  const TYPE_BADGE_GAP_PX = 6
+  const CELL_BUTTON_PX = 22
+  const MIN_WIDTH = 60
+  const MAX_WIDTH = 500
+
+  const headerLabel = typeof col.columnDef.header === 'string'
+    ? col.columnDef.header
+    : String(col.id)
+
+  let contentWidth = ctx.measureText(headerLabel).width
+
+  if (showDataTypes && colMeta.type) {
+    contentWidth += TYPE_BADGE_GAP_PX + ctx.measureText(String(colMeta.type)).width
   }
 
-  const rows = table.querySelectorAll('tbody tr')
-  rows.forEach(row => {
-    const cellContainer = row.querySelector('.contents-row') || row
-    const cell = cellContainer.children[colIndex]
-    if (cell) {
-      const content = cell.querySelector('.truncate, .whitespace-pre-wrap') || cell
-      measurer.textContent = content.textContent
-      maxWidth = Math.max(maxWidth, measurer.offsetWidth)
+  const isFixedUiCell =
+    (colMeta.type === 'boolean' && !colMeta.badge) || !!colMeta.progressBar
+
+  if (!isFixedUiCell) {
+    const accessorKey = col.columnDef.accessorKey ?? col.id
+    const rows = props.table.getFilteredRowModel().rows
+    for (let i = 0; i < rows.length; i++) {
+      const original = rows[i].original
+      const value = original?.[accessorKey]
+      if (value == null) continue
+      const w = ctx.measureText(String(value)).width
+      if (w > contentWidth) contentWidth = w
     }
-  })
+  }
 
-  document.body.removeChild(measurer)
+  if (Array.isArray(colMeta.cellButtons) && colMeta.cellButtons.length > 0) {
+    contentWidth += colMeta.cellButtons.length * CELL_BUTTON_PX
+  }
 
-  const newWidth = Math.max(maxWidth + 32, 50)
+  const finalWidth = Math.ceil(contentWidth) + CELL_PADDING_PX + HEADER_CHROME_PX
+  const newWidth = Math.min(Math.max(finalWidth, MIN_WIDTH), MAX_WIDTH)
+
   props.table.options.onColumnSizingChange(prev => ({ ...prev, [colId]: newWidth }))
 }
 </script>
