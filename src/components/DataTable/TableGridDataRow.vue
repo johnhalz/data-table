@@ -80,7 +80,7 @@ const wrapperStyle = computed(() => {
 
 <template>
   <div
-    class="st-row group"
+    class="st-row"
     :class="{
       'st-row--selected': row.getIsSelected(),
       'st-row--pending-insert': getRowPendingState(row.id) === 'insert',
@@ -89,7 +89,10 @@ const wrapperStyle = computed(() => {
     :style="wrapperStyle"
     :data-index="virtualOffsetY != null ? rowIndex : undefined"
   >
-    <div :style="{ display: 'table', tableLayout: 'fixed', width: '100%' }">
+    <div
+      class="group/row"
+      :style="{ display: 'table', tableLayout: 'fixed', width: '100%' }"
+    >
       <div
         class="py-1.5 align-middle sticky left-0 z-10 st-sticky-cell"
         :style="{
@@ -115,7 +118,7 @@ const wrapperStyle = computed(() => {
           </button>
           <button
             v-else-if="editable.update"
-            class="invisible group-hover:visible flex items-center justify-center w-4 h-4 shrink-0"
+            class="invisible group-hover/row:visible flex items-center justify-center w-4 h-4 shrink-0"
             :style="{ color: 'var(--st-text-secondary)' }"
             title="Expand row"
             @click.stop="$emit('edit-row', row.original)"
