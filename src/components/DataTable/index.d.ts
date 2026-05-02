@@ -32,6 +32,13 @@ export interface CommitEditsPayload {
   deletes: unknown[]
 }
 
+/** Item in the insert button dropdown (`insertActions`). */
+export interface InsertAction {
+  key: string
+  label: string
+  icon?: string
+}
+
 /** Public props mirrored from `DataTable.vue`. */
 export interface DataTableProps {
   columns: ColumnDef<any, any>[]
@@ -47,9 +54,13 @@ export interface DataTableProps {
   toolbarActions?: ToolbarAction[]
   toolbarActionsLabel?: string
   defaultInsertLabel?: string | null
+  /** Custom insert/import menu entries; emits `insert-action` with `key`. */
+  insertActions?: InsertAction[]
   showRowBorders?: boolean
   showColumnBorders?: boolean
   cellButtonVisibility?: 'hover' | 'always' | 'select'
+  /** Default text cell overflow; per-column `meta.overflow` overrides. */
+  cellOverflow?: 'truncate' | 'wrap'
   theme?: 'dark' | 'light'
   accentColor?: string
   /**
@@ -72,6 +83,10 @@ export interface DataTableProps {
   controlledColumnFilters?: unknown[] | null
   controlledColumnVisibility?: Record<string, boolean> | null
   stagedEdits?: boolean
+  /** Singular noun after the total in the footer (default "record"). */
+  countLabelSingular?: string
+  /** Plural noun after the total in the footer (default "records"). */
+  countLabelPlural?: string
 }
 
 export declare const DataTable: DefineComponent<DataTableProps>

@@ -47,6 +47,20 @@ const props = defineProps({
     default: 'hover',
     validator: (v) => ['hover', 'always', 'select'].includes(v),
   },
+  // Global default overflow behaviour for text cells.
+  // Per-column meta.overflow overrides this value.
+  cellOverflow: {
+    type: String,
+    default: 'truncate',
+    validator: (v) => ['truncate', 'wrap'].includes(v),
+  },
+  // Custom actions for the insert button dropdown.
+  // Each item: { key: string, label: string, icon?: string (SVG HTML) }
+  // Emits 'insert-action' with the key when an item is selected.
+  insertActions: { type: Array, default: () => [] },
+  // Footer count text: "{{ n }} record(s)" — override for domain wording (e.g. ligand/ligands).
+  countLabelSingular: { type: String, default: 'record' },
+  countLabelPlural: { type: String, default: 'records' },
   theme: { type: String, default: 'dark' }, // 'dark' | 'light'
   accentColor: { type: String, default: '#3ecf8e' },
   /** Optional CSS `font-family` stack (same syntax as CSS). Cascades into nested/sub-tables. Omit to use bundled system UI stack. */
@@ -169,6 +183,7 @@ const emit = defineEmits([
   'refresh',
   'selection-action',
   'toolbar-action',
+  'insert-action',
   'view-change',
   'update:expanded-rows',
   'sub-table-event',
@@ -627,6 +642,7 @@ provide('editable', editableCaps)
 provide('showRowBorders', props.showRowBorders)
 provide('showColumnBorders', props.showColumnBorders)
 provide('cellButtonVisibility', computed(() => props.cellButtonVisibility))
+provide('cellOverflow', computed(() => props.cellOverflow))
 provide('insertRow', () => emit('insert-row'))
 provide('openInsertPanel', openInsertPanel)
 provide('emptyTitle', computed(() => props.emptyTitle))
@@ -738,6 +754,8 @@ onMounted(() => {
         :editable="editableCaps"
         :selection-actions="selectionActions"
         :enable-select-all="enableSelectAll"
+        :count-label-singular="countLabelSingular"
+        :count-label-plural="countLabelPlural"
         @delete-rows="handleDeleteRows"
         @selection-action="(action, rows) => emit('selection-action', action, rows)"
       />
@@ -752,6 +770,7 @@ onMounted(() => {
         :loading="loading"
         :is-empty="data.length === 0"
         :default-insert-label="defaultInsertLabel"
+        :insert-actions="insertActions"
         :toolbar-actions="toolbarActions"
         :toolbar-actions-label="toolbarActionsLabel"
         :sub-table-columns="subTableColumns"
@@ -766,6 +785,7 @@ onMounted(() => {
         @update:sub-table-column-filters="val => subTableColumnFilters = val"
         @update:sub-table-column-visibility="val => subTableColumnVisibility = val"
         @insert-row="openInsertPanel"
+        @insert-action="(key) => emit('insert-action', key)"
         @refresh="emit('refresh')"
         @toolbar-action="(key) => emit('toolbar-action', key)"
       />
@@ -805,6 +825,8 @@ onMounted(() => {
           :staged-edits="stagedEdits"
           :pending-edit-count="pendingEditCount"
           :committing="committing || loading"
+          :count-label-singular="countLabelSingular"
+          :count-label-plural="countLabelPlural"
           @commit="commitEdits"
           @discard="discardEdits"
         />

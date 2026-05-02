@@ -81,24 +81,55 @@ const rows = ref([
 | `loading` | `Boolean` | `false` | Spins the refresh button icon and disables it while true |
 | `error` | `String` | `null` | Displays a dismissible error banner above the grid. Clears automatically when the prop value changes |
 | `defaultColumnVisibility` | `Object` | `{}` | Initial column visibility. Keys are column IDs, values are booleans. `{ col_name: false }` hides `col_name` on load |
+| `controlledColumnVisibility` | `Object` | `null` | When set, column visibility is driven from the parent (merged with internal state updates) |
 | `showDataTypes` | `Boolean` | `true` | Show data type labels (e.g. `varchar`, `int8`) in column headers and panels |
 | `editable` | `Boolean \| Object` | `true` | `true`/`false` enables or disables all mutations. Pass `{ insert, update, delete }` booleans to control each operation independently |
 | `selectionActions` | `Array` | `[]` | Custom actions shown in the Actions dropdown when rows are selected. Each item: `{ key: string, label: string }` |
+| `enableSelectAll` | `Boolean` | `true` | When `true`, shows **Select all N …** next to **Clear selection** (selects every filtered row across pages). The header checkbox only toggles the current page |
+| `toolbarActions` | `Array` | `[]` | Custom dropdown next to Sort. Items: `{ key, label, icon? (SVG HTML), disabled?, divider? }`. Emits `toolbar-action` with `key`. Hidden when empty |
+| `toolbarActionsLabel` | `String` | `'Actions'` | Label on the `toolbarActions` trigger |
+| `defaultInsertLabel` | `String` | `null` | When `editable.insert` is true, sets the primary insert button label (e.g. `Import…`). Without `insertActions`, clicking fires `insert-row` only. With `insertActions`, the chevron opens the custom menu |
+| `insertActions` | `Array` | `[]` | Extra insert/import menu entries: `{ key, label, icon? (SVG HTML) }`. Emits `insert-action` with `key`. See **Insert button** under Features |
 | `showRowBorders` | `Boolean` | `true` | Show horizontal borders between rows |
 | `showColumnBorders` | `Boolean` | `true` | Show vertical borders between columns |
-| `totalCount` | `Number` | `null` | Total row count for server-side pagination. When set, the table switches to manual pagination mode and emits `page-change` instead of paginating client-side |
+| `cellButtonVisibility` | `String` | `'hover'` | `'hover'` \| `'always'` \| `'select'` — when to show `meta.cellButtons` |
+| `cellOverflow` | `String` | `'truncate'` | Default text overflow for cells: `'truncate'` or `'wrap'`. Per-column `meta.overflow` overrides |
+| `countLabelSingular` | `String` | `'record'` | Singular noun after the total in the footer (and in **Select all N …**): e.g. `ligand` → `1 ligand` |
+| `countLabelPlural` | `String` | `'records'` | Plural form: e.g. `ligands` → `42 ligands` |
+| `theme` | `String` | `'dark'` | `'dark'` or `'light'` |
+| `accentColor` | `String` | `'#3ecf8e'` | Primary accent color (buttons, selections, progress bars) |
+| `fontFamily` | `String` | `null` | Optional CSS `font-family` value; cascades into nested sub-tables |
+| `showToolbar` | `Boolean` | `true` | Show filter/sort/columns/insert toolbar (and selection toolbar when rows are selected) |
+| `showPagination` | `Boolean` | `true` | Show footer pagination bar |
+| `emptyTitle` | `String` | `'No rows found'` | Empty-state heading |
+| `emptyMessage` | `String` | `'Get started by inserting a new row.'` | Empty-state body |
+| `totalCount` | `Number` | `null` | Total row count for server-side pagination. When set, switches to manual pagination and emits `page-change` |
+| `hasRandomAccess` | `Boolean` | `true` | When `false`, hides the page number input in the footer (prev/next only) |
+| `columnFilters` | `Array` | `null` | Optional `v-model:column-filters` — observe/sync filter state from the parent |
+| `controlledSorting` | `Array` | `null` | External sort state for nested/controlled tables |
+| `controlledColumnFilters` | `Array` | `null` | External filter state for nested tables |
+| `getSubTable` | `Function` | `null` | `(row) => ({ columns, rows, ... }) \| null` — expandable rows with nested `DataTable` |
+| `subTableColumns` | `Array` | `null` | Shared column defs for sub-tables when using expansion |
+| `expandedRows` | `Object` | `null` | `v-model:expanded-rows` — controlled expanded row IDs |
+| `stagedEdits` | `Boolean` | `false` | Queue mutations locally; footer shows **Commit** / **Clear edits**; emit `commit-edits` instead of immediate `insert-row` / `update-row` / `delete-rows` |
 
 ## Events
 
 | Event | Payload | Description |
 |-------|---------|-------------|
-| `insert-row` | `Object` (row data) | User submitted the insert form |
+| `insert-row` | `Object` (row data) | User submitted the insert form, or primary insert action when `defaultInsertLabel` is set without custom `insertActions` |
+| `insert-action` | `actionKey: string` | User chose an item from `insertActions` (chevron menu or **Insert ▼** when no default label) |
 | `update-row` | `{ id, changes }` | User edited a cell or saved the edit panel |
 | `delete-rows` | `Array<string>` (row IDs) | User confirmed deletion of selected rows |
 | `refresh` | — | User clicked the refresh button |
 | `selection-action` | `(actionKey: string, rows: Object[])` | User triggered a custom selection action |
-| `page-change` | `{ pageIndex: number, pageSize: number }` | Page navigation while `totalCount` is set (server-side pagination mode) |
+| `toolbar-action` | `actionKey: string` | User picked an item from `toolbarActions` |
+| `page-change` | `{ pageIndex: number, pageSize: number }` | Page navigation while `totalCount` is set (server-side pagination) |
 | `column-resize` | `Object<colId, number>` | User finished resizing a column; payload is the full column sizing map |
+| `commit-edits` | `({ inserts, updates, deletes }, done)` | Staged-edits mode: parent must call `done(true)` or `done(false)` |
+| `discard-edits` | — | User cleared staged edits after confirmation |
+| `update:column-filters` | `Array` | Column filter state changed (when `columnFilters` is bound) |
+| `update:expanded-rows` | `Object` | Expanded row map changed (when controlled) |
 
 ## Column Definition
 
@@ -127,13 +158,24 @@ col.accessor('field_name', {
 | `boolean` | Renders as a toggle switch |
 | Any other string | Treated as text |
 
+### Additional column `meta` (presentation & cells)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `overflow` | `'truncate' \| 'wrap'` | Text overflow for this column. Overrides the table-level `cellOverflow` prop. |
+| `multiline` | `Boolean` | **Legacy:** `true` is equivalent to `overflow: 'wrap'`. |
+| `progressBar` | `Boolean \| { min, max } \| (value, row) => number` | Renders a bar; value or mapped 0–100. Double-click edit disabled. |
+| `cellButtons` | `Array` | Trailing buttons: `{ label, icon? (SVG HTML), onClick(row) }`. |
+| `badge` | `Boolean \| { color } \| (value, row) => { color } \| null` | Renders the cell value as a pill. With `{ color: '#hex' }` or a function returning `{ color }`, tints the badge; `true` uses neutral styling. |
+| `suffixIcon` | `{ svg, color? } \| (value, row) => { svg, color? } \| null` | Small inline SVG **after** the cell text. `svg` is raw markup; `color` is an optional CSS color. |
+
 ## Features
 
 ### Toolbar
 - **Filter bar** — Click to add column filters with operator support (equals, like, greater than, etc.)
 - **Sort** — Multi-column sort with drag-and-drop reordering, ASC/DESC toggle
 - **Columns** — Toggle column visibility with Show All / Default reset
-- **Insert** — Split button with dropdown for insert row, insert column, import CSV
+- **Insert** — When `editable.insert` is true: if `defaultInsertLabel` is set, primary click emits `insert-row`; pairing with `insertActions` adds a chevron menu that emits `insert-action` per item. With no default label, an **Insert** dropdown lists `insertActions` or built-in items (insert row / column / CSV placeholder). Optional `toolbarActions` adds a separate **Actions** menu next to Sort.
 - **Refresh** — Emits `refresh` event for parent to reload data
 
 ### Grid
@@ -148,7 +190,7 @@ col.accessor('field_name', {
 Appears when rows are selected:
 - **Delete...** — Opens confirmation dialog before emitting `delete-rows`
 - **Actions** — Dropdown with Copy as CSV/SQL/JSON plus any custom `selectionActions`
-- **Clear selection** / **Select all rows in table**
+- **Clear selection** / **Select all N** — Uses `countLabelSingular` / `countLabelPlural` (e.g. *Select all 50 ligands*)
 
 ### Row Edit Panel
 Slide-in panel from the right for inserting or updating rows:
@@ -157,9 +199,9 @@ Slide-in panel from the right for inserting or updating rows:
 - Save with `Cmd+Enter`, close with `Escape`
 
 ### Pagination
-- Page navigation with direct page number input
+- Page navigation with direct page number input (unless `hasRandomAccess` is `false`)
 - Configurable rows per page (100, 500, 1000)
-- Total record count display
+- Total count line: `{{ n }} {{ countLabelSingular }}` or `{{ countLabelPlural }}` (defaults *record* / *records*)
 
 ## Examples
 
@@ -256,6 +298,45 @@ async function handleRefresh() {
     :loading="isLoading"
     :error="error"
     @refresh="handleRefresh"
+  />
+</template>
+```
+
+### Custom footer count labels
+
+Use domain nouns so the footer and **Select all** match your entity (e.g. stores, ligands).
+
+```vue
+<DataTable
+  :columns="columns"
+  :rows="rows"
+  count-label-singular="store"
+  count-label-plural="stores"
+/>
+```
+
+### Custom insert / import menu
+
+```vue
+<script setup>
+const insertActions = [
+  { key: 'csv', label: 'Import CSV', icon: '<svg ...></svg>' },
+  { key: 'api', label: 'Sync from API' },
+]
+
+function onInsertAction(key) {
+  if (key === 'csv') openCsvDialog()
+}
+</script>
+
+<template>
+  <DataTable
+    :columns="columns"
+    :rows="rows"
+    default-insert-label="Import…"
+    :insert-actions="insertActions"
+    @insert-row="openDefaultImport"
+    @insert-action="onInsertAction"
   />
 </template>
 ```

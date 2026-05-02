@@ -8,6 +8,8 @@ const props = defineProps({
   stagedEdits: { type: Boolean, default: false },
   pendingEditCount: { type: Number, default: 0 },
   committing: { type: Boolean, default: false },
+  countLabelSingular: { type: String, default: 'record' },
+  countLabelPlural: { type: String, default: 'records' },
 })
 
 const emit = defineEmits(['commit', 'discard'])
@@ -158,7 +160,8 @@ function confirmDiscard() {
 
     <!-- Record count -->
     <span :style="{ color: 'var(--st-text-tertiary)' }">
-      {{ totalRecords.toLocaleString() }} record{{ totalRecords !== 1 ? 's' : '' }}
+      {{ totalRecords.toLocaleString() }}
+      {{ totalRecords === 1 ? countLabelSingular : countLabelPlural }}
     </span>
 
     <!-- Discard confirmation modal -->

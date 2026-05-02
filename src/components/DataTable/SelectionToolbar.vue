@@ -9,6 +9,8 @@ const props = defineProps({
   editable: { type: Object, default: () => ({ insert: true, update: true, delete: true }) },
   selectionActions: { type: Array, default: () => [] },
   enableSelectAll: { type: Boolean, default: true },
+  countLabelSingular: { type: String, default: 'record' },
+  countLabelPlural: { type: String, default: 'records' },
 })
 
 // Total row count across all pages (post-filter). Used to decide whether the
@@ -173,7 +175,7 @@ function handleCustomAction(action) {
       :style="{ color: 'var(--st-accent)' }"
       @click="table.toggleAllRowsSelected(true)"
     >
-      Select all {{ totalRowCount }} item{{ totalRowCount === 1 ? '' : 's' }}
+      Select all {{ totalRowCount }} {{ totalRowCount === 1 ? countLabelSingular : countLabelPlural }}
     </button>
 
     <div class="flex-1"></div>
