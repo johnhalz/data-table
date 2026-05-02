@@ -123,7 +123,7 @@ function autoFitColumn() {
 <template>
   <th
     ref="thRef"
-    class="sticky top-0 z-[21] text-left font-normal select-none group/header"
+    class="relative z-[21] text-left font-normal select-none group/header"
     :style="{
       width: `${header.getSize()}px`,
       minWidth: `${header.getSize()}px`,

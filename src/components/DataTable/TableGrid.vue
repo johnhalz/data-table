@@ -137,50 +137,61 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
   <div :class="nestingDepth === 0 ? 'flex-1 min-h-0 relative' : 'overflow-auto'">
   <div
     ref="scroller"
-    :class="nestingDepth === 0 ? 'absolute inset-0 overflow-auto flex flex-col' : 'flex flex-col'"
+    :class="
+      nestingDepth === 0
+        ? 'absolute inset-0 overflow-auto flex flex-col items-start min-h-0'
+        : 'flex flex-col items-start'
+    "
     @click.self="clearSelection"
   >
-    <table
-      class="border-collapse table-fixed shrink-0"
+    <!-- Sticky shell: vertical stick is on this block, not only on <th>, so it still works
+         when the scroll body is a flex sibling (default align-items: stretch otherwise
+         breaks position:sticky on header cells). -->
+    <div
+      class="sticky top-0 z-[26] shrink-0 isolate"
       :style="{ width: totalTableWidth + 'px', backgroundColor: 'var(--st-bg-header)' }"
     >
-      <thead>
-        <tr
-          v-for="headerGroup in headerGroups"
-          :key="headerGroup.id"
-        >
-          <!-- Row number header -->
-          <th
-            class="px-1.5 py-1.5 text-right font-normal sticky top-0 left-0 z-[40]"
-            :style="{
-              width: '44px', minWidth: '44px',
-              backgroundColor: 'var(--st-bg-header)',
-              borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
-              color: 'var(--st-text-tertiary)',
-            }"
+      <table
+        class="border-separate border-spacing-0 table-fixed w-full border-0 bg-transparent"
+        :style="{ width: totalTableWidth + 'px' }"
+      >
+        <thead>
+          <tr
+            v-for="headerGroup in headerGroups"
+            :key="headerGroup.id"
           >
-            <span class="text-xs">#</span>
-          </th>
-          <!-- Checkbox header -->
-          <th
-            class="px-1 py-1.5 text-center align-middle sticky top-0 z-[39]"
-            :style="{
-              width: '40px', minWidth: '40px', left: '44px',
-              backgroundColor: 'var(--st-bg-header)',
-              borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
-              boxShadow: stickyColShadow,
-            }"
-          >
-            <input
-              type="checkbox"
-              class="cursor-pointer align-middle"
-              :style="{ accentColor: 'var(--st-accent)' }"
-              :checked="isAllPageSelected"
-              :indeterminate="isSomePageSelected"
-              title="Select all rows on this page"
-              @change="toggleAllPageRows"
-            />
-          </th>
+            <!-- Row number header -->
+            <th
+              class="px-1.5 py-1.5 text-right font-normal sticky left-0 z-[40]"
+              :style="{
+                width: '44px', minWidth: '44px',
+                backgroundColor: 'var(--st-bg-header)',
+                borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
+                color: 'var(--st-text-tertiary)',
+              }"
+            >
+              <span class="text-xs">#</span>
+            </th>
+            <!-- Checkbox header -->
+            <th
+              class="px-1 py-1.5 text-center align-middle sticky z-[39]"
+              :style="{
+                width: '40px', minWidth: '40px', left: '44px',
+                backgroundColor: 'var(--st-bg-header)',
+                borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
+                boxShadow: stickyColShadow,
+              }"
+            >
+              <input
+                type="checkbox"
+                class="cursor-pointer align-middle"
+                :style="{ accentColor: 'var(--st-accent)' }"
+                :checked="isAllPageSelected"
+                :indeterminate="isSomePageSelected"
+                title="Select all rows on this page"
+                @change="toggleAllPageRows"
+              />
+            </th>
           <!-- Data column headers -->
           <TableColumnHeader
             v-for="header in headerGroup.headers"
@@ -189,8 +200,9 @@ const totalHeight = computed(() => virtualizer.value.getTotalSize())
             :table="table"
           />
         </tr>
-      </thead>
-    </table>
+        </thead>
+      </table>
+    </div>
     <!--
       Virtualized body lives outside <table> as div-based layout. Cell alignment
       with the header columns is preserved via explicit widths and CSS table
