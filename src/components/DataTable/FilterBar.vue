@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, inject, nextTick, watch } from 'vue'
+import { ref, computed, inject, nextTick, watch, watchEffect } from 'vue'
 import { FILTER_OPERATORS, DATE_TIME_TYPES } from './types.js'
 import FilterDatePicker from './FilterDatePicker.vue'
 
@@ -15,8 +15,7 @@ const props = defineProps({
 const emit = defineEmits(['update:column-filters', 'update:sub-table-column-filters'])
 
 const showDataTypes = inject('showDataTypes', true)
-
-const hasSubTable = computed(() => !!props.subTableColumns && props.subTableColumns.length > 0)
+const themeVars = inject('themeVars', {})
 
 // --- Merged filter list for display ---
 // Each entry gets a `table` field: 'parent' or 'sub'
@@ -26,6 +25,9 @@ const mergedFilters = computed(() => {
   return [...parent, ...sub]
 })
 
+// Badge on chips only when both parent-scope and nested-sub filters are present (tell sub vs parent apart)
+const showSubFilterBadge = computed(() => mergedFilters.value.some(f => f.table === 'sub'))
+
 // --- Dropdown state machine: 'closed' | 'columns' | 'operators' ---
 const dropdownState = ref('closed')
 const pendingColumn = ref(null) // { id, table }
@@ -33,7 +35,16 @@ const searchQuery = ref('')
 const highlightIndex = ref(0)
 
 const searchInputRef = ref(null)
+const anchorRef = ref(null)
+const dropdownPos = ref({ top: 0, left: 0 })
 const valueInputRefs = ref({})
+
+function updateDropdownPos() {
+  const el = anchorRef.value
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  dropdownPos.value = { top: rect.bottom + 4, left: rect.left }
+}
 
 // Flat list of all operators for keyboard nav
 const flatOperators = computed(() => {
@@ -58,24 +69,10 @@ const filteredParentColumns = computed(() => {
   return props.allColumns.filter(c => c.id.toLowerCase().includes(q))
 })
 
-const filteredSubColumns = computed(() => {
-  if (!hasSubTable.value) return []
-  const q = searchQuery.value.toLowerCase()
-  if (!q) return props.subTableColumns
-  return props.subTableColumns.filter(c => c.id.toLowerCase().includes(q))
-})
-
-// Combined filtered list for keyboard nav
-const filteredAllItems = computed(() => {
-  const items = []
-  for (const col of filteredParentColumns.value) {
-    items.push({ ...col, table: 'parent' })
-  }
-  for (const col of filteredSubColumns.value) {
-    items.push({ ...col, table: 'sub' })
-  }
-  return items
-})
+// Column picker lists only this table's columns (not nested/sub-table defs from `subTableColumns`)
+const filteredAllItems = computed(() =>
+  filteredParentColumns.value.map(col => ({ ...col, table: 'parent' }))
+)
 
 const placeholder = computed(() => {
   const colNames = props.allColumns.map(c => c.id).slice(0, 3).join(', ')
@@ -262,15 +259,26 @@ function handleSearchFocus() {
   }
 }
 
-// Track running index for keyboard highlight across grouped sections
-function getGlobalColumnIndex(tableType, localIdx) {
-  if (tableType === 'parent') return localIdx
-  return filteredParentColumns.value.length + localIdx
-}
-
 // Reset highlight when search query changes
 watch(searchQuery, () => {
   highlightIndex.value = 0
+})
+
+// Reposition teleported dropdowns; refresh on resize / scroll while open
+watchEffect(onCleanup => {
+  if (dropdownState.value === 'closed') return
+
+  function scheduleUpdate() {
+    nextTick(updateDropdownPos)
+  }
+  updateDropdownPos()
+  window.addEventListener('resize', scheduleUpdate)
+  window.addEventListener('scroll', scheduleUpdate, true)
+
+  onCleanup(() => {
+    window.removeEventListener('resize', scheduleUpdate)
+    window.removeEventListener('scroll', scheduleUpdate, true)
+  })
 })
 </script>
 
@@ -284,7 +292,7 @@ watch(searchQuery, () => {
       :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"
     >
       <span
-        v-if="hasSubTable"
+        v-if="showSubFilterBadge"
         class="text-[10px] font-medium uppercase px-1 rounded"
         :style="{ color: 'var(--st-text-placeholder)', backgroundColor: 'var(--st-bg-input)' }"
       >{{ filter.table === 'sub' ? 'sub' : tableName }}</span>
@@ -322,7 +330,7 @@ watch(searchQuery, () => {
       :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-accent-border)' }"
     >
       <span
-        v-if="hasSubTable"
+        v-if="showSubFilterBadge || (pendingColumn && pendingColumn.table === 'sub')"
         class="text-[10px] font-medium uppercase px-1 rounded"
         :style="{ color: 'var(--st-text-placeholder)', backgroundColor: 'var(--st-bg-input)' }"
       >{{ pendingColumn.table === 'sub' ? 'sub' : tableName }}</span>
@@ -330,7 +338,7 @@ watch(searchQuery, () => {
     </div>
 
     <!-- Search / add filter input -->
-    <div class="relative flex-1 min-w-[200px]">
+    <div ref="anchorRef" class="relative flex-1 min-w-[200px]">
       <input
         ref="searchInputRef"
         v-model="searchQuery"
@@ -341,69 +349,57 @@ watch(searchQuery, () => {
         @keydown="handleSearchKeydown"
       />
 
-      <!-- Column picker dropdown -->
-      <div
-        v-if="dropdownState === 'columns'"
-        id="column-picker"
-        class="absolute top-full left-0 mt-1 w-60 rounded shadow-xl z-50 py-1 max-h-60 overflow-auto"
-        :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"
-      >
-        <!-- Parent columns section -->
+      <!-- Column picker dropdown (Teleport so z-50 stacks above body-level backdrop z-40) -->
+      <Teleport to="body">
         <div
-          v-if="hasSubTable && filteredParentColumns.length > 0"
-          class="px-3 py-1 text-xs font-medium uppercase tracking-wide"
-          :style="{ color: 'var(--st-text-placeholder)' }"
+          v-if="dropdownState === 'columns'"
+          id="column-picker"
+          class="fixed w-60 rounded shadow-xl z-50 py-1 max-h-60 overflow-auto"
+          :style="{
+            ...themeVars,
+            top: dropdownPos.top + 'px',
+            left: dropdownPos.left + 'px',
+            fontFamily: 'var(--dt-font-family)',
+            backgroundColor: 'var(--st-bg-surface)',
+            border: '1px solid var(--st-border-secondary)',
+            color: 'var(--st-text)',
+          }"
         >
-          {{ tableName }}
-        </div>
         <div
           v-for="(col, idx) in filteredParentColumns"
           :key="'p-' + col.id"
           class="flex items-center justify-between px-3 py-1.5 cursor-pointer text-[13px]"
-          :data-highlighted="getGlobalColumnIndex('parent', idx) === highlightIndex"
-          :style="getGlobalColumnIndex('parent', idx) === highlightIndex ? { backgroundColor: 'var(--st-bg-menu-hover)' } : {}"
+          :data-highlighted="idx === highlightIndex"
+          :style="idx === highlightIndex ? { backgroundColor: 'var(--st-bg-menu-hover)' } : {}"
           @click="selectColumn(col.id, 'parent')"
-          @mouseenter="highlightIndex = getGlobalColumnIndex('parent', idx)"
+          @mouseenter="highlightIndex = idx"
         >
           <span :style="{ color: 'var(--st-text)' }">{{ col.id }}</span>
           <span v-if="showDataTypes" class="text-xs" :style="{ color: 'var(--st-text-placeholder)' }">{{ col.type }}</span>
         </div>
 
-        <!-- Sub-table columns section -->
-        <template v-if="hasSubTable && filteredSubColumns.length > 0">
-          <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
-          <div
-            class="px-3 py-1 text-xs font-medium uppercase tracking-wide"
-            :style="{ color: 'var(--st-text-placeholder)' }"
-          >
-            Sub-table
-          </div>
-          <div
-            v-for="(col, idx) in filteredSubColumns"
-            :key="'s-' + col.id"
-            class="flex items-center justify-between px-3 py-1.5 cursor-pointer text-[13px]"
-            :data-highlighted="getGlobalColumnIndex('sub', idx) === highlightIndex"
-            :style="getGlobalColumnIndex('sub', idx) === highlightIndex ? { backgroundColor: 'var(--st-bg-menu-hover)' } : {}"
-            @click="selectColumn(col.id, 'sub')"
-            @mouseenter="highlightIndex = getGlobalColumnIndex('sub', idx)"
-          >
-            <span :style="{ color: 'var(--st-text)' }">{{ col.id }}</span>
-            <span v-if="showDataTypes" class="text-xs" :style="{ color: 'var(--st-text-placeholder)' }">{{ col.type }}</span>
-          </div>
-        </template>
-
-        <div v-if="filteredParentColumns.length === 0 && filteredSubColumns.length === 0" class="px-3 py-2 text-[13px]" :style="{ color: 'var(--st-text-placeholder)' }">
+        <div v-if="filteredParentColumns.length === 0" class="px-3 py-2 text-[13px]" :style="{ color: 'var(--st-text-placeholder)' }">
           No columns found
         </div>
-      </div>
+        </div>
+      </Teleport>
 
       <!-- Operator picker dropdown -->
-      <div
-        v-if="dropdownState === 'operators'"
-        id="operator-picker"
-        class="absolute top-full left-0 mt-1 w-52 rounded shadow-xl z-50 py-1 max-h-60 overflow-auto"
-        :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"
-      >
+      <Teleport to="body">
+        <div
+          v-if="dropdownState === 'operators'"
+          id="operator-picker"
+          class="fixed w-52 rounded shadow-xl z-50 py-1 max-h-60 overflow-auto"
+          :style="{
+            ...themeVars,
+            top: dropdownPos.top + 'px',
+            left: dropdownPos.left + 'px',
+            fontFamily: 'var(--dt-font-family)',
+            backgroundColor: 'var(--st-bg-surface)',
+            border: '1px solid var(--st-border-secondary)',
+            color: 'var(--st-text)',
+          }"
+        >
         <template v-for="(item, idx) in flatOperators" :key="idx">
           <div
             v-if="item.type === 'header'"
@@ -424,7 +420,8 @@ watch(searchQuery, () => {
             <span class="font-mono text-xs" :style="{ color: 'var(--st-text-placeholder)' }">{{ item.value }}</span>
           </div>
         </template>
-      </div>
+        </div>
+      </Teleport>
 
       <!-- Backdrop to close dropdowns -->
       <Teleport to="body">
