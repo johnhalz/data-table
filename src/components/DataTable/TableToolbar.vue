@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
+import { onClickOutside } from '@vueuse/core'
 import SortPanel from './SortPanel.vue'
 import FilterBar from './FilterBar.vue'
 import ColumnVisibilityPanel from './ColumnVisibilityPanel.vue'
@@ -35,6 +36,16 @@ const showSortPanel = ref(false)
 const showInsertMenu = ref(false)
 const showColumnsPanel = ref(false)
 const showActionsMenu = ref(false)
+
+const sortContainerRef = ref(null)
+const actionsContainerRef = ref(null)
+const columnsContainerRef = ref(null)
+const insertContainerRef = ref(null)
+
+onClickOutside(sortContainerRef, () => { showSortPanel.value = false })
+onClickOutside(actionsContainerRef, () => { showActionsMenu.value = false })
+onClickOutside(columnsContainerRef, () => { showColumnsPanel.value = false })
+onClickOutside(insertContainerRef, () => { showInsertMenu.value = false })
 
 function handleToolbarAction(action) {
   if (action.disabled) return
@@ -115,7 +126,7 @@ const subTableColumnList = computed(() => {
       </button>
 
       <!-- Sort button -->
-      <div class="relative">
+      <div ref="sortContainerRef" class="relative">
         <button
           class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[13px] transition-colors"
           :style="isEmpty
@@ -147,13 +158,10 @@ const subTableColumnList = computed(() => {
           @update:sub-table-sorting="val => emit('update:sub-table-sorting', val)"
           @close="showSortPanel = false"
         />
-        <Teleport to="body">
-          <div v-if="showSortPanel" class="fixed inset-0 z-40" @click="showSortPanel = false" />
-        </Teleport>
       </div>
 
       <!-- Custom actions dropdown (SDK-provided) -->
-      <div v-if="toolbarActions.length > 0" class="relative">
+      <div v-if="toolbarActions.length > 0" ref="actionsContainerRef" class="relative">
         <button
           class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[13px] transition-colors"
           :style="isEmpty
@@ -198,13 +206,10 @@ const subTableColumnList = computed(() => {
             </button>
           </template>
         </div>
-        <Teleport to="body">
-          <div v-if="showActionsMenu" class="fixed inset-0 z-40" @click="showActionsMenu = false" />
-        </Teleport>
       </div>
 
       <!-- Columns visibility button -->
-      <div class="relative">
+      <div ref="columnsContainerRef" class="relative">
         <button
           class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[13px] transition-colors"
           :style="isEmpty
@@ -234,9 +239,6 @@ const subTableColumnList = computed(() => {
           @update:sub-table-column-visibility="val => emit('update:sub-table-column-visibility', val)"
           @close="showColumnsPanel = false"
         />
-        <Teleport to="body">
-          <div v-if="showColumnsPanel" class="fixed inset-0 z-40" @click="showColumnsPanel = false" />
-        </Teleport>
       </div>
 
       <!-- Insert button
@@ -246,7 +248,7 @@ const subTableColumnList = computed(() => {
            C) no defaultInsertLabel + insertActions → "Insert ▼" dropdown with custom actions
            D) neither                              → "Insert ▼" dropdown with hardcoded items
       -->
-      <div v-if="editable.insert" class="relative">
+      <div v-if="editable.insert" ref="insertContainerRef" class="relative">
         <!-- A: split button -->
         <div v-if="defaultInsertLabel && insertActions.length > 0" class="flex items-center">
           <button
@@ -325,9 +327,6 @@ const subTableColumnList = computed(() => {
           </template>
         </div>
 
-        <Teleport to="body">
-          <div v-if="showInsertMenu" class="fixed inset-0 z-40" @click="showInsertMenu = false" />
-        </Teleport>
       </div>
     </div>
   </div>
