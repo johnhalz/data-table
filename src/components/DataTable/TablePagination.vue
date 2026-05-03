@@ -1,5 +1,7 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, inject } from 'vue'
+
+const themeVars = inject('themeVars', {})
 
 const props = defineProps({
   table: { type: Object, required: true },
@@ -169,12 +171,13 @@ function confirmDiscard() {
       <div
         v-if="showDiscardConfirm"
         class="fixed inset-0 z-[100] flex items-center justify-center"
-        :style="{ backgroundColor: 'var(--st-bg-overlay)' }"
+        :style="{ ...themeVars, backgroundColor: 'var(--st-bg-overlay)' }"
         @click.self="showDiscardConfirm = false"
       >
         <div
           class="rounded-lg shadow-xl p-5 w-80"
           :style="{
+            ...themeVars,
             backgroundColor: 'var(--st-bg-surface)',
             border: '1px solid var(--st-border-secondary)',
             color: 'var(--st-text)',
