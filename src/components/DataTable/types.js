@@ -39,37 +39,53 @@
  * @property {Function} [getSubTable] - Recursive: allows nested sub-tables within sub-tables
  */
 
-export const DATE_TIME_TYPES = ['date', 'time', 'timetz', 'timestamp', 'timestamptz', 'datetime']
+export const DATE_TIME_TYPES = [
+  "date",
+  "time",
+  "timetz",
+  "timestamp",
+  "timestamptz",
+  "datetime",
+];
 
 export const FILTER_OPERATORS = [
-  { group: 'Comparison', operators: [
-    { label: 'Equals', value: '=' },
-    { label: 'Not equal', value: '<>' },
-    { label: 'Greater than', value: '>' },
-    { label: 'Less than', value: '<' },
-    { label: 'Greater or equal', value: '>=' },
-    { label: 'Less or equal', value: '<=' },
-  ]},
-  { group: 'Pattern Matching', operators: [
-    { label: 'Like', value: '~~' },
-    { label: 'iLike', value: '~~*' },
-  ]},
-  { group: 'Set & Null Checks', operators: [
-    { label: 'In list', value: 'in' },
-    { label: 'Is', value: 'is' },
-  ]},
-]
+  {
+    group: "Comparison",
+    operators: [
+      { label: "Equals", value: "=" },
+      { label: "Not equal", value: "<>" },
+      { label: "Greater than", value: ">" },
+      { label: "Less than", value: "<" },
+      { label: "Greater or equal", value: ">=" },
+      { label: "Less or equal", value: "<=" },
+    ],
+  },
+  {
+    group: "Pattern Matching",
+    operators: [
+      { label: "Contains", value: "~~" },
+      { label: "Excludes", value: "~~*" },
+    ],
+  },
+  {
+    group: "Set & Null Checks",
+    operators: [
+      { label: "In list", value: "in" },
+      { label: "Is", value: "is" },
+    ],
+  },
+];
 
-export const PAGE_SIZE_OPTIONS = [100, 500, 1000]
+export const PAGE_SIZE_OPTIONS = [100, 500, 1000];
 
-export const DEFAULT_COLUMN_WIDTH = 180
-export const ROW_NUMBER_WIDTH = 60
-export const CHECKBOX_WIDTH = 50
+export const DEFAULT_COLUMN_WIDTH = 180;
+export const ROW_NUMBER_WIDTH = 60;
+export const CHECKBOX_WIDTH = 50;
 
 export const PENDING_EDIT_KINDS = {
-  INSERT: 'insert',
-  UPDATE: 'update',
-  DELETE: 'delete',
-}
+  INSERT: "insert",
+  UPDATE: "update",
+  DELETE: "delete",
+};
 
-export const PENDING_INSERT_ID_PREFIX = '__pending_'
+export const PENDING_INSERT_ID_PREFIX = "__pending_";
