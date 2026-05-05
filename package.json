@@ -1,9 +1,12 @@
 {
   "name": "data-table",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Feature-rich Vue 3 data grid built on TanStack Table",
   "type": "module",
-  "files": ["dist", "src/components/DataTable/index.d.ts"],
+  "files": [
+    "dist",
+    "src/components/DataTable/index.d.ts"
+  ],
   "exports": {
     ".": {
       "types": "./src/components/DataTable/index.d.ts",
