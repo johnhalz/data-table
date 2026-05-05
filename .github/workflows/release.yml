@@ -11,7 +11,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -20,40 +20,110 @@ jobs:
           bun-version: latest
 
       - name: Fetch tags
-        run: git fetch --tags origin || true
+        run: git fetch --tags --force origin || true
+
+      # Decide which tag this release should use.
+      #
+      #  * If the user already pushed a tag pointing at HEAD (e.g. `git tag v1.2.0
+      #    && git push origin v1.2.0`), respect it and don't auto-bump.
+      #  * Otherwise, take the highest existing `vX.Y.Z` tag and bump it. The
+      #    bump type defaults to **minor**, but can be overridden via a
+      #    `[major]` or `[patch]` token in the commit message.
+      - name: Determine release tag
+        id: tag
+        run: |
+          set -euo pipefail
+
+          # 1. If HEAD already has a semver tag, use it.
+          existing_tag="$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1 || true)"
+          if [ -n "$existing_tag" ]; then
+            echo "Found existing tag on HEAD: $existing_tag"
+            version="${existing_tag#v}"
+            echo "tag=$existing_tag" >> "$GITHUB_OUTPUT"
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 2. Find the latest semver tag in the repo (default to v0.0.0 if none).
+          latest="$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n1 || true)"
+          if [ -z "$latest" ]; then
+            latest="v0.0.0"
+          fi
+          echo "Latest existing tag: $latest"
+
+          IFS='.' read -r major minor patch <<EOF
+          ${latest#v}
+          EOF
+
+          # 3. Pick the bump type from the commit message, defaulting to minor.
+          msg="$(git log -1 --pretty=%B)"
+          bump="minor"
+          case "$msg" in
+            *"[major]"*) bump="major" ;;
+            *"[patch]"*) bump="patch" ;;
+          esac
+          echo "Bump type: $bump"
+
+          case "$bump" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+
+          new_tag="v${major}.${minor}.${patch}"
+          echo "New tag: $new_tag"
+
+          # Safety: make sure the new tag doesn't already exist.
+          if git rev-parse "refs/tags/$new_tag" >/dev/null 2>&1; then
+            echo "::error ::Computed tag $new_tag already exists; aborting."
+            exit 1
+          fi
+
+          echo "tag=$new_tag" >> "$GITHUB_OUTPUT"
+          echo "version=${major}.${minor}.${patch}" >> "$GITHUB_OUTPUT"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+
+      - name: Sync package.json version
+        if: steps.tag.outputs.created == 'true'
+        run: |
+          jq --arg v "${{ steps.tag.outputs.version }}" '.version = $v' package.json > package.json.tmp
+          mv package.json.tmp package.json
 
       - run: bun install --frozen-lockfile
       - run: bun run build:lib
 
-      - name: Get version
-        id: version
-        run: echo "version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
-
-      - name: Check if tag exists
-        id: tag_check
-        run: |
-          if git rev-parse "refs/tags/v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Commit dist and tag release
-        if: steps.tag_check.outputs.exists == 'false'
+      - name: Commit dist, bump version, and create tag
+        if: steps.tag.outputs.created == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f dist/
-          git commit -m "chore: release v${{ steps.version.outputs.version }}"
-          git tag "v${{ steps.version.outputs.version }}"
-          git push origin "v${{ steps.version.outputs.version }}"
+          # Create a release commit that includes the built dist/ and the
+          # bumped package.json. We tag this commit and push only the tag — we
+          # don't push the commit to main, so this works even when main is
+          # protected. The tagged commit is still reachable via the tag.
+          git add -f dist/ package.json
+          git commit -m "chore: release ${{ steps.tag.outputs.tag }}"
+          git tag "${{ steps.tag.outputs.tag }}"
+          git push origin "${{ steps.tag.outputs.tag }}"
+
+      - name: Commit dist for existing tag
+        if: steps.tag.outputs.created == 'false'
+        run: |
+          # The user pushed the tag themselves; we still want dist/ available
+          # in the release artifacts but we shouldn't move their tag. Build and
+          # attach artifacts only.
+          echo "Using user-supplied tag ${{ steps.tag.outputs.tag }}; skipping commit."
 
       - name: Create GitHub Release
-        if: steps.tag_check.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v${{ steps.version.outputs.version }}" \
+          if gh release view "${{ steps.tag.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release ${{ steps.tag.outputs.tag }} already exists; skipping."
+            exit 0
+          fi
+          gh release create "${{ steps.tag.outputs.tag }}" \
             dist/data-table.js dist/data-table.css \
-            --title "v${{ steps.version.outputs.version }}" \
+            --title "${{ steps.tag.outputs.tag }}" \
             --generate-notes
