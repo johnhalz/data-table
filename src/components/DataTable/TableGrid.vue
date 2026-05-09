@@ -34,7 +34,12 @@ const emit = defineEmits(['update-cell', 'context-menu', 'edit-row'])
 const selectedCell = ref(null)
 const editingRowId = ref(null)
 
-const headerGroups = computed(() => props.table.getHeaderGroups())
+const tableSourceRows = inject('tableSourceRows', null)
+
+const headerGroups = computed(() => {
+  if (tableSourceRows != null) void toValue(tableSourceRows)
+  return props.table.getHeaderGroups()
+})
 
 // Total table width = sticky columns (44 + 40) + sum of all visible column sizes
 const totalTableWidth = computed(() => {
@@ -42,7 +47,10 @@ const totalTableWidth = computed(() => {
   return 84 + dataColWidth
 })
 
-const rows = computed(() => props.table.getRowModel().rows)
+const rows = computed(() => {
+  if (tableSourceRows != null) void toValue(tableSourceRows)
+  return props.table.getRowModel().rows
+})
 
 const paginationState = computed(() => props.table.getState().pagination)
 

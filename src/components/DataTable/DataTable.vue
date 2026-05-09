@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, provide, inject, watch, shallowRef, onMounted, onUnmounted, nextTick, unref } from 'vue'
+import { ref, computed, provide, inject, watch, onMounted, onUnmounted, nextTick, unref } from 'vue'
 import {
   useVueTable,
   getCoreRowModel,
@@ -223,13 +223,6 @@ const editableCaps = computed(() => {
 // Dismiss error banner
 const errorDismissed = ref(false)
 watch(() => props.error, () => { errorDismissed.value = false })
-
-const data = shallowRef(props.rows)
-watch(() => props.rows, (val) => {
-  // When staged-edits is off, the data ref is driven directly from props.
-  // When it's on, we route through effectiveRows below.
-  if (!props.stagedEdits) data.value = val
-})
 
 const sorting = ref(props.controlledSorting ?? [])
 const columnFilters = ref(props.controlledColumnFilters ?? props.columnFilters ?? [])
@@ -537,18 +530,10 @@ function discardEdits() {
   emit('discard-edits')
 }
 
-// Route effectiveRows into the TanStack data ref when staged mode is active.
-watch(
-  () => [props.stagedEdits, effectiveRows.value],
-  ([staged, rows]) => {
-    if (staged) data.value = rows
-    else data.value = props.rows
-  },
-  { immediate: true }
-)
-
+// Drive TanStack with a computed so @tanstack/vue-table's watchEffect re-runs when `props.rows`
+// changes. A plain ref + inner .value updates alone can fail to refresh row models (nested ref).
 const table = useVueTable({
-  data: data,
+  data: effectiveRows,
   get columns() { return props.columns },
   filterFns: { operator: operatorFilterFn },
   defaultColumn: { filterFn: 'operator' },
@@ -772,6 +757,8 @@ function handleFilterByValue(colId, val) {
 
 provide('themeVars', computed(() => ({ ...themeVars.value, ...fontCssVars.value })))
 provide('table', table)
+/** Lets row-model computeds subscribe to data changes (TanStack table is not reactive). */
+provide('tableSourceRows', effectiveRows)
 provide('tableName', props.tableName)
 provide('showDataTypes', props.showDataTypes)
 provide('editable', editableCaps)
@@ -833,7 +820,7 @@ function computeContentSizedColumns() {
   const SAMPLE_SIZE = 200      // rows measured for perf cap
 
   const leafColumns = table.getAllLeafColumns()
-  const sample = data.value.slice(0, SAMPLE_SIZE)
+  const sample = effectiveRows.value.slice(0, SAMPLE_SIZE)
 
   for (const col of leafColumns) {
     const meta = col.columnDef.meta || {}
@@ -986,7 +973,7 @@ defineExpose({
         :default-column-visibility="defaultColumnVisibility"
         :editable="editableCaps"
         :loading="loading"
-        :is-empty="data.length === 0"
+        :is-empty="effectiveRows.length === 0"
         :default-insert-label="defaultInsertLabel"
         :insert-actions="insertActions"
         :toolbar-actions="toolbarActions"

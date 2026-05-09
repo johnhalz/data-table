@@ -1,6 +1,8 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, inject, toValue } from 'vue'
 import { onClickOutside } from '@vueuse/core'
+
+const tableSourceRows = inject('tableSourceRows', null)
 
 const props = defineProps({
   selectedCount: { type: Number, required: true },
@@ -19,6 +21,7 @@ const props = defineProps({
 // Total row count across all pages (post-filter). Used for "Select all N …".
 const totalRowCount = computed(() => {
   if (props.totalFilteredCount != null) return props.totalFilteredCount
+  if (tableSourceRows != null) void toValue(tableSourceRows)
   return props.table.getFilteredRowModel().rows.length
 })
 const allItemsSelected = computed(() => props.selectedCount >= totalRowCount.value && totalRowCount.value > 0)

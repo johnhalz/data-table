@@ -1,7 +1,8 @@
 <script setup>
-import { computed, ref, inject } from 'vue'
+import { computed, ref, inject, toValue } from 'vue'
 
 const themeVars = inject('themeVars', {})
+const tableSourceRows = inject('tableSourceRows', null)
 
 const props = defineProps({
   table: { type: Object, required: true },
@@ -44,11 +45,11 @@ const canNextPage = computed(() => {
   return props.table.getCanNextPage()
 })
 
-const totalRecords = computed(() =>
-  props.totalCount !== null && props.totalCount !== undefined
-    ? props.totalCount
-    : props.table.getFilteredRowModel().rows.length
-)
+const totalRecords = computed(() => {
+  if (props.totalCount !== null && props.totalCount !== undefined) return props.totalCount
+  if (tableSourceRows != null) void toValue(tableSourceRows)
+  return props.table.getFilteredRowModel().rows.length
+})
 
 function goToPage(page) {
   const p = Math.max(0, Math.min(page, pageCount.value - 1))
