@@ -23,6 +23,10 @@ export interface SubTableConfig {
   columns: ColumnDef<any, any>[]
   /** Optional; passed through to the nested `DataTable`. */
   fontFamily?: string | null
+  /** Ellipsis menu items for nested rows; passed as `rowActions`. */
+  rowActions?: ReadonlyArray<{ key: string; label: string; icon?: string }>
+  /** Handled internally (stripped before `v-bind`); invokes on nested `@row-action`. */
+  onRowAction?: (key: string, rowData: unknown) => void
 }
 
 /** Commit payload when `stagedEdits` is true. */

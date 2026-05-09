@@ -116,6 +116,17 @@ const subCfg = computed(() =>
   getSubTable ? getSubTable(props.row.original) : null,
 )
 
+/** Forward `getSubTable` config to nested `DataTable`, stripping callbacks that aren't props. */
+const nestedSubTableVBind = computed(() => {
+  const c = subCfg.value
+  if (!c) return { tableProps: null, onRowAction: null }
+  const { onRowAction, ...tableProps } = c
+  return {
+    tableProps,
+    onRowAction: typeof onRowAction === 'function' ? onRowAction : null,
+  }
+})
+
 const expandedMap = computed(() => unref(expandedInject) ?? {})
 
 function isExpandableRow() {
@@ -301,13 +312,14 @@ const wrapperStyle = computed(() => {
         }"
       >
         <DataTable
-          v-bind="subCfg"
+          v-bind="nestedSubTableVBind.tableProps"
           :theme="subCfg.theme ?? unref(parentTheme)"
           :accent-color="subCfg.accentColor ?? unref(parentAccentColor)"
           :nesting-depth="nestingDepth + 1"
           :controlled-sorting="subTableSorting"
           :controlled-column-filters="subTableColumnFilters"
           :controlled-column-visibility="subTableColumnVisibility"
+          @row-action="(key, rowData) => nestedSubTableVBind.onRowAction?.(key, rowData)"
         />
       </div>
     </div>
