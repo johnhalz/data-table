@@ -46,6 +46,7 @@ src/
     FilterBar.vue                  # Inline filter chips with operator selection
     FilterOperatorMenu.vue         # Operator picker dropdown for a single filter
     ContextMenu.vue                # Right-click menu: copy, filter, edit, delete
+    DeleteRowsConfirmDialog.vue    # Shared delete confirmation modal (toolbar + `openDeleteConfirmation` ref)
     types.js                       # Filter operators, page size options, constants
 ```
 
@@ -176,6 +177,14 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 | `column-resize` | `Object<colId, number>` | User finishes resizing a column |
 | `commit-edits` | `({ inserts, updates, deletes }, done)` | User clicked **Commit** in staged-edits mode. `inserts` is `Array<rowData>`, `updates` is `Array<{ id, changes }>`, `deletes` is `Array<id>`. The parent **must** call `done(true)` when the batch has been applied successfully (clears the queue) or `done(false)` on failure (queue is preserved for retry). The Commit button shows a spinner until `done` is called. |
 | `discard-edits` | — | User clicked **Clear edits** and confirmed the dialog. |
+
+## Template ref (exposed API)
+
+Set `ref` on `<DataTable>` to access:
+
+| Method | Arguments | Behavior |
+|--------|-----------|----------|
+| `openDeleteConfirmation` | `ids: string[]` | Opens the shared **Confirm deletion** modal (same UI as toolbar **Delete…**); on confirm runs the same path as toolbar delete and emits `delete-rows` with those ids |
 
 ## Column Definition
 

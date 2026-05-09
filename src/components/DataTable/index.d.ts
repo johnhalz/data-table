@@ -39,7 +39,6 @@ export interface InsertAction {
   icon?: string
 }
 
-/** Public props mirrored from `DataTable.vue`. */
 export interface DataTableProps {
   columns: ColumnDef<any, any>[]
   rows: unknown[]
@@ -87,6 +86,11 @@ export interface DataTableProps {
   countLabelSingular?: string
   /** Plural noun after the total in the footer (default "records"). */
   countLabelPlural?: string
+}
+
+/** Exposed instance API (template ref): `ref.value.openDeleteConfirmation(['id', ...])`. */
+export interface DataTableExpose {
+  openDeleteConfirmation: (ids: readonly string[] | string[]) => void
 }
 
 export declare const DataTable: DefineComponent<DataTableProps>

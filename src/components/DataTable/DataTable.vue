@@ -13,6 +13,7 @@ import TableGrid from './TableGrid.vue'
 import TablePagination from './TablePagination.vue'
 import RowEditPanel from './RowEditPanel.vue'
 import ContextMenu from './ContextMenu.vue'
+import DeleteRowsConfirmDialog from './DeleteRowsConfirmDialog.vue'
 import { distributeWidthsLargestRemainder, DATA_TABLE_STICKY_CHROME_PX } from './columnSizingFill.js'
 import { PENDING_EDIT_KINDS, PENDING_INSERT_ID_PREFIX } from './types.js'
 
@@ -177,6 +178,9 @@ const mergedRootStyles = computed(() => ({
 
 const rootElRef = ref(null)
 const tableGridRef = ref(null)
+
+const deleteConfirmOpen = ref(false)
+const pendingDeleteRowIds = ref([])
 
 const emit = defineEmits([
   'insert-row',
@@ -616,6 +620,27 @@ function handleDeleteRows(ids) {
   table.resetRowSelection()
 }
 
+function openDeleteConfirmation(ids) {
+  const list = (ids ?? []).map(String).filter(Boolean)
+  if (list.length === 0) return
+  pendingDeleteRowIds.value = list
+  deleteConfirmOpen.value = true
+}
+
+function beginSelectionToolbarDeleteConfirmation() {
+  openDeleteConfirmation(Object.keys(table.getState().rowSelection))
+}
+
+function confirmDeleteDialog() {
+  const ids = [...pendingDeleteRowIds.value]
+  deleteConfirmOpen.value = false
+  handleDeleteRows(ids)
+}
+
+watch(deleteConfirmOpen, (open) => {
+  if (!open) pendingDeleteRowIds.value = []
+})
+
 function handleUpdateCell(rowId, colId, value) {
   if (props.stagedEdits) queueUpdate(rowId, { [colId]: value })
   else emit('update-row', { id: rowId, changes: { [colId]: value } })
@@ -824,6 +849,10 @@ onMounted(() => {
 onUnmounted(() => {
   disconnectViewportSizingObserver()
 })
+
+defineExpose({
+  openDeleteConfirmation,
+})
 </script>
 
 <template>
@@ -845,7 +874,7 @@ onUnmounted(() => {
         :enable-select-all="enableSelectAll"
         :count-label-singular="countLabelSingular"
         :count-label-plural="countLabelPlural"
-        @delete-rows="handleDeleteRows"
+        @delete-confirm-request="beginSelectionToolbarDeleteConfirmation"
         @selection-action="(action, rows) => emit('selection-action', action, rows)"
       />
       <TableToolbar
@@ -934,6 +963,12 @@ onUnmounted(() => {
         />
       </Transition>
     </div>
+
+    <DeleteRowsConfirmDialog
+      v-model="deleteConfirmOpen"
+      :row-count="pendingDeleteRowIds.length"
+      @confirm="confirmDeleteDialog"
+    />
 
     <ContextMenu
       v-if="contextMenu.show"
