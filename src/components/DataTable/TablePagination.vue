@@ -18,9 +18,36 @@ const emit = defineEmits(['commit', 'discard'])
 
 const pageIndex = computed(() => props.table.getState().pagination.pageIndex)
 const pageSize = computed(() => props.table.getState().pagination.pageSize)
-const pageCount = computed(() => props.table.getPageCount())
+
+/** Server mode: derive from props so Vue tracks totalCount; TanStack getPageCount() is not reactive to parent fetches. */
+const isServerTotal = computed(
+  () => props.totalCount !== null && props.totalCount !== undefined && Number.isFinite(Number(props.totalCount)),
+)
+
+const pageCount = computed(() => {
+  if (isServerTotal.value) {
+    const size = Math.max(1, pageSize.value)
+    const tc = Number(props.totalCount)
+    const pages = Math.ceil(tc / size)
+    return Math.max(1, pages)
+  }
+  return props.table.getPageCount()
+})
+
+const canPreviousPage = computed(() => {
+  if (isServerTotal.value) return pageIndex.value > 0
+  return props.table.getCanPreviousPage()
+})
+
+const canNextPage = computed(() => {
+  if (isServerTotal.value) return pageIndex.value + 1 < pageCount.value
+  return props.table.getCanNextPage()
+})
+
 const totalRecords = computed(() =>
-  props.totalCount !== null ? props.totalCount : props.table.getFilteredRowModel().rows.length
+  props.totalCount !== null && props.totalCount !== undefined
+    ? props.totalCount
+    : props.table.getFilteredRowModel().rows.length
 )
 
 function goToPage(page) {
@@ -57,7 +84,7 @@ function confirmDiscard() {
     <!-- Prev -->
     <button
       class="p-1 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-      :disabled="!table.getCanPreviousPage()"
+      :disabled="!canPreviousPage"
       @click="table.previousPage()"
     >
       <svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
@@ -85,7 +112,7 @@ function confirmDiscard() {
     <!-- Next -->
     <button
       class="p-1 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-      :disabled="!table.getCanNextPage()"
+      :disabled="!canNextPage"
       @click="table.nextPage()"
     >
       <svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
