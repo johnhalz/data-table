@@ -243,31 +243,24 @@ const subTableColumnList = computed(() => {
 
       <!-- Insert button
            Cases:
-           A) defaultInsertLabel + insertActions  → split button (left fires insert-row, chevron opens custom dropdown)
+           A) defaultInsertLabel + insertActions  → dropdown button (labeled with defaultInsertLabel, opens custom dropdown)
            B) defaultInsertLabel, no insertActions → plain accent button (fires insert-row directly)
            C) no defaultInsertLabel + insertActions → "Insert ▼" dropdown with custom actions
            D) neither                              → "Insert ▼" dropdown with hardcoded items
       -->
       <div v-if="editable.insert" ref="insertContainerRef" class="relative">
-        <!-- A: split button -->
-        <div v-if="defaultInsertLabel && insertActions.length > 0" class="flex items-center">
-          <button
-            class="flex items-center gap-1.5 px-3 py-1 rounded-l text-[13px] font-medium transition-colors"
-            :style="{ backgroundColor: 'var(--st-accent)', color: 'var(--st-text-on-accent)' }"
-            @click="emit('insert-row')"
-          >
-            {{ defaultInsertLabel }}
-          </button>
-          <button
-            class="flex items-center self-stretch px-1.5 rounded-r transition-colors"
-            :style="{ backgroundColor: 'var(--st-accent)', color: 'var(--st-text-on-accent)', borderLeft: '1px solid var(--st-accent-hover)' }"
-            @click="showInsertMenu = !showInsertMenu"
-          >
-            <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M4.427 6.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 6H4.604a.25.25 0 00-.177.427z"/>
-            </svg>
-          </button>
-        </div>
+        <!-- A: labeled dropdown button -->
+        <button
+          v-if="defaultInsertLabel && insertActions.length > 0"
+          class="flex items-center gap-1.5 px-3 py-1 rounded text-[13px] font-medium transition-colors"
+          :style="{ backgroundColor: 'var(--st-accent)', color: 'var(--st-text-on-accent)' }"
+          @click="showInsertMenu = !showInsertMenu"
+        >
+          {{ defaultInsertLabel }}
+          <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M4.427 6.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 6H4.604a.25.25 0 00-.177.427z"/>
+          </svg>
+        </button>
 
         <!-- B: plain button — fires insert-row directly, no dropdown -->
         <button

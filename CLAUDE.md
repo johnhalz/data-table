@@ -141,8 +141,8 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 | `showColumnBorders` | `Boolean` | `true` | Vertical column dividers |
 | `cellButtonVisibility` | `String` | `'hover'` | `'hover'` \| `'always'` \| `'select'` — when to show trailing cell buttons defined via `meta.cellButtons`. `'select'` uses the existing click-to-select cell state. |
 | `cellOverflow` | `String` | `'truncate'` | Default text cell overflow: `'truncate'` or `'wrap'`. Per-column `meta.overflow` overrides. |
-| `insertActions` | `Array` | `[]` | Custom insert/import menu items: `{ key, label, icon? (SVG HTML) }`. Emits `insert-action` with `key`. With `defaultInsertLabel`, items appear in the chevron dropdown; without it, under **Insert ▼**. |
-| `defaultInsertLabel` | `String` | `null` | Primary insert button label; click emits `insert-row`. Plain button if `insertActions` empty; split button if both are set. |
+| `insertActions` | `Array` | `[]` | Custom insert/import menu items: `{ key, label, icon? (SVG HTML) }`. Emits `insert-action` with `key`. With `defaultInsertLabel`, shows a labeled dropdown button; without it, shows **Insert ▼** dropdown. |
+| `defaultInsertLabel` | `String` | `null` | Insert button label. Plain button (emits `insert-row`) if `insertActions` is empty; dropdown button (labeled with this value, emits `insert-action`) if `insertActions` is set. |
 | `countLabelSingular` | `String` | `'record'` | Singular noun after total count in pagination footer and in **Select all N …** |
 | `countLabelPlural` | `String` | `'records'` | Plural noun when count ≠ 1 |
 | `theme` | `String` | `'dark'` | `'dark'` or `'light'` — switches the full color palette |
