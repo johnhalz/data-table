@@ -34,6 +34,9 @@ const props = defineProps({
   // editable: true | false | { insert, update, delete }
   editable: { type: [Boolean, Object], default: true },
   selectionActions: { type: Array, default: () => [] },
+  // Per-row ellipsis menu + same items in selection toolbar Actions menu (multi-select).
+  // Each item: { key: string, label: string, icon?: string (SVG HTML) }
+  rowActions: { type: Array, default: () => [] },
   // When true, show a "Select all items" button in the selection toolbar that
   // selects every row across all pages (not just the current page).
   enableSelectAll: { type: Boolean, default: true },
@@ -184,6 +187,7 @@ const emit = defineEmits([
   'delete-column',
   'refresh',
   'selection-action',
+  'row-action',
   'toolbar-action',
   'insert-action',
   'view-change',
@@ -676,6 +680,8 @@ provide('getCellPendingState', getCellPendingState)
 provide('getCellPreviousValue', getCellPreviousValue)
 provide('undoRowEdit', undoRowEdit)
 provide('undoCellEdit', undoCellEdit)
+provide('rowActions', computed(() => props.rowActions))
+provide('emitRowAction', (key, rowData) => emit('row-action', key, rowData))
 
 // Reset selection when rows change
 watch(() => props.rows, () => {
@@ -835,6 +841,7 @@ onUnmounted(() => {
         :table="table"
         :editable="editableCaps"
         :selection-actions="selectionActions"
+        :row-actions="rowActions"
         :enable-select-all="enableSelectAll"
         :count-label-singular="countLabelSingular"
         :count-label-plural="countLabelPlural"

@@ -36,6 +36,7 @@ src/
     TableToolbar.vue               # Toolbar: filter bar, sort, columns, insert, refresh
     SelectionToolbar.vue           # Appears when rows selected: delete, actions, clear/select all
     TableGrid.vue                  # Table element: headers, rows, cells, checkboxes, row numbers
+    TableGridDataRow.vue           # Body row: `#` column, row-actions ellipsis, checkbox, cells, sub-table slot
     TableColumnHeader.vue          # Single column header: name, type badge, sort indicator, dropdown
     TableCell.vue                  # Single cell: text, badge, progress bar, suffix icon, inline edit, boolean toggle
     TablePagination.vue            # Bottom bar: page nav, rows per page, record count
@@ -76,6 +77,8 @@ These values are provided by `DataTable.vue` and injected by child components:
 | `showColumnBorders`| Boolean      | TableGrid, TableColumnHeader, TableCell |
 | `openInsertPanel`  | Function     | TableGrid (empty state insert button) |
 | `cellOverflow`     | `ComputedRef<string>` | `TableCell` — default `'truncate'` \| `'wrap'`; columns override via `meta.overflow` |
+| `rowActions`       | `ComputedRef<Array>` | `TableGridDataRow` — items for per-row ellipsis menu |
+| `emitRowAction`    | `(key, rowData) => void` | `TableGridDataRow` — forwards to `row-action` |
 
 The `editable` inject value is always the normalized object shape `{ insert: boolean, update: boolean, delete: boolean }` — never a raw boolean. Consumers check specific keys: `editable.value.update`, `editable.delete`, etc.
 
@@ -128,7 +131,8 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 | `defaultColumnVisibility` | `Object` | `{}` | Initial hidden columns, e.g. `{ col: false }` |
 | `showDataTypes` | `Boolean` | `true` | Show type badges in headers and panels |
 | `editable` | `Boolean\|Object` | `true` | `true`/`false` gates all mutations; or `{ insert, update, delete }` booleans for per-operation control |
-| `selectionActions` | `Array` | `[]` | Custom actions: `[{ key: string, label: string }]` |
+| `selectionActions` | `Array` | `[]` | Custom actions (bulk): `[{ key: string, label: string }]` — appear in the selection toolbar Actions menu; emit `selection-action` with key and selected row originals |
+| `rowActions` | `Array` | `[]` | Per-row Actions menu (ellipsis in the `#` column): `[{ key, label, icon? (SVG HTML) }]`. Same items appear in the selection toolbar Actions menu when multiple rows are selected. Single row: emits `row-action` with `(key, rowData)`. Multi-select: emits `selection-action` with `(key, rows[])` |
 | `enableSelectAll` | `Boolean` | `true` | When `true`, shows **Select all N** next to **Clear selection** in the selection toolbar (uses `countLabelSingular` / `countLabelPlural`). Selects every row across all pages (post-filter). The header checkbox only toggles the current page. |
 | `toolbarActions` | `Array` | `[]` | Custom dropdown next to the Sort button. Items: `[{ key, label, icon?, disabled?, divider? }]`. `divider: true` renders a separator. `icon` is raw SVG markup. Emits `toolbar-action` with the `key`. The button is hidden when this array is empty. |
 | `toolbarActionsLabel` | `String` | `'Actions'` | Label shown on the `toolbarActions` dropdown trigger button. |
@@ -165,7 +169,8 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 | `update-row` | `{ id, changes }` | Cell edit or edit panel save |
 | `delete-rows` | `Array<string>` (IDs) | Delete confirmation accepted |
 | `refresh` | — | Refresh button clicked |
-| `selection-action` | `(actionKey, rows[])` | Custom action triggered |
+| `selection-action` | `(actionKey, rows[])` | Custom action from selection toolbar (including `selectionActions` and `rowActions` when multiple rows are selected) |
+| `row-action` | `(actionKey, rowData)` | User chose a `rowActions` item from the per-row ellipsis menu (single row) |
 | `toolbar-action` | `actionKey` | User picked an item from the `toolbarActions` dropdown |
 | `page-change` | `{ pageIndex, pageSize }` | Page navigation in server-side pagination mode |
 | `column-resize` | `Object<colId, number>` | User finishes resizing a column |

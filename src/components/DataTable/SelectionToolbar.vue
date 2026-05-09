@@ -9,6 +9,7 @@ const props = defineProps({
   table: { type: Object, required: true },
   editable: { type: Object, default: () => ({ insert: true, update: true, delete: true }) },
   selectionActions: { type: Array, default: () => [] },
+  rowActions: { type: Array, default: () => [] },
   enableSelectAll: { type: Boolean, default: true },
   countLabelSingular: { type: String, default: 'record' },
   countLabelPlural: { type: String, default: 'records' },
@@ -99,6 +100,11 @@ function downloadAs(format) {
   showActionsMenu.value = false
 }
 
+function handleRowActionsBulk(action) {
+  emit('selection-action', action.key, getSelectedRows())
+  showActionsMenu.value = false
+}
+
 function handleCustomAction(action) {
   emit('selection-action', action.key, getSelectedRows())
   showActionsMenu.value = false
@@ -147,6 +153,20 @@ function handleCustomAction(action) {
         <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('csv')">Download as CSV</button>
         <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('tsv')">Download as TSV</button>
         <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('json')">Download as JSON</button>
+        <template v-if="rowActions.length > 0">
+          <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
+          <button
+            v-for="action in rowActions"
+            :key="action.key"
+            type="button"
+            class="w-full text-left px-3 py-1.5 hover-menu-item flex items-center gap-2"
+            :style="{ color: 'var(--st-text)' }"
+            @click="handleRowActionsBulk(action)"
+          >
+            <span v-if="action.icon" class="shrink-0 w-3.5 h-3.5 inline-flex items-center justify-center [&_svg]:max-w-full [&_svg]:max-h-full" v-html="action.icon" />
+            <span>{{ action.label }}</span>
+          </button>
+        </template>
         <template v-if="selectionActions.length > 0">
           <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
           <button
