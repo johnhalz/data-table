@@ -9,16 +9,21 @@ const props = defineProps({
   selectionActions: { type: Array, default: () => [] },
   rowActions: { type: Array, default: () => [] },
   enableSelectAll: { type: Boolean, default: true },
+  /** When set (server mode), label "Select all N" uses this instead of getFilteredRowModel().rows.length */
+  totalFilteredCount: { type: Number, default: null },
   countLabelSingular: { type: String, default: 'record' },
   countLabelPlural: { type: String, default: 'records' },
+  enableSelectAllMatching: { type: Boolean, default: false },
 })
 
-// Total row count across all pages (post-filter). Used to decide whether the
-// "Select all items" button should appear and to show an accurate count.
-const totalRowCount = computed(() => props.table.getFilteredRowModel().rows.length)
-const allItemsSelected = computed(() => props.selectedCount >= totalRowCount.value)
+// Total row count across all pages (post-filter). Used for "Select all N …".
+const totalRowCount = computed(() => {
+  if (props.totalFilteredCount != null) return props.totalFilteredCount
+  return props.table.getFilteredRowModel().rows.length
+})
+const allItemsSelected = computed(() => props.selectedCount >= totalRowCount.value && totalRowCount.value > 0)
 
-const emit = defineEmits(['delete-confirm-request', 'selection-action'])
+const emit = defineEmits(['delete-confirm-request', 'selection-action', 'select-all-matching', 'clear-full-selection'])
 
 const showActionsMenu = ref(false)
 
@@ -174,16 +179,28 @@ function handleCustomAction(action) {
     <button
       class="text-[13px] transition-colors"
       :style="{ color: 'var(--st-text-secondary)' }"
-      @click="table.toggleAllRowsSelected(false)"
+      @click="emit('clear-full-selection')"
     >
       Clear selection
     </button>
 
-    <!-- Select all items (across all pages) — opt-in via enableSelectAll prop -->
+    <!-- Select all matching (server) — parent loads IDs -->
     <button
-      v-if="enableSelectAll && !allItemsSelected"
+      v-if="enableSelectAllMatching && totalFilteredCount != null && !allItemsSelected"
       class="text-[13px] transition-colors"
       :style="{ color: 'var(--st-accent)' }"
+      type="button"
+      @click="emit('select-all-matching')"
+    >
+      Select all {{ totalRowCount }} {{ totalRowCount === 1 ? countLabelSingular : countLabelPlural }}
+    </button>
+
+    <!-- Client / page-only: select every row currently in the table (one page when server-paginated) -->
+    <button
+      v-else-if="enableSelectAll && !enableSelectAllMatching && !allItemsSelected"
+      class="text-[13px] transition-colors"
+      :style="{ color: 'var(--st-accent)' }"
+      type="button"
       @click="table.toggleAllRowsSelected(true)"
     >
       Select all {{ totalRowCount }} {{ totalRowCount === 1 ? countLabelSingular : countLabelPlural }}

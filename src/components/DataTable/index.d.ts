@@ -76,6 +76,11 @@ export interface DataTableProps {
   emptyTitle?: string
   emptyMessage?: string
   totalCount?: number | null
+  /** Same as totalCount when only server count is known; optional when using filtered exact count. */
+  totalFilteredCount?: number | null
+  /** Ids selected via parent “select all matching” (cross-page). */
+  additionalSelectedRowIds?: readonly string[] | string[] | null
+  enableSelectAllMatching?: boolean
   hasRandomAccess?: boolean
   columnFilters?: unknown[] | null
   controlledSorting?: unknown[] | null

@@ -81,6 +81,12 @@ const props = defineProps({
   emptyMessage: { type: String, default: 'Get started by inserting a new row.' },
   // Server-side pagination: pass totalCount to enable manual pagination mode
   totalCount: { type: Number, default: null },
+  /** Exact row count for the current filter set (server). Used for selection toolbar labels. Defaults to totalCount when omitted. */
+  totalFilteredCount: { type: Number, default: null },
+  /** When server pagination is on: fetch all matching row IDs on the parent and pass them here for cross-page bulk selection. */
+  additionalSelectedRowIds: { type: Array, default: () => [] },
+  /** Show “select all matching” that emits `select-all-matching` (parent loads IDs). */
+  enableSelectAllMatching: { type: Boolean, default: false },
   // When false, the pagination footer hides random-access controls (page input / jump-to-page).
   // Useful for cursor-based APIs where only sequential prev/next navigation is meaningful.
   hasRandomAccess: { type: Boolean, default: true },
@@ -199,6 +205,9 @@ const emit = defineEmits([
   'sub-table-event',
   'column-resize',
   'page-change',
+  'sort-change',
+  'select-all-matching',
+  'update:additionalSelectedRowIds',
   'update:column-filters',
   'commit-edits',
   'discard-edits',
@@ -318,6 +327,42 @@ const primaryKeyField = computed(() => {
 })
 
 const isServerPagination = computed(() => props.totalCount !== null)
+
+const resolvedTotalFilteredCount = computed(() => {
+  if (props.totalFilteredCount != null) return props.totalFilteredCount
+  return props.totalCount
+})
+
+const additionalSelectedSet = computed(() =>
+  new Set((props.additionalSelectedRowIds || []).map((id) => String(id))),
+)
+
+const mergedSelectedCount = computed(() => {
+  const set = new Set((props.additionalSelectedRowIds || []).map(String))
+  for (const k of Object.keys(rowSelection.value)) {
+    set.add(String(k))
+  }
+  return set.size
+})
+
+function getMergedSelectedRowIds() {
+  const set = new Set()
+  for (const id of props.additionalSelectedRowIds || []) {
+    set.add(String(id))
+  }
+  for (const k of Object.keys(rowSelection.value)) {
+    set.add(String(k))
+  }
+  return [...set]
+}
+
+function isRowDisplayedSelected(row) {
+  const key = primaryKeyField.value
+  const id = String(row.original[key] ?? row.original.id)
+  return row.getIsSelected() || additionalSelectedSet.value.has(id)
+}
+
+provide('isRowDisplayedSelected', isRowDisplayedSelected)
 
 // --- Staged edits state ---
 // Map<rowId, { kind, changes?, snapshot? }> — kind: 'insert' | 'update' | 'delete'
@@ -516,15 +561,39 @@ const table = useVueTable({
     get columnSizingInfo() { return columnSizingInfo.value },
     get columnVisibility() { return columnVisibility.value },
   },
+  get manualSorting() { return isServerPagination.value },
+  get manualFiltering() { return isServerPagination.value },
   onSortingChange: updater => {
     sorting.value = typeof updater === 'function' ? updater(sorting.value) : updater
+    if (isServerPagination.value) {
+      emit('sort-change', sorting.value)
+    }
   },
   onColumnFiltersChange: updater => {
     columnFilters.value = typeof updater === 'function' ? updater(columnFilters.value) : updater
     emit('update:column-filters', columnFilters.value)
   },
   onRowSelectionChange: updater => {
-    rowSelection.value = typeof updater === 'function' ? updater(rowSelection.value) : updater
+    const prev = rowSelection.value
+    const next = typeof updater === 'function' ? updater(prev) : updater
+    if (isServerPagination.value && (props.additionalSelectedRowIds?.length ?? 0) > 0) {
+      const prevKeys = new Set(Object.keys(prev))
+      const nextKeys = new Set(Object.keys(next))
+      const removed = [...prevKeys].filter((k) => !nextKeys.has(k))
+      if (removed.length > 0) {
+        const addList = props.additionalSelectedRowIds || []
+        const addSet = new Set(addList.map(String))
+        const toStrip = removed.filter((id) => addSet.has(String(id)))
+        if (toStrip.length > 0) {
+          const strip = new Set(toStrip.map(String))
+          emit(
+            'update:additionalSelectedRowIds',
+            addList.filter((id) => !strip.has(String(id))),
+          )
+        }
+      }
+    }
+    rowSelection.value = next
   },
   onPaginationChange: updater => {
     const next = typeof updater === 'function' ? updater(pagination.value) : updater
@@ -564,8 +633,34 @@ const table = useVueTable({
   getRowId: (row) => row.__stagedId ? String(row.__stagedId) : String(row[primaryKeyField.value] ?? row.id),
 })
 
-const selectedCount = computed(() => Object.keys(rowSelection.value).length)
-const hasSelection = computed(() => selectedCount.value > 0)
+watch(
+  () => [props.rows, props.additionalSelectedRowIds, props.totalCount],
+  () => {
+    if (props.totalCount == null) return
+    const add = new Set((props.additionalSelectedRowIds || []).map(String))
+    if (add.size === 0) return
+    const pk = primaryKeyField.value
+    const next = { ...rowSelection.value }
+    let changed = false
+    for (const row of props.rows) {
+      const id = String(row[pk] ?? row.id)
+      if (add.has(id) && !next[id]) {
+        next[id] = true
+        changed = true
+      }
+    }
+    if (changed) rowSelection.value = next
+  },
+  { deep: true },
+)
+
+function clearFullSelection() {
+  table.resetRowSelection()
+  emit('update:additionalSelectedRowIds', [])
+}
+
+const selectedCount = mergedSelectedCount
+const hasSelection = computed(() => mergedSelectedCount.value > 0)
 
 // Row edit panel state
 const editPanel = ref({ open: false, mode: 'insert', rowData: null })
@@ -618,6 +713,7 @@ function handleDeleteRows(ids) {
   if (props.stagedEdits) queueDelete(ids)
   else emit('delete-rows', ids)
   table.resetRowSelection()
+  emit('update:additionalSelectedRowIds', [])
 }
 
 function openDeleteConfirmation(ids) {
@@ -628,7 +724,7 @@ function openDeleteConfirmation(ids) {
 }
 
 function beginSelectionToolbarDeleteConfirmation() {
-  openDeleteConfirmation(Object.keys(table.getState().rowSelection))
+  openDeleteConfirmation(getMergedSelectedRowIds())
 }
 
 function confirmDeleteDialog() {
@@ -872,10 +968,14 @@ defineExpose({
         :selection-actions="selectionActions"
         :row-actions="rowActions"
         :enable-select-all="enableSelectAll"
+        :total-filtered-count="isServerPagination ? resolvedTotalFilteredCount : null"
+        :enable-select-all-matching="enableSelectAllMatching"
         :count-label-singular="countLabelSingular"
         :count-label-plural="countLabelPlural"
         @delete-confirm-request="beginSelectionToolbarDeleteConfirmation"
-        @selection-action="(action, rows) => emit('selection-action', action, rows)"
+        @selection-action="(action, rows) => emit('selection-action', action, rows, getMergedSelectedRowIds())"
+        @select-all-matching="emit('select-all-matching')"
+        @clear-full-selection="clearFullSelection"
       />
       <TableToolbar
         v-else

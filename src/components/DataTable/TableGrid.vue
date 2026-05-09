@@ -46,10 +46,25 @@ const rows = computed(() => props.table.getRowModel().rows)
 
 const paginationState = computed(() => props.table.getState().pagination)
 
-// The header checkbox acts on the current page only; the "Select all items"
-// button in SelectionToolbar is what selects across pages.
-const isAllPageSelected = computed(() => props.table.getIsAllPageRowsSelected())
-const isSomePageSelected = computed(() => props.table.getIsSomePageRowsSelected())
+const isRowDisplayedSelectedFn = inject('isRowDisplayedSelected', null)
+
+function rowEffectiveSelected(row) {
+  const fn = unref(isRowDisplayedSelectedFn)
+  return typeof fn === 'function' ? fn(row) : row.getIsSelected()
+}
+
+// Header checkbox: current page only; "Select all matching" is in SelectionToolbar.
+const isAllPageSelected = computed(() => {
+  if (!rows.value.length) return false
+  return rows.value.every((r) => rowEffectiveSelected(r))
+})
+
+const isSomePageSelected = computed(() => {
+  if (!rows.value.length) return false
+  const any = rows.value.some((r) => rowEffectiveSelected(r))
+  const all = rows.value.every((r) => rowEffectiveSelected(r))
+  return any && !all
+})
 
 function selectCell(rowId, colId) {
   selectedCell.value = `${rowId}:${colId}`
@@ -78,7 +93,7 @@ function toggleRow(row, event, rowIndex) {
       allRows[i].toggleSelected(true)
     }
   } else {
-    row.toggleSelected(!row.getIsSelected())
+    row.toggleSelected(!rowEffectiveSelected(row))
   }
   lastClickedRowIndex.value = rowIndex
 }

@@ -42,6 +42,13 @@ const rowActionsList = computed(() => {
 const emitRowAction = inject('emitRowAction', () => {})
 const themeVars = inject('themeVars', {})
 
+const isRowDisplayedSelectedInject = inject('isRowDisplayedSelected', null)
+
+function rowLooksSelected(row) {
+  const fn = unref(isRowDisplayedSelectedInject)
+  return typeof fn === 'function' ? fn(row) : row.getIsSelected()
+}
+
 const showRowActionsMenu = ref(false)
 const rowActionsMenuCoords = ref({ top: 0, left: 0 })
 const rowActionsTriggerRef = ref(null)
@@ -138,7 +145,7 @@ const wrapperStyle = computed(() => {
   <div
     class="st-row"
     :class="{
-      'st-row--selected': row.getIsSelected(),
+      'st-row--selected': rowLooksSelected(row),
       'st-row--pending-insert': getRowPendingState(row.id) === 'insert',
       'st-row--pending-delete': getRowPendingState(row.id) === 'delete',
     }"
@@ -237,7 +244,7 @@ const wrapperStyle = computed(() => {
           type="checkbox"
           class="cursor-pointer align-middle"
           :style="{ accentColor: 'var(--st-accent)' }"
-          :checked="row.getIsSelected()"
+          :checked="rowLooksSelected(row)"
           @click="(e) => $emit('toggle-row-select', row, e, rowIndex)"
         />
       </div>
