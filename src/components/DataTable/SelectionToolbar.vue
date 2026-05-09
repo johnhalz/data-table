@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, inject } from 'vue'
+import { onClickOutside } from '@vueuse/core'
 
 const themeVars = inject('themeVars', {})
 
@@ -22,6 +23,11 @@ const emit = defineEmits(['delete-rows', 'selection-action'])
 
 const showActionsMenu = ref(false)
 const showDeleteConfirm = ref(false)
+
+const actionsDropdownRef = ref(null)
+onClickOutside(actionsDropdownRef, () => {
+  showActionsMenu.value = false
+})
 
 function getSelectedRowIds() {
   return Object.keys(props.table.getState().rowSelection)
@@ -118,7 +124,7 @@ function handleCustomAction(action) {
     </button>
 
     <!-- Actions -->
-    <div class="relative">
+    <div ref="actionsDropdownRef" class="relative">
       <button
         class="flex items-center gap-1 px-2.5 py-1 rounded text-[13px] transition-colors"
         :style="{ border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)' }"
@@ -154,9 +160,6 @@ function handleCustomAction(action) {
           </button>
         </template>
       </div>
-      <Teleport to="body">
-        <div v-if="showActionsMenu" class="fixed inset-0 z-40" @click="showActionsMenu = false" />
-      </Teleport>
     </div>
 
     <!-- Clear selection -->

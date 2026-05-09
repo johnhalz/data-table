@@ -566,6 +566,15 @@ function openInsertPanel() {
   editPanel.value = { open: true, mode: 'insert', rowData: null }
 }
 
+function onToolbarInsertRow() {
+  const label = props.defaultInsertLabel
+  if (typeof label === 'string' && label.trim() !== '') {
+    emit('insert-row')
+    return
+  }
+  openInsertPanel()
+}
+
 function openEditPanel(rowData) {
   editPanel.value = { open: true, mode: 'update', rowData: { ...rowData } }
 }
@@ -857,7 +866,7 @@ onUnmounted(() => {
         @update:sub-table-sorting="val => subTableSorting = val"
         @update:sub-table-column-filters="val => subTableColumnFilters = val"
         @update:sub-table-column-visibility="val => subTableColumnVisibility = val"
-        @insert-row="openInsertPanel"
+        @insert-row="onToolbarInsertRow"
         @insert-action="(key) => emit('insert-action', key)"
         @refresh="emit('refresh')"
         @toolbar-action="(key) => emit('toolbar-action', key)"
