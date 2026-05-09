@@ -1,6 +1,9 @@
 <script setup>
 import { ref, nextTick, inject, computed, isRef } from 'vue'
 
+/** Callback-valued meta keys that TanStack / reactive merges sometimes strip from `column.columnDef.meta`. */
+const META_MERGE_RESTORE_KEYS = ['badge', 'cellButtons', 'progressBar', 'suffixIcon', 'overflow', 'multiline']
+
 const props = defineProps({
   cell: { type: Object, required: true },
   isSelected: { type: Boolean, default: false },
@@ -40,19 +43,51 @@ const isEditing = ref(false)
 const editValue = ref('')
 const textareaRef = ref(null)
 
-const meta = props.cell.column.columnDef.meta || {}
-const isBoolean = meta.type === 'boolean'
+/** Stable fallback when columnDef.meta is missing (avoid allocating new {} per read). */
+const EMPTY_COLUMN_META = {}
+
+const originalColumnMetaById = inject('originalColumnMetaById', null)
+
+// Merge TanStack's column.columnDef.meta with props.columns[].meta so functions like meta.badge survive merges/proxies.
+const meta = computed(() => {
+  const id = String(props.cell.column.id)
+  const fromOriginal = originalColumnMetaById?.value?.[id]
+  const fromDef = props.cell.column.columnDef.meta || {}
+  if (!fromOriginal) {
+    return Object.keys(fromDef).length ? fromDef : EMPTY_COLUMN_META
+  }
+  const merged = { ...fromOriginal, ...fromDef }
+  for (const k of META_MERGE_RESTORE_KEYS) {
+    if ((merged[k] === undefined || merged[k] === null) && fromOriginal[k] != null) {
+      merged[k] = fromOriginal[k]
+    }
+  }
+  if (
+    typeof merged.badge !== 'function' &&
+    merged.badge !== true &&
+    typeof fromOriginal.badge === 'function'
+  ) {
+    merged.badge = fromOriginal.badge
+  }
+  if (merged.suffixIcon == null && fromOriginal.suffixIcon != null) {
+    merged.suffixIcon = fromOriginal.suffixIcon
+  }
+  return merged
+})
+
+const isBoolean = computed(() => meta.value.type === 'boolean')
 
 // Progress bar: meta.progressBar = true | { min, max } | ((value, row) => number 0–100)
 const progressPercent = computed(() => {
-  if (!meta.progressBar) return null
+  const m = meta.value
+  if (!m.progressBar) return null
   const value = props.cell.getValue()
   if (value === null || value === undefined) return null
-  if (typeof meta.progressBar === 'function') {
-    return Math.min(100, Math.max(0, meta.progressBar(value, props.cell.row.original)))
+  if (typeof m.progressBar === 'function') {
+    return Math.min(100, Math.max(0, m.progressBar(value, props.cell.row.original)))
   }
-  if (typeof meta.progressBar === 'object' && meta.progressBar !== null) {
-    const { min = 0, max = 100 } = meta.progressBar
+  if (typeof m.progressBar === 'object' && m.progressBar !== null) {
+    const { min = 0, max = 100 } = m.progressBar
     return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100))
   }
   // meta.progressBar === true: value is already 0–100
@@ -63,28 +98,21 @@ const progressPercent = computed(() => {
 // Backward compat: meta.multiline = true → 'wrap'
 // Falls back to the table-level cellOverflow prop default.
 const overflowMode = computed(() => {
-  if (meta.overflow) return meta.overflow
-  if (meta.multiline) return 'wrap'
+  const m = meta.value
+  if (m.overflow) return m.overflow
+  if (m.multiline) return 'wrap'
   const global = isRef(cellOverflowInjected) ? cellOverflowInjected.value : cellOverflowInjected
   return global || 'truncate'
 })
 
 // Cell buttons: meta.cellButtons = [{ icon: '<svg…>', label: 'string', onClick: (row) => void }]
-const cellButtons = meta.cellButtons ?? []
+const cellButtons = computed(() => meta.value.cellButtons ?? [])
 
-// Badge: meta.badge = true | { color?: CSSColor } | (value, row) => { color?: CSSColor } | null
-// Works for any column type (varchar, text, int*, boolean, etc.). When set on a boolean column,
-// the pill replaces the toggle. `color` accepts any valid CSS color (hex, rgb/hsl, named, var(--token), …).
-const badgeStyle = computed(() => {
-  if (!meta.badge) return null
-  const value = props.cell.getValue()
-  if (value === null || value === undefined) return null
-  let config = meta.badge
-  if (typeof config === 'function') {
-    config = config(value, props.cell.row.original)
-    if (!config) return null
-  }
-  const color = typeof config === 'object' && config !== null ? config.color : null
+// Badge: meta.badge = true | { color?, label? } | (value, row) => { color?, label? } | null | false
+// When `label` is set, it is shown inside the pill instead of stringifying the cell value.
+// Boolean cells without `label` render as "True" / "False". `color` accepts hex, rgb/hsl, named, var(--token), ….
+function badgeStyleFromConfig(config) {
+  const color = config && typeof config.color !== 'undefined' ? config.color : null
   if (color) {
     return {
       backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`,
@@ -97,19 +125,52 @@ const badgeStyle = computed(() => {
     color: 'var(--st-text)',
     border: '1px solid var(--st-border)',
   }
+}
+
+const badgePresentation = computed(() => {
+  const m = meta.value
+  if (!m.badge) return null
+  const value = props.cell.getValue()
+  const row = props.cell.row.original
+
+  let config = m.badge
+  if (typeof config === 'function') {
+    config = config(value, row)
+    if (config == null || config === false) return null
+  } else if (config === true) {
+    config = {}
+  } else if (typeof config !== 'object' || config === null) {
+    return null
+  }
+
+  const style = badgeStyleFromConfig(config)
+
+  let text
+  if (config.label != null && config.label !== '') {
+    text = String(config.label)
+  } else if (value === null || value === undefined) {
+    text = 'NULL'
+  } else if (typeof value === 'boolean') {
+    text = value ? 'True' : 'False'
+  } else {
+    text = String(value)
+  }
+
+  return { style, text }
 })
 
-const useBooleanToggle = computed(() => isBoolean && !meta.badge)
+const useBooleanToggle = computed(() => isBoolean.value && !meta.value.badge)
 
 // Suffix icon: meta.suffixIcon = { svg, color? } | (value, row) => { svg, color? } | null
 // Renders a small inline icon after the cell text.
 const suffixIcon = computed(() => {
-  if (!meta.suffixIcon) return null
+  const m = meta.value
+  if (!m.suffixIcon) return null
   const value = props.cell.getValue()
-  if (typeof meta.suffixIcon === 'function') {
-    return meta.suffixIcon(value, props.cell.row.original) || null
+  if (typeof m.suffixIcon === 'function') {
+    return m.suffixIcon(value, props.cell.row.original) || null
   }
-  return meta.suffixIcon
+  return m.suffixIcon
 })
 
 function handleClick() {
@@ -119,7 +180,7 @@ function handleClick() {
 }
 
 function handleDoubleClick() {
-  if (!editable.value?.update || useBooleanToggle.value || meta.progressBar || cellButtons.length > 0) return
+  if (!editable.value?.update || useBooleanToggle.value || meta.value.progressBar || cellButtons.value.length > 0) return
   isEditing.value = true
   emit('editing-change', true)
   editValue.value = props.cell.getValue() ?? ''
@@ -140,7 +201,8 @@ function autoResize() {
 }
 
 function saveEdit() {
-  const newValue = meta.type === 'int8' || meta.type === 'int4' || meta.type === 'float8'
+  const t = meta.value.type
+  const newValue = t === 'int8' || t === 'int4' || t === 'float8'
     ? Number(editValue.value)
     : editValue.value
   emit('update', newValue)
@@ -281,11 +343,11 @@ function toggleBoolean() {
           </template>
 
           <!-- Badge style -->
-          <template v-else-if="badgeStyle">
+          <template v-else-if="badgePresentation">
             <span
               class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium leading-tight"
-              :style="badgeStyle"
-            >{{ cell.getValue() }}</span>
+              :style="badgePresentation.style"
+            >{{ badgePresentation.text }}</span>
           </template>
 
           <!-- Wrap overflow -->

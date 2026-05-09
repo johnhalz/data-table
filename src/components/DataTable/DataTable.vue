@@ -618,6 +618,25 @@ const table = useVueTable({
   getRowId: (row) => row.__stagedId ? String(row.__stagedId) : String(row[primaryKeyField.value] ?? row.id),
 })
 
+/**
+ * Leaf-column `meta` from `props.columns`. TanStack merges `defaultColumn` with defs; shallow merges
+ * plus reactive proxies can drop function-valued keys (`badge`, `suffixIcon`, …) from `column.columnDef.meta`.
+ * TableCell merges this back so badge renderers resolve reliably.
+ */
+const originalColumnMetaById = computed(() => {
+  const map = Object.create(null)
+  function walk(cols) {
+    if (!Array.isArray(cols)) return
+    for (const c of cols) {
+      const id = c.id ?? c.accessorKey
+      if (id != null && c.meta) map[String(id)] = c.meta
+      if (c.columns?.length) walk(c.columns)
+    }
+  }
+  walk(props.columns)
+  return map
+})
+
 watch(
   () => [props.rows, props.additionalSelectedRowIds, props.totalCount],
   () => {
@@ -756,6 +775,7 @@ function handleFilterByValue(colId, val) {
 }
 
 provide('themeVars', computed(() => ({ ...themeVars.value, ...fontCssVars.value })))
+provide('originalColumnMetaById', originalColumnMetaById)
 provide('table', table)
 /** Lets row-model computeds subscribe to data changes (TanStack table is not reactive). */
 provide('tableSourceRows', effectiveRows)
