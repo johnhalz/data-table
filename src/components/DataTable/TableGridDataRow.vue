@@ -174,10 +174,21 @@ const wrapperStyle = computed(() => {
               :data-state="showRowActionsMenu ? 'open' : 'closed'"
               @click.stop="toggleRowActionsMenu"
             >
-              <svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                <path
-                  d="M4 8a1.25 1.25 0 11-2.5 0A1.25 1.25 0 014 8zm5.25 0a1.25 1.25 0 11-2.5 0 1.25 1.25 0 012.5 0zm4 0a1.25 1.25 0 11-2.5 0 1.25 1.25 0 012.5 0z"
-                />
+              <!-- Lucide `ellipsis` icon (ISC, lucide-static) -->
+              <svg
+                class="w-4 h-4 shrink-0"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="1" />
+                <circle cx="19" cy="12" r="1" />
+                <circle cx="5" cy="12" r="1" />
               </svg>
             </button>
           </div>
