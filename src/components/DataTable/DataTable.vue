@@ -35,9 +35,10 @@ const props = defineProps({
   // editable: true | false | { insert, update, delete }
   editable: { type: [Boolean, Object], default: true },
   selectionActions: { type: Array, default: () => [] },
-  // Per-row ellipsis menu + same items in selection toolbar Actions menu (multi-select).
-  // Each item: { key: string, label: string, icon?: string (SVG HTML) }
-  rowActions: { type: Array, default: () => [] },
+  // Right-click context menu: extra items after filter / undo; emits `row-action` with (key, rowData).
+  // Same items appear in the selection toolbar Actions menu when multiple rows are selected.
+  // Each item: { key, label, icon?, danger?, variant? }
+  contextMenuActions: { type: Array, default: () => [] },
   // When true, show a "Select all items" button in the selection toolbar that
   // selects every row across all pages (not just the current page).
   enableSelectAll: { type: Boolean, default: true },
@@ -155,6 +156,7 @@ const themeVars = computed(() => {
     '--st-accent-border-light': accentBorder30,
     '--st-toggle-off':       dark ? '#52525b' : '#d4d4d8',
     '--st-shadow-sticky':    dark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.08)',
+    '--st-danger':           dark ? '#f87171' : '#dc2626',
   }
 })
 
@@ -808,8 +810,6 @@ provide('getCellPendingState', getCellPendingState)
 provide('getCellPreviousValue', getCellPreviousValue)
 provide('undoRowEdit', undoRowEdit)
 provide('undoCellEdit', undoCellEdit)
-provide('rowActions', computed(() => props.rowActions))
-provide('emitRowAction', (key, rowData) => emit('row-action', key, rowData))
 
 // Reset selection when rows change
 watch(() => props.rows, () => {
@@ -973,7 +973,7 @@ defineExpose({
         :table="table"
         :editable="editableCaps"
         :selection-actions="selectionActions"
-        :row-actions="rowActions"
+        :context-menu-actions="contextMenuActions"
         :enable-select-all="enableSelectAll"
         :total-filtered-count="isServerPagination ? resolvedTotalFilteredCount : null"
         :enable-select-all-matching="enableSelectAllMatching"
@@ -1083,12 +1083,14 @@ defineExpose({
       :y="contextMenu.y"
       :row="contextMenu.row"
       :cell="contextMenu.cell"
+      :custom-actions="contextMenuActions"
       @close="closeContextMenu"
       @edit-row="openEditPanel(contextMenu.row.original)"
-      @delete-row="handleDeleteRows([contextMenu.row.id])"
+      @delete-row="openDeleteConfirmation([contextMenu.row.id])"
       @filter-by-value="handleFilterByValue"
       @undo-row="undoRowEdit(contextMenu.row.id)"
       @undo-cell="(colId) => undoCellEdit(contextMenu.row.id, colId)"
+      @row-action="(key, rowData) => emit('row-action', key, rowData)"
     />
   </div>
 </template>

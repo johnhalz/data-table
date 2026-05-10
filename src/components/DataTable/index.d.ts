@@ -16,6 +16,18 @@ export interface ToolbarAction {
   divider?: boolean
 }
 
+/** Extra context-menu item (right-click) and bulk Actions menu item when multi-selecting. */
+export interface RowAction {
+  key: string
+  label: string
+  /** Raw SVG markup; `stroke="currentColor"` recommended. */
+  icon?: string
+  /** When true, label and icon use the table destructive color (`--st-danger`). */
+  danger?: boolean
+  /** Alternative to `danger` (either may be set). */
+  variant?: 'default' | 'destructive'
+}
+
 /** Returned from `getSubTable` — nested rows + column defs. */
 export interface SubTableConfig {
   rows: unknown[]
@@ -23,8 +35,8 @@ export interface SubTableConfig {
   columns: ColumnDef<any, any>[]
   /** Optional; passed through to the nested `DataTable`. */
   fontFamily?: string | null
-  /** Ellipsis menu items for nested rows; passed as `rowActions`. */
-  rowActions?: ReadonlyArray<{ key: string; label: string; icon?: string }>
+  /** Extra context-menu items for nested rows; forwarded as `contextMenuActions`. */
+  contextMenuActions?: ReadonlyArray<RowAction>
   /** Handled internally (stripped before `v-bind`); invokes on nested `@row-action`. */
   onRowAction?: (key: string, rowData: unknown) => void
 }
@@ -95,6 +107,8 @@ export interface DataTableProps {
   countLabelSingular?: string
   /** Plural noun after the total in the footer (default "records"). */
   countLabelPlural?: string
+  /** Extra context-menu entries (right-click); also listed in selection toolbar Actions when multi-selecting. */
+  contextMenuActions?: ReadonlyArray<RowAction>
 }
 
 /** Exposed instance API (template ref): `ref.value.openDeleteConfirmation(['id', ...])`. */

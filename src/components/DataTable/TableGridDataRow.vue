@@ -1,6 +1,5 @@
 <script setup>
-import { ref, computed, inject, unref, toValue, onMounted, onUnmounted } from 'vue'
-import { onClickOutside } from '@vueuse/core'
+import { computed, inject, unref, toValue } from 'vue'
 import TableCell from './TableCell.vue'
 import DataTable from './DataTable.vue'
 
@@ -34,13 +33,6 @@ const subTableSorting = inject('subTableSorting', {})
 const subTableColumnFilters = inject('subTableColumnFilters', {})
 const subTableColumnVisibility = inject('subTableColumnVisibility', {})
 const getRowPendingState = inject('getRowPendingState', () => null)
-const rowActionsInject = inject('rowActions', computed(() => []))
-const rowActionsList = computed(() => {
-  const v = unref(rowActionsInject)
-  return Array.isArray(v) ? v : []
-})
-const emitRowAction = inject('emitRowAction', () => {})
-const themeVars = inject('themeVars', {})
 
 const isRowDisplayedSelectedInject = inject('isRowDisplayedSelected', null)
 
@@ -48,54 +40,6 @@ function rowLooksSelected(row) {
   const fn = unref(isRowDisplayedSelectedInject)
   return typeof fn === 'function' ? fn(row) : row.getIsSelected()
 }
-
-const showRowActionsMenu = ref(false)
-const rowActionsMenuCoords = ref({ top: 0, left: 0 })
-const rowActionsTriggerRef = ref(null)
-const rowActionsMenuRef = ref(null)
-
-const rowActionsMenuStyle = computed(() => ({
-  position: 'fixed',
-  left: `${rowActionsMenuCoords.value.left}px`,
-  top: `${rowActionsMenuCoords.value.top}px`,
-  zIndex: 9999,
-}))
-
-function toggleRowActionsMenu(ev) {
-  if (showRowActionsMenu.value) {
-    showRowActionsMenu.value = false
-    return
-  }
-  const el = ev.currentTarget
-  const r = el.getBoundingClientRect()
-  rowActionsMenuCoords.value = { top: r.bottom + 2, left: r.left }
-  showRowActionsMenu.value = true
-}
-
-function closeRowActionsMenu() {
-  showRowActionsMenu.value = false
-}
-
-function handleRowActionsItem(item) {
-  emitRowAction(item.key, props.row.original)
-  closeRowActionsMenu()
-}
-
-function handleRowActionsKeydown(ev) {
-  if (ev.key === 'Escape' && showRowActionsMenu.value) closeRowActionsMenu()
-}
-
-onClickOutside(rowActionsMenuRef, () => {
-  if (showRowActionsMenu.value) closeRowActionsMenu()
-}, { ignore: [rowActionsTriggerRef] })
-
-onMounted(() => {
-  document.addEventListener('keydown', handleRowActionsKeydown)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleRowActionsKeydown)
-})
 
 defineEmits([
   'toggle-row-select',
@@ -176,40 +120,8 @@ const wrapperStyle = computed(() => {
         }"
       >
         <div
-          class="flex h-full gap-1 pr-1.5 pl-1"
-          :class="rowActionsList.length ? 'items-center justify-between' : 'items-center justify-end pl-0.5'"
+          class="flex h-full gap-1 pr-1.5 pl-1 items-center justify-end pl-0.5"
         >
-          <div
-            v-if="rowActionsList.length > 0"
-            class="shrink-0 opacity-0 transition-opacity group-hover/row:opacity-100 has-[[data-state=open]]:opacity-100"
-          >
-            <button
-              ref="rowActionsTriggerRef"
-              type="button"
-              title="Row actions"
-              class="row-actions-trigger flex items-center justify-center w-5 h-5 rounded outline-none"
-              :style="{ color: 'var(--st-text-secondary)' }"
-              :data-state="showRowActionsMenu ? 'open' : 'closed'"
-              @click.stop="toggleRowActionsMenu"
-            >
-              <!-- Lucide `ellipsis` icon (ISC, lucide-static) -->
-              <svg
-                class="w-4 h-4 shrink-0"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="1" />
-                <circle cx="19" cy="12" r="1" />
-                <circle cx="5" cy="12" r="1" />
-              </svg>
-            </button>
-          </div>
           <div class="flex min-w-0 flex-1 items-center justify-end gap-0.5">
             <button
               v-if="isExpandableRow()"
@@ -270,31 +182,6 @@ const wrapperStyle = computed(() => {
         @contextmenu.prevent="$emit('context-menu', $event, row, cell)"
       />
     </div>
-
-    <Teleport to="body">
-      <div
-        v-if="showRowActionsMenu"
-        ref="rowActionsMenuRef"
-        :style="{ ...themeVars, ...rowActionsMenuStyle }"
-      >
-        <div
-          class="w-52 rounded shadow-xl py-1 text-[13px]"
-          :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"
-        >
-          <button
-            v-for="item in rowActionsList"
-            :key="item.key"
-            type="button"
-            class="w-full text-left px-3 py-1.5 hover-menu-item flex items-center gap-2"
-            :style="{ color: 'var(--st-text)' }"
-            @click="handleRowActionsItem(item)"
-          >
-            <span v-if="item.icon" class="shrink-0 w-3.5 h-3.5 inline-flex items-center justify-center [&_svg]:max-w-full [&_svg]:max-h-full" v-html="item.icon" />
-            <span>{{ item.label }}</span>
-          </button>
-        </div>
-      </div>
-    </Teleport>
 
     <div
       v-if="rowIsExpanded() && subCfg"
@@ -362,11 +249,5 @@ const wrapperStyle = computed(() => {
 }
 .st-row--pending-delete .st-sticky-cell {
   background-color: rgba(239, 68, 68, 0.08);
-}
-.row-actions-trigger:hover {
-  background-color: var(--st-bg-menu-hover);
-}
-.hover-menu-item:hover {
-  background-color: var(--st-bg-menu-hover);
 }
 </style>

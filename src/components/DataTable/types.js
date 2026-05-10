@@ -37,7 +37,7 @@
  * @property {boolean} [showColumnBorders] - Vertical column dividers in sub-table
  * @property {string} [fontFamily] - Same as `fontFamily` on `DataTable` (CSS stack)
  * @property {Function} [getSubTable] - Recursive: allows nested sub-tables within sub-tables
- * @property {Array<{key:string,label:string,icon?:string}>} [rowActions] - Per-row ellipsis menu in nested table
+ * @property {Array<{key:string,label:string,icon?:string,danger?:boolean,variant?:string}>} [contextMenuActions] - Extra right-click / bulk actions in nested table
  * @property {Function} [onRowAction] - `(key, rowData) => void`; not forwarded as a prop; wired to `@row-action`
  */
 

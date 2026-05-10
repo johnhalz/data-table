@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, inject, toValue } from 'vue'
 import { onClickOutside } from '@vueuse/core'
+import { isDestructiveRowAction } from './rowActionDestructive.js'
 
 const tableSourceRows = inject('tableSourceRows', null)
 
@@ -9,7 +10,7 @@ const props = defineProps({
   table: { type: Object, required: true },
   editable: { type: Object, default: () => ({ insert: true, update: true, delete: true }) },
   selectionActions: { type: Array, default: () => [] },
-  rowActions: { type: Array, default: () => [] },
+  contextMenuActions: { type: Array, default: () => [] },
   enableSelectAll: { type: Boolean, default: true },
   /** When set (server mode), label "Select all N" uses this instead of getFilteredRowModel().rows.length */
   totalFilteredCount: { type: Number, default: null },
@@ -149,14 +150,14 @@ function handleCustomAction(action) {
         <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('csv')">Download as CSV</button>
         <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('tsv')">Download as TSV</button>
         <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('json')">Download as JSON</button>
-        <template v-if="rowActions.length > 0">
+        <template v-if="contextMenuActions.length > 0">
           <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
           <button
-            v-for="action in rowActions"
+            v-for="action in contextMenuActions"
             :key="action.key"
             type="button"
             class="w-full text-left px-3 py-1.5 hover-menu-item flex items-center gap-2"
-            :style="{ color: 'var(--st-text)' }"
+            :style="{ color: isDestructiveRowAction(action) ? 'var(--st-danger)' : 'var(--st-text)' }"
             @click="handleRowActionsBulk(action)"
           >
             <span v-if="action.icon" class="shrink-0 w-3.5 h-3.5 inline-flex items-center justify-center [&_svg]:max-w-full [&_svg]:max-h-full" v-html="action.icon" />

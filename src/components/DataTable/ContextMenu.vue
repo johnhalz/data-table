@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, inject } from 'vue'
 import { onClickOutside } from '@vueuse/core'
+import { isDestructiveRowAction } from './rowActionDestructive.js'
 
 const editable = inject('editable', true)
 const themeVars = inject('themeVars', {})
@@ -12,9 +13,10 @@ const props = defineProps({
   y: { type: Number, required: true },
   row: { type: Object, default: null },
   cell: { type: Object, default: null },
+  customActions: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['close', 'edit-row', 'delete-row', 'filter-by-value', 'undo-row', 'undo-cell'])
+const emit = defineEmits(['close', 'edit-row', 'delete-row', 'filter-by-value', 'undo-row', 'undo-cell', 'row-action'])
 
 const rowPending = computed(() => props.row ? getRowPendingState(props.row.id) : null)
 const cellPending = computed(() =>
@@ -96,6 +98,11 @@ function undoCell() {
   emit('close')
 }
 
+function handleCustomAction(item) {
+  emit('row-action', item.key, props.row?.original)
+  emit('close')
+}
+
 onClickOutside(menuRef, () => {
   emit('close')
 })
@@ -163,6 +170,20 @@ const menuStyle = computed(() => {
           >
             <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h7a4 4 0 0 1 0 8H6"/><path d="M6 4L3 7l3 3"/></svg>
             {{ undoRowLabel }}
+          </button>
+        </template>
+        <template v-if="customActions.length > 0">
+          <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
+          <button
+            v-for="item in customActions"
+            :key="item.key"
+            type="button"
+            class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover-menu-item"
+            :style="{ color: isDestructiveRowAction(item) ? 'var(--st-danger)' : 'var(--st-text)' }"
+            @click="handleCustomAction(item)"
+          >
+            <span v-if="item.icon" class="shrink-0 w-3.5 h-3.5 inline-flex items-center justify-center [&_svg]:max-w-full [&_svg]:max-h-full" v-html="item.icon" />
+            <span>{{ item.label }}</span>
           </button>
         </template>
         <template v-if="editable.update || editable.delete">
