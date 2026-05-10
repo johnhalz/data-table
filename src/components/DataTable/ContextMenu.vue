@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed, inject, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, computed, inject } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import { isDestructiveRowAction } from './rowActionDestructive.js'
 
@@ -31,8 +31,6 @@ const undoRowLabel = computed(() => {
 })
 
 const menuRef = ref(null)
-const adjustedX = ref(props.x)
-const adjustedY = ref(props.y)
 
 const cellValue = computed(() => {
   if (!props.cell) return null
@@ -115,27 +113,31 @@ function handleKeydown(e) {
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
-  nextTick(() => {
-    if (!menuRef.value) return
-    const { width, height } = menuRef.value.getBoundingClientRect()
-    const vw = window.innerWidth
-    const vh = window.innerHeight
-    adjustedX.value = Math.max(0, Math.min(props.x, vw - width))
-    adjustedY.value = Math.max(0, Math.min(props.y, vh - height))
-  })
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
 })
 
-// Position the menu so it stays within viewport (adjusted after layout in onMounted)
-const menuStyle = computed(() => ({
-  position: 'fixed',
-  left: `${adjustedX.value}px`,
-  top: `${adjustedY.value}px`,
-  zIndex: 9999,
-}))
+// Anchor the menu toward the center of the viewport so it is never clipped.
+// Using top/bottom and left/right based on which half the click landed in
+// avoids needing to measure the menu after mount.
+const menuStyle = computed(() => {
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const style = { position: 'fixed', zIndex: 9999 }
+  if (props.y > vh / 2) {
+    style.bottom = `${vh - props.y}px`
+  } else {
+    style.top = `${props.y}px`
+  }
+  if (props.x > vw / 2) {
+    style.right = `${vw - props.x}px`
+  } else {
+    style.left = `${props.x}px`
+  }
+  return style
+})
 </script>
 
 <template>
