@@ -1,6 +1,6 @@
 {
   "name": "data-table",
-  "version": "1.4.0",
+  "version": "1.15.0",
   "description": "Feature-rich Vue 3 data grid built on TanStack Table",
   "type": "module",
   "files": [
