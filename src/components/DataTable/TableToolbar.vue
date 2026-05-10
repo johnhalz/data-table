@@ -97,7 +97,7 @@ const subTableColumnList = computed(() => {
 <template>
   <div :style="{ borderBottom: '1px solid var(--st-border)', backgroundColor: 'var(--st-bg)' }">
     <!-- Filter bar -->
-    <div class="flex items-center gap-2 px-3 py-2">
+    <div class="flex items-center gap-2 px-3 py-1.5">
       <FilterBar
         :table="table"
         :column-filters="columnFilters"

@@ -110,7 +110,7 @@ function handleCustomAction(action) {
 </script>
 
 <template>
-  <div class="px-3 py-2 flex items-center gap-2" :style="{ borderBottom: '1px solid var(--st-border)', backgroundColor: 'var(--st-bg)' }">
+  <div class="px-3 py-1.5 flex items-center gap-2" :style="{ borderBottom: '1px solid var(--st-border)', backgroundColor: 'var(--st-bg)' }">
     <span class="text-[13px]" :style="{ color: 'var(--st-text)' }">{{ selectedCount }} row{{ selectedCount > 1 ? 's' : '' }} selected</span>
 
     <!-- Delete -->
