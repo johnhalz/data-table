@@ -32,7 +32,12 @@ export default defineConfig(() => {
     }
   }
 
+  /** Demo app — must not write to `dist/` (library build output). */
   return {
     plugins: [vue(), tailwindcss()],
+    build: {
+      outDir: 'dist-demo',
+      emptyOutDir: true,
+    },
   }
 })

@@ -16,10 +16,11 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "BUILD_LIB=true vite build",
+    "build:demo": "vite build",
     "build:lib": "BUILD_LIB=true vite build",
     "prepare": "test -f dist/data-table.js || BUILD_LIB=true vite build",
-    "preview": "vite preview"
+    "preview": "vite preview --outDir dist-demo"
   },
   "peerDependencies": {
     "@tanstack/vue-table": "^8.21",
