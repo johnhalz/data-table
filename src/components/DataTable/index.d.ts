@@ -18,14 +18,23 @@ export interface ToolbarAction {
 
 /** Extra context-menu item (right-click) and bulk Actions menu item when multi-selecting. */
 export interface RowAction {
-  key: string
-  label: string
+  /** Omit when `divider` is true. */
+  key?: string
+  /** Omit when `divider` is true. */
+  label?: string
   /** Raw SVG markup; `stroke="currentColor"` recommended. */
   icon?: string
   /** When true, label and icon use the table destructive color (`--st-danger`). */
   danger?: boolean
   /** Alternative to `danger` (either may be set). */
   variant?: 'default' | 'destructive'
+  /** Renders a horizontal rule; omit `key`, `label`, and `icon`. */
+  divider?: boolean
+  /**
+   * When true, item is non-interactive. When a function, it receives the row’s `original` data (right-click);
+   * in the selection toolbar bulk menu, function callbacks are treated as not disabled so actions stay clickable.
+   */
+  disabled?: boolean | ((row: any) => boolean)
 }
 
 /** Returned from `getSubTable` — nested rows + column defs. */

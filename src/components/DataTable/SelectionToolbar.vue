@@ -97,7 +97,17 @@ function downloadAs(format) {
   showActionsMenu.value = false
 }
 
+function resolveBulkContextActionDisabled(action) {
+  if (action == null || action.divider) return false
+  const d = action.disabled
+  if (d == null) return false
+  if (typeof d === 'function') return false
+  return !!d
+}
+
 function handleRowActionsBulk(action) {
+  if (action.divider) return
+  if (resolveBulkContextActionDisabled(action)) return
   emit('selection-action', action.key, getSelectedRows())
   showActionsMenu.value = false
 }
@@ -152,17 +162,25 @@ function handleCustomAction(action) {
         <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('json')">Download as JSON</button>
         <template v-if="contextMenuActions.length > 0">
           <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
-          <button
-            v-for="action in contextMenuActions"
-            :key="action.key"
-            type="button"
-            class="w-full text-left px-3 py-1.5 hover-menu-item flex items-center gap-2"
-            :style="{ color: isDestructiveRowAction(action) ? 'var(--st-danger)' : 'var(--st-text)' }"
-            @click="handleRowActionsBulk(action)"
-          >
-            <span v-if="action.icon" class="shrink-0 w-3.5 h-3.5 inline-flex items-center justify-center [&_svg]:max-w-full [&_svg]:max-h-full" v-html="action.icon" />
-            <span>{{ action.label }}</span>
-          </button>
+          <template v-for="(action, idx) in contextMenuActions" :key="action.divider ? `divider-${idx}` : action.key">
+            <div
+              v-if="action.divider"
+              class="my-1"
+              :style="{ borderTop: '1px solid var(--st-border-secondary)' }"
+            />
+            <button
+              v-else
+              type="button"
+              class="w-full text-left px-3 py-1.5 hover-menu-item flex items-center gap-2 disabled:pointer-events-none"
+              :disabled="resolveBulkContextActionDisabled(action)"
+              :class="{ 'opacity-40 cursor-not-allowed': resolveBulkContextActionDisabled(action) }"
+              :style="{ color: isDestructiveRowAction(action) ? 'var(--st-danger)' : 'var(--st-text)' }"
+              @click="handleRowActionsBulk(action)"
+            >
+              <span v-if="action.icon" class="shrink-0 w-3.5 h-3.5 inline-flex items-center justify-center [&_svg]:max-w-full [&_svg]:max-h-full" v-html="action.icon" />
+              <span>{{ action.label }}</span>
+            </button>
+          </template>
         </template>
         <template v-if="selectionActions.length > 0">
           <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>

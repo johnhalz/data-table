@@ -37,7 +37,7 @@
  * @property {boolean} [showColumnBorders] - Vertical column dividers in sub-table
  * @property {string} [fontFamily] - Same as `fontFamily` on `DataTable` (CSS stack)
  * @property {Function} [getSubTable] - Recursive: allows nested sub-tables within sub-tables
- * @property {Array<{key:string,label:string,icon?:string,danger?:boolean,variant?:string}>} [contextMenuActions] - Extra right-click / bulk actions in nested table
+ * @property {Array<{key?:string,label?:string,icon?:string,danger?:boolean,variant?:string,divider?:boolean,disabled?:boolean|Function}>} [contextMenuActions] - Extra right-click / bulk actions in nested table (`divider` renders a separator; `disabled` boolean or `(row) => boolean` for right-click)
  * @property {Function} [onRowAction] - `(key, rowData) => void`; not forwarded as a prop; wired to `@row-action`
  */
 

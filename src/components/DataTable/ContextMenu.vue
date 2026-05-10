@@ -98,8 +98,22 @@ function undoCell() {
   emit('close')
 }
 
+function rowOriginalForAction() {
+  return props.row?.original ?? null
+}
+
+function resolveRowActionDisabled(item, tanstackRow) {
+  if (item == null || item.divider) return false
+  const d = item.disabled
+  if (d == null) return false
+  const original = tanstackRow?.original ?? tanstackRow ?? null
+  if (typeof d === 'function') return !!d(original)
+  return !!d
+}
+
 function handleCustomAction(item) {
-  emit('row-action', item.key, props.row?.original)
+  if (resolveRowActionDisabled(item, props.row)) return
+  emit('row-action', item.key, rowOriginalForAction())
   emit('close')
 }
 
@@ -183,17 +197,25 @@ const menuStyle = computed(() => {
         </template>
         <template v-if="customActions.length > 0">
           <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
-          <button
-            v-for="item in customActions"
-            :key="item.key"
-            type="button"
-            class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover-menu-item"
-            :style="{ color: isDestructiveRowAction(item) ? 'var(--st-danger)' : 'var(--st-text)' }"
-            @click="handleCustomAction(item)"
-          >
-            <span v-if="item.icon" class="shrink-0 w-3.5 h-3.5 inline-flex items-center justify-center [&_svg]:max-w-full [&_svg]:max-h-full" v-html="item.icon" />
-            <span>{{ item.label }}</span>
-          </button>
+          <template v-for="(item, idx) in customActions" :key="item.divider ? `divider-${idx}` : item.key">
+            <div
+              v-if="item.divider"
+              class="my-1"
+              :style="{ borderTop: '1px solid var(--st-border-secondary)' }"
+            />
+            <button
+              v-else
+              type="button"
+              class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover-menu-item disabled:pointer-events-none"
+              :disabled="resolveRowActionDisabled(item, props.row)"
+              :class="{ 'opacity-40 cursor-not-allowed': resolveRowActionDisabled(item, props.row) }"
+              :style="{ color: isDestructiveRowAction(item) ? 'var(--st-danger)' : 'var(--st-text)' }"
+              @click="handleCustomAction(item)"
+            >
+              <span v-if="item.icon" class="shrink-0 w-3.5 h-3.5 inline-flex items-center justify-center [&_svg]:max-w-full [&_svg]:max-h-full" v-html="item.icon" />
+              <span>{{ item.label }}</span>
+            </button>
+          </template>
         </template>
         <template v-if="editable.update || editable.delete">
           <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
