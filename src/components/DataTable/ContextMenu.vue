@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed, inject } from 'vue'
+import { ref, onMounted, onUnmounted, computed, inject, nextTick } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import { isDestructiveRowAction } from './rowActionDestructive.js'
 
@@ -31,6 +31,8 @@ const undoRowLabel = computed(() => {
 })
 
 const menuRef = ref(null)
+const adjustedX = ref(props.x)
+const adjustedY = ref(props.y)
 
 const cellValue = computed(() => {
   if (!props.cell) return null
@@ -113,22 +115,27 @@ function handleKeydown(e) {
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
+  nextTick(() => {
+    if (!menuRef.value) return
+    const { width, height } = menuRef.value.getBoundingClientRect()
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    adjustedX.value = Math.max(0, Math.min(props.x, vw - width))
+    adjustedY.value = Math.max(0, Math.min(props.y, vh - height))
+  })
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
 })
 
-// Position the menu so it stays within viewport
-const menuStyle = computed(() => {
-  const style = {
-    position: 'fixed',
-    left: `${props.x}px`,
-    top: `${props.y}px`,
-    zIndex: 9999,
-  }
-  return style
-})
+// Position the menu so it stays within viewport (adjusted after layout in onMounted)
+const menuStyle = computed(() => ({
+  position: 'fixed',
+  left: `${adjustedX.value}px`,
+  top: `${adjustedY.value}px`,
+  zIndex: 9999,
+}))
 </script>
 
 <template>
