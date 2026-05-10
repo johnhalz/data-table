@@ -16,6 +16,7 @@ import ContextMenu from './ContextMenu.vue'
 import DeleteRowsConfirmDialog from './DeleteRowsConfirmDialog.vue'
 import { distributeWidthsLargestRemainder, DATA_TABLE_STICKY_CHROME_PX } from './columnSizingFill.js'
 import { widthPxForCellButtons } from './cellButtonWidth.js'
+import { claimContextMenu, releaseContextMenu } from './contextMenuCoordinator.js'
 import { PENDING_EDIT_KINDS, PENDING_INSERT_ID_PREFIX } from './types.js'
 
 /** Provide/inject: resolved font stacks for nesting (see `fontFamily` prop). */
@@ -753,6 +754,7 @@ function handleUpdateCell(rowId, colId, value) {
 const contextMenu = ref({ show: false, x: 0, y: 0, row: null, cell: null })
 
 function openContextMenu(event, row, cell) {
+  claimContextMenu(closeContextMenu)
   contextMenu.value = {
     show: true,
     x: event.clientX,
@@ -764,6 +766,7 @@ function openContextMenu(event, row, cell) {
 
 function closeContextMenu() {
   contextMenu.value = { show: false, x: 0, y: 0, row: null, cell: null }
+  releaseContextMenu(closeContextMenu)
 }
 
 function handleFilterByValue(colId, val) {
@@ -955,6 +958,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   disconnectViewportSizingObserver()
+  releaseContextMenu(closeContextMenu)
 })
 
 defineExpose({
