@@ -1092,6 +1092,8 @@ defineExpose({
       :row="contextMenu.row"
       :cell="contextMenu.cell"
       :custom-actions="contextMenuActions"
+      :allow-row-edit="editableCaps.update"
+      :allow-row-delete="editableCaps.delete"
       @close="closeContextMenu"
       @edit-row="openEditPanel(contextMenu.row.original)"
       @delete-row="openDeleteConfirmation([contextMenu.row.id])"

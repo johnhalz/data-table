@@ -3,7 +3,6 @@ import { ref, onMounted, onUnmounted, computed, inject } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import { isDestructiveRowAction } from './rowActionDestructive.js'
 
-const editable = inject('editable', true)
 const themeVars = inject('themeVars', {})
 const getRowPendingState = inject('getRowPendingState', () => null)
 const getCellPendingState = inject('getCellPendingState', () => null)
@@ -14,6 +13,9 @@ const props = defineProps({
   row: { type: Object, default: null },
   cell: { type: Object, default: null },
   customActions: { type: Array, default: () => [] },
+  /** From parent DataTable `editableCaps` — explicit so teleported menu matches this table, not an ancestor inject. */
+  allowRowEdit: { type: Boolean, default: false },
+  allowRowDelete: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['close', 'edit-row', 'delete-row', 'filter-by-value', 'undo-row', 'undo-cell', 'row-action'])
@@ -217,13 +219,13 @@ const menuStyle = computed(() => {
             </button>
           </template>
         </template>
-        <template v-if="editable.update || editable.delete">
+        <template v-if="allowRowEdit || allowRowDelete">
           <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
-          <button v-if="editable.update" class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="editRow">
+          <button v-if="allowRowEdit" class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="editRow">
             <svg class="w-3.5 h-3.5" :style="{ color: 'var(--st-text-secondary)' }" viewBox="0 0 16 16" fill="currentColor"><path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25a1.75 1.75 0 01.445-.758l8.61-8.61z"/></svg>
             Edit row
           </button>
-          <button v-if="editable.delete && rowPending !== 'delete'" class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover-menu-item" style="color: #ef4444;" @click="deleteRow">
+          <button v-if="allowRowDelete && rowPending !== 'delete'" class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover-menu-item" style="color: #ef4444;" @click="deleteRow">
             <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 1.75a.25.25 0 01.25-.25h2.5a.25.25 0 01.25.25V3h-3V1.75zM11 3V1.75C11 .784 10.216 0 9.25 0h-2.5C5.784 0 5 .784 5 1.75V3H2.75a.75.75 0 000 1.5h.31l.72 9.678A1.75 1.75 0 005.525 16h4.95a1.75 1.75 0 001.745-1.822L12.94 4.5h.31a.75.75 0 000-1.5H11z"/></svg>
             Delete row
           </button>
