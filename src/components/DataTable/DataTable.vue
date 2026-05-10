@@ -224,6 +224,10 @@ const editableCaps = computed(() => {
   return { insert: true, update: true, delete: true, ...props.editable }
 })
 
+/** Explicit booleans for ContextMenu — avoids any template ref-unwrapping edge cases on `editableCaps.delete`. */
+const contextMenuAllowRowEdit = computed(() => editableCaps.value.update)
+const contextMenuAllowRowDelete = computed(() => editableCaps.value.delete)
+
 // Dismiss error banner
 const errorDismissed = ref(false)
 watch(() => props.error, () => { errorDismissed.value = false })
@@ -1092,8 +1096,8 @@ defineExpose({
       :row="contextMenu.row"
       :cell="contextMenu.cell"
       :custom-actions="contextMenuActions"
-      :allow-row-edit="editableCaps.update"
-      :allow-row-delete="editableCaps.delete"
+      :allow-row-edit="contextMenuAllowRowEdit"
+      :allow-row-delete="contextMenuAllowRowDelete"
       @close="closeContextMenu"
       @edit-row="openEditPanel(contextMenu.row.original)"
       @delete-row="openDeleteConfirmation([contextMenu.row.id])"

@@ -179,7 +179,7 @@ const wrapperStyle = computed(() => {
         @select="$emit('select-cell', row.id, cell.column.id)"
         @update="(value) => $emit('update-cell', row.id, cell.column.id, value)"
         @editing-change="(editing) => $emit('editing-change', editing, row.id)"
-        @contextmenu.prevent="$emit('context-menu', $event, row, cell)"
+        @contextmenu.prevent.stop="$emit('context-menu', $event, row, cell)"
       />
     </div>
 
@@ -200,6 +200,7 @@ const wrapperStyle = computed(() => {
       >
         <DataTable
           v-bind="nestedSubTableVBind.tableProps"
+          :editable="subCfg.editable ?? { insert: false, update: false, delete: false }"
           :theme="subCfg.theme ?? unref(parentTheme)"
           :accent-color="subCfg.accentColor ?? unref(parentAccentColor)"
           :nesting-depth="nestingDepth + 1"
