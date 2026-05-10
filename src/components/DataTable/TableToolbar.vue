@@ -285,10 +285,10 @@ const subTableColumnList = computed(() => {
           </svg>
         </button>
 
-        <!-- Dropdown (cases A, C, D) -->
+        <!-- Dropdown (cases A, C, D): flex-col + stretch avoids w-full/w-max cyclic shrink; nowrap on label avoids flex shrink wrap -->
         <div
           v-if="showInsertMenu"
-          class="absolute top-full right-0 mt-1 min-w-[11rem] w-max rounded shadow-xl z-50 py-1 text-[13px]"
+          class="absolute top-full right-0 mt-1 flex min-w-[11rem] w-max flex-col items-stretch rounded shadow-xl z-50 py-1 text-[13px]"
           :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"
         >
           <!-- Custom insertActions (cases A & C) -->
@@ -296,25 +296,25 @@ const subTableColumnList = computed(() => {
             <button
               v-for="action in insertActions"
               :key="action.key"
-              class="w-full whitespace-nowrap text-left px-3 py-1.5 hover-menu-item flex items-center gap-2"
+              class="flex items-center gap-2 whitespace-nowrap text-left px-3 py-1.5 hover-menu-item"
               :style="{ color: 'var(--st-text)' }"
               @click="emit('insert-action', action.key); showInsertMenu = false"
             >
               <span v-if="action.icon" class="w-3.5 h-3.5 shrink-0 flex items-center justify-center" v-html="action.icon" />
-              {{ action.label }}
+              <span class="shrink-0 whitespace-nowrap">{{ action.label }}</span>
             </button>
           </template>
 
           <!-- Hardcoded items (case D) -->
           <template v-else>
-            <button class="w-full whitespace-nowrap text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="emit('insert-row'); showInsertMenu = false">
+            <button class="whitespace-nowrap text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="emit('insert-row'); showInsertMenu = false">
               Insert row
             </button>
-            <button class="w-full whitespace-nowrap text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="showInsertMenu = false">
+            <button class="whitespace-nowrap text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="showInsertMenu = false">
               Insert column
             </button>
             <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
-            <button class="w-full whitespace-nowrap text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="showInsertMenu = false">
+            <button class="whitespace-nowrap text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="showInsertMenu = false">
               Import data from CSV
             </button>
           </template>
