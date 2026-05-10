@@ -205,6 +205,7 @@ col.accessor('field', {
     cellButtons: [{ label, icon? (SVG HTML), onClick(row) }],
     badge: true,            // or { color?: CSSColor } or (value, row) => { color? } | null — pill for any type; boolean columns show a pill instead of the toggle when set. `color`: any CSS color (hex, rgb/hsl, named, var(--…))
     suffixIcon: { svg, color? }, // or (value, row) => { svg, color? } | null — icon after text
+    secondaryText: (value, row) => row.city, // or string; second line below primary (`--st-text-secondary`, smaller); plain text only — not with badge / progressBar / boolean toggle
   },
   size: 180,               // column width in px
   enableSorting: true,

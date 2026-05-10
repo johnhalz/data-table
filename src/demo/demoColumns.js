@@ -77,7 +77,11 @@ export const columns = [
   }),
   col.accessor('name', {
     header: 'name',
-    meta: { type: 'varchar', isNullable: false },
+    meta: {
+      type: 'varchar',
+      isNullable: false,
+      secondaryText: (_value, row) => [row.city, row.state].filter(Boolean).join(', '),
+    },
     size: 220,
     enableSorting: true,
     enableColumnFilter: true,

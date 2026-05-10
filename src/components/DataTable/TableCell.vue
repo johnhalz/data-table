@@ -2,7 +2,15 @@
 import { ref, nextTick, inject, computed, isRef } from 'vue'
 
 /** Callback-valued meta keys that TanStack / reactive merges sometimes strip from `column.columnDef.meta`. */
-const META_MERGE_RESTORE_KEYS = ['badge', 'cellButtons', 'progressBar', 'suffixIcon', 'overflow', 'multiline']
+const META_MERGE_RESTORE_KEYS = [
+  'badge',
+  'cellButtons',
+  'progressBar',
+  'suffixIcon',
+  'secondaryText',
+  'overflow',
+  'multiline',
+]
 
 const props = defineProps({
   cell: { type: Object, required: true },
@@ -71,6 +79,16 @@ const meta = computed(() => {
   }
   if (merged.suffixIcon == null && fromOriginal.suffixIcon != null) {
     merged.suffixIcon = fromOriginal.suffixIcon
+  }
+  if (merged.secondaryText == null && fromOriginal.secondaryText != null) {
+    merged.secondaryText = fromOriginal.secondaryText
+  }
+  if (
+    typeof merged.secondaryText !== 'function' &&
+    typeof merged.secondaryText !== 'string' &&
+    typeof fromOriginal.secondaryText === 'function'
+  ) {
+    merged.secondaryText = fromOriginal.secondaryText
   }
   return merged
 })
@@ -172,6 +190,38 @@ const suffixIcon = computed(() => {
   }
   return m.suffixIcon
 })
+
+// meta.secondaryText = string | (value, row) => string | null | undefined — line below primary (plain text cells only)
+const secondaryTextLine = computed(() => {
+  const m = meta.value
+  if (m.secondaryText == null || m.secondaryText === '') return null
+  const value = props.cell.getValue()
+  const row = props.cell.row.original
+  let s
+  if (typeof m.secondaryText === 'function') {
+    s = m.secondaryText(value, row)
+  } else {
+    s = m.secondaryText
+  }
+  if (s == null) return null
+  const t = String(s).trim()
+  return t === '' ? null : t
+})
+
+const primaryValueIsNullish = computed(() => {
+  const v = props.cell.getValue()
+  return v === null || v === undefined
+})
+
+const showSecondaryText = computed(() => {
+  if (!secondaryTextLine.value) return false
+  if (primaryValueIsNullish.value) return true
+  return !badgePresentation.value
+})
+
+const displayCellRowClass = computed(() =>
+  showSecondaryText.value ? 'flex items-start gap-1 min-w-0' : 'flex items-center gap-1 min-w-0'
+)
 
 function handleClick() {
   if (!isEditing.value) {
@@ -330,12 +380,12 @@ function toggleBoolean() {
     <!-- Display mode: text / badge / overflow variants + suffix icon + cell buttons -->
     <template v-else>
       <div
-        class="flex items-center gap-1 min-w-0"
+        :class="displayCellRowClass"
         :style="isRowDeleted ? { textDecoration: 'line-through', opacity: 0.5 } : {}"
       >
         <!-- Text / badge content -->
         <div
-          class="flex-1 min-w-0 text-[13px]"
+          class="flex flex-col gap-0.5 flex-1 min-w-0 text-[13px]"
           :style="{ color: 'var(--st-text)' }"
         >
           <template v-if="cell.getValue() === null || cell.getValue() === undefined">
@@ -359,6 +409,14 @@ function toggleBoolean() {
           <template v-else>
             <span class="truncate block" :title="String(cell.getValue())">{{ cell.getValue() }}</span>
           </template>
+
+          <span
+            v-if="showSecondaryText"
+            class="block text-[11px] leading-snug"
+            :class="overflowMode === 'wrap' ? 'whitespace-pre-wrap break-words' : 'truncate'"
+            :style="{ color: 'var(--st-text-secondary)' }"
+            :title="overflowMode === 'wrap' ? undefined : secondaryTextLine"
+          >{{ secondaryTextLine }}</span>
         </div>
 
         <!-- Suffix icon: rendered between text and cell buttons -->
