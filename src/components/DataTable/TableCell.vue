@@ -486,16 +486,20 @@ function toggleBoolean() {
           :class="['flex items-center gap-0.5 shrink-0', cellButtonClass]"
         >
           <button
-            v-for="btn in cellButtons"
-            :key="btn.label"
-            class="flex items-center justify-center w-5 h-5 rounded transition-colors"
+            v-for="(btn, btnIdx) in cellButtons"
+            :key="btnIdx"
+            type="button"
+            :class="[
+              'flex items-center justify-center rounded transition-colors',
+              btn.icon ? 'w-5 h-5 shrink-0' : 'h-5 px-1.5 shrink-0 text-[11px] font-medium whitespace-nowrap',
+            ]"
             :style="{ color: 'var(--st-text-secondary)' }"
             :title="btn.label"
             @click.stop="btn.onClick(cell.row.original)"
           >
             <!-- Icon slot: supports raw SVG string or plain label -->
             <span v-if="btn.icon" class="w-3.5 h-3.5 flex items-center justify-center" v-html="btn.icon" />
-            <span v-else class="text-[11px]">{{ btn.label }}</span>
+            <span v-else>{{ btn.label }}</span>
           </button>
         </div>
       </div>

@@ -15,6 +15,7 @@ import RowEditPanel from './RowEditPanel.vue'
 import ContextMenu from './ContextMenu.vue'
 import DeleteRowsConfirmDialog from './DeleteRowsConfirmDialog.vue'
 import { distributeWidthsLargestRemainder, DATA_TABLE_STICKY_CHROME_PX } from './columnSizingFill.js'
+import { widthPxForCellButtons } from './cellButtonWidth.js'
 import { PENDING_EDIT_KINDS, PENDING_INSERT_ID_PREFIX } from './types.js'
 
 /** Provide/inject: resolved font stacks for nesting (see `fontFamily` prop). */
@@ -836,7 +837,6 @@ function computeContentSizedColumns() {
   const CELL_PADDING_PX = 16   // px-2 (horizontal padding) on both sides
   const HEADER_CHROME_PX = 28  // chevron button + sort indicator reserve
   const TYPE_BADGE_GAP_PX = 6  // gap between name and type badge
-  const CELL_BUTTON_PX = 22    // trailing cell button width
   const MIN_WIDTH = 60
   const MAX_WIDTH = 500
   const SAMPLE_SIZE = 200      // rows measured for perf cap
@@ -869,7 +869,7 @@ function computeContentSizedColumns() {
     }
 
     if (Array.isArray(meta.cellButtons) && meta.cellButtons.length > 0) {
-      contentWidth += meta.cellButtons.length * CELL_BUTTON_PX
+      contentWidth += widthPxForCellButtons(meta.cellButtons)
     }
 
     let finalWidth = Math.ceil(contentWidth) + CELL_PADDING_PX + HEADER_CHROME_PX

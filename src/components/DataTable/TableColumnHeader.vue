@@ -1,6 +1,7 @@
 <script setup>
 import { ref, inject } from 'vue'
 import { FlexRender } from '@tanstack/vue-table'
+import { widthPxForCellButtons } from './cellButtonWidth.js'
 
 const props = defineProps({
   header: { type: Object, required: true },
@@ -80,7 +81,6 @@ function autoFitColumn() {
   const CELL_PADDING_PX = 16
   const HEADER_CHROME_PX = 28
   const TYPE_BADGE_GAP_PX = 6
-  const CELL_BUTTON_PX = 22
   const MIN_WIDTH = 60
   const MAX_WIDTH = 500
 
@@ -110,7 +110,7 @@ function autoFitColumn() {
   }
 
   if (Array.isArray(colMeta.cellButtons) && colMeta.cellButtons.length > 0) {
-    contentWidth += colMeta.cellButtons.length * CELL_BUTTON_PX
+    contentWidth += widthPxForCellButtons(colMeta.cellButtons)
   }
 
   const finalWidth = Math.ceil(contentWidth) + CELL_PADDING_PX + HEADER_CHROME_PX
