@@ -6,6 +6,7 @@ const META_MERGE_RESTORE_KEYS = [
   'badge',
   'cellButtons',
   'progressBar',
+  'segmentedBar',
   'suffixIcon',
   'secondaryText',
   'overflow',
@@ -90,6 +91,12 @@ const meta = computed(() => {
   ) {
     merged.secondaryText = fromOriginal.secondaryText
   }
+  if (
+    typeof merged.segmentedBar !== 'function' &&
+    typeof fromOriginal.segmentedBar === 'function'
+  ) {
+    merged.segmentedBar = fromOriginal.segmentedBar
+  }
   return merged
 })
 
@@ -111,6 +118,21 @@ const progressPercent = computed(() => {
   // meta.progressBar === true: value is already 0–100
   return Math.min(100, Math.max(0, Number(value)))
 })
+
+// Segmented progress: meta.segmentedBar = (value, row) => { segments: { color, count, label }[], total }
+const segmentedBarData = computed(() => {
+  const m = meta.value
+  if (!m.segmentedBar || typeof m.segmentedBar !== 'function') return null
+  const value = props.cell.getValue()
+  const row = props.cell.row.original
+  return m.segmentedBar(value, row) ?? null
+})
+
+function segmentedSegmentWidthPercent(segCount, total) {
+  if (!total || total <= 0) return '0%'
+  const pct = (segCount / total) * 100
+  return `${Math.min(100, Math.max(0, pct))}%`
+}
 
 // Overflow mode: meta.overflow = 'truncate' | 'wrap' | 'extend'
 // Backward compat: meta.multiline = true → 'wrap'
@@ -230,7 +252,7 @@ function handleClick() {
 }
 
 function handleDoubleClick() {
-  if (!editable.value?.update || useBooleanToggle.value || meta.value.progressBar || cellButtons.value.length > 0) return
+  if (!editable.value?.update || useBooleanToggle.value || meta.value.progressBar || meta.value.segmentedBar || cellButtons.value.length > 0) return
   isEditing.value = true
   emit('editing-change', true)
   editValue.value = props.cell.getValue() ?? ''
@@ -356,6 +378,37 @@ function toggleBoolean() {
         >
           Esc Cancel
         </button>
+      </div>
+    </template>
+
+    <!-- Segmented bar + stacked counts -->
+    <template v-else-if="segmentedBarData">
+      <div v-if="segmentedBarData.total === 0" class="flex items-center min-w-0">
+        <span class="italic text-[13px]" :style="{ color: 'var(--st-text-placeholder)' }">—</span>
+      </div>
+      <div v-else class="flex items-center gap-2 min-w-0">
+        <div
+          class="rounded-full overflow-hidden flex shrink-0 flex-nowrap"
+          :style="{ height: '6px', width: '80px', backgroundColor: 'var(--st-border-secondary)' }"
+        >
+          <div
+            v-for="seg in segmentedBarData.segments"
+            :key="seg.label"
+            class="h-full shrink-0"
+            :style="{
+              width: segmentedSegmentWidthPercent(seg.count, segmentedBarData.total),
+              backgroundColor: seg.color,
+            }"
+          />
+        </div>
+        <div class="flex flex-col shrink-0" style="gap: 1px">
+          <span
+            v-for="seg in segmentedBarData.segments"
+            :key="seg.label"
+            class="text-[11px] leading-snug tabular-nums whitespace-nowrap"
+            :style="{ color: 'var(--st-text-secondary)' }"
+          >{{ seg.count }} {{ seg.label }}</span>
+        </div>
       </div>
     </template>
 
