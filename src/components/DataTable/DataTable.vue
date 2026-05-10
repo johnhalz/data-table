@@ -855,7 +855,8 @@ function computeContentSizedColumns() {
       contentWidth += TYPE_BADGE_GAP_PX + ctx.measureText(meta.type).width
     }
 
-    const isFixedUiCell = (meta.type === 'boolean' && !meta.badge) || !!meta.progressBar
+    const isSegmentedBar = !!meta.segmentedBar
+    const isFixedUiCell = (meta.type === 'boolean' && !meta.badge) || !!meta.progressBar || isSegmentedBar
     if (!isFixedUiCell) {
       const accessorKey = col.columnDef.accessorKey ?? col.id
       for (const row of sample) {
@@ -870,7 +871,8 @@ function computeContentSizedColumns() {
       contentWidth += meta.cellButtons.length * CELL_BUTTON_PX
     }
 
-    const finalWidth = Math.ceil(contentWidth) + CELL_PADDING_PX + HEADER_CHROME_PX
+    let finalWidth = Math.ceil(contentWidth) + CELL_PADDING_PX + HEADER_CHROME_PX
+    if (isSegmentedBar) finalWidth = Math.max(finalWidth, 200)
     sizing[col.id] = Math.min(Math.max(finalWidth, MIN_WIDTH), MAX_WIDTH)
   }
 

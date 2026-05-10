@@ -448,7 +448,7 @@ function toggleBoolean() {
           <!-- Badge style -->
           <template v-else-if="badgePresentation">
             <span
-              class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium leading-tight"
+              class="inline-flex shrink-0 self-start items-center px-1.5 py-0.5 rounded text-[11px] font-medium leading-tight"
               :style="badgePresentation.style"
             >{{ badgePresentation.text }}</span>
           </template>
