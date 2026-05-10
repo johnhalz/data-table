@@ -793,6 +793,7 @@ provide('openInsertPanel', openInsertPanel)
 provide('emptyTitle', computed(() => props.emptyTitle))
 provide('emptyMessage', computed(() => props.emptyMessage))
 provide('defaultInsertLabel', computed(() => props.defaultInsertLabel))
+provide('loading', computed(() => props.loading))
 // Expandable row groups
 provide('expanded', expanded)
 provide('toggleRowExpanded', toggleRowExpanded)

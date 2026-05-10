@@ -6,6 +6,14 @@ import TableGridFlowRows from './TableGridFlowRows.vue'
 
 /** Rows at or below this render in document flow (scrollbar track size is stable); above uses TanStack Virtual. */
 const ROW_VIRTUALIZATION_THRESHOLD = 500
+/** Placeholder rows while `loading` is true and there is no data yet. */
+const SKELETON_ROW_COUNT = 8
+/** Stable bar widths (%) for skeleton cells: cycles by (row + col) index. */
+const SKELETON_BAR_WIDTH_PCT = [60, 75, 85, 55, 70, 80, 65, 90]
+
+function skeletonBarWidthPct(rowIndex0, colIndex) {
+  return SKELETON_BAR_WIDTH_PCT[(rowIndex0 + colIndex) % SKELETON_BAR_WIDTH_PCT.length]
+}
 
 const props = defineProps({
   table: { type: Object, required: true },
@@ -20,6 +28,9 @@ const editable = computed(() => {
 })
 const showRowBorders = inject('showRowBorders', true)
 const showColumnBorders = inject('showColumnBorders', true)
+const loadingInject = inject('loading', false)
+const isLoading = computed(() => !!unref(loadingInject))
+
 const emptyTitle = inject('emptyTitle', 'No rows found')
 const emptyMessage = inject('emptyMessage', 'Get started by inserting a new row.')
 const openInsertPanel = inject('openInsertPanel', null)
@@ -50,6 +61,11 @@ const totalTableWidth = computed(() => {
 const rows = computed(() => {
   if (tableSourceRows != null) void toValue(tableSourceRows)
   return props.table.getRowModel().rows
+})
+
+const visibleColumns = computed(() => {
+  if (tableSourceRows != null) void toValue(tableSourceRows)
+  return props.table.getVisibleLeafColumns()
 })
 
 const paginationState = computed(() => props.table.getState().pagination)
@@ -238,11 +254,66 @@ defineExpose({
       @update-cell="(rid, cid, val) => emit('update-cell', rid, cid, val)"
       @editing-change="editingChange"
     />
+    <!-- Skeleton rows — initial load while rows are still empty -->
+    <div
+      v-else-if="isLoading"
+      class="shrink-0"
+      :style="{ width: totalTableWidth + 'px' }"
+    >
+      <table
+        class="border-separate border-spacing-0 table-fixed w-full border-0 bg-transparent"
+        :style="{ width: totalTableWidth + 'px' }"
+      >
+        <tbody>
+          <tr v-for="rowIdx in SKELETON_ROW_COUNT" :key="rowIdx">
+            <td
+              class="sticky left-0 z-10 py-1.5 align-middle"
+              :style="{
+                width: '44px',
+                minWidth: '44px',
+                backgroundColor: 'var(--st-bg)',
+                borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
+              }"
+            />
+            <td
+              class="sticky z-10 px-1 py-1.5 text-center align-middle"
+              :style="{
+                width: '40px',
+                minWidth: '40px',
+                left: '44px',
+                backgroundColor: 'var(--st-bg)',
+                borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
+                boxShadow: stickyColShadow,
+              }"
+            />
+            <td
+              v-for="(col, colIdx) in visibleColumns"
+              :key="col.id"
+              class="px-2 py-1.5 align-middle"
+              :style="{
+                width: col.getSize() + 'px',
+                borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
+                backgroundColor: 'var(--st-bg)',
+              }"
+            >
+              <div
+                class="animate-pulse rounded max-w-full"
+                :style="{
+                  width: skeletonBarWidthPct(rowIdx - 1, colIdx) + '%',
+                  height: '12px',
+                  backgroundColor: 'var(--st-border-secondary)',
+                }"
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- Empty state — absolute overlay so it stays centered regardless of horizontal scroll -->
   <div
-    v-if="rows.length === 0"
+    v-if="rows.length === 0 && !isLoading"
     class="absolute inset-0 flex items-center justify-center pointer-events-none"
     style="top: 33px"
   >
