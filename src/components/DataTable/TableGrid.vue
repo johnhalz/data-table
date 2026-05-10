@@ -35,6 +35,18 @@ const emptyTitle = inject('emptyTitle', 'No rows found')
 const emptyMessage = inject('emptyMessage', 'Get started by inserting a new row.')
 const openInsertPanel = inject('openInsertPanel', null)
 const defaultInsertLabel = inject('defaultInsertLabel', null)
+/** Mirror TableToolbar insert slot: trailing plain label with no insertActions ⇒ case B only. */
+const insertActionsInject = inject('insertActions', null)
+const resolvedInsertActions = computed(() => {
+  const a = insertActionsInject == null ? [] : unref(insertActionsInject)
+  return Array.isArray(a) ? a : []
+})
+const emptyStatePlainPrimaryInsert = computed(() => {
+  if (!editable.value.insert) return false
+  const label = defaultInsertLabel == null ? '' : String(unref(defaultInsertLabel)).trim()
+  if (!label) return false
+  return resolvedInsertActions.value.length === 0
+})
 const insertRow = inject('insertRow', () => {})
 
 const showEmptyInsertMenu = ref(false)
@@ -333,10 +345,19 @@ defineExpose({
         <p class="font-semibold text-[15px]" :style="{ color: 'var(--st-text)' }">{{ emptyTitle }}</p>
         <p class="text-[13px] max-w-xs leading-relaxed" :style="{ color: 'var(--st-text-tertiary)' }">{{ emptyMessage }}</p>
       </div>
-      <!-- Insert button — mirrors the toolbar insert button exactly -->
+      <!-- Insert button — mirrors the toolbar insert button (plain when label-only; split when insertActions) -->
       <div v-if="editable.insert" class="relative mt-1">
+        <button
+          v-if="emptyStatePlainPrimaryInsert"
+          class="flex items-center gap-1.5 px-3 py-1 rounded text-[13px] font-medium transition-colors"
+          :style="{ backgroundColor: 'var(--st-accent)', color: 'var(--st-text-on-accent)' }"
+          @click="insertRow()"
+        >
+          {{ defaultInsertLabel }}
+        </button>
+
         <!-- Split button -->
-        <div v-if="defaultInsertLabel" class="flex items-center">
+        <div v-else-if="defaultInsertLabel" class="flex items-center">
           <button
             class="flex items-center gap-1.5 px-3 py-1 rounded-l text-[13px] font-medium transition-colors"
             :style="{ backgroundColor: 'var(--st-accent)', color: 'var(--st-text-on-accent)' }"
