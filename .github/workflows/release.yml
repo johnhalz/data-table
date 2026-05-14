@@ -116,15 +116,18 @@ jobs:
           # attach artifacts only.
           echo "Using user-supplied tag ${{ steps.tag.outputs.tag }}; skipping commit."
 
+      # Node/npm only for publishing. Do NOT set registry-url here — setup-node
+      # would inject GITHUB_TOKEN as NODE_AUTH_TOKEN and npm would send it to
+      # registry.npmjs.org, breaking Trusted Publishing (OIDC).
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
-          registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
 
       - name: Publish to npm (OIDC)
         run: |
           set -euo pipefail
+          unset NODE_AUTH_TOKEN
           PKG="$(jq -r .name package.json)"
           VER="$(jq -r .version package.json)"
           if npm view "${PKG}@${VER}" version >/dev/null 2>&1; then
