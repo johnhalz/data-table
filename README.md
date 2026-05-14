@@ -11,11 +11,18 @@ npm run dev
 
 ## Installation
 
-**Dependencies:**
+Install the package from npm:
+
+```bash
+npm install @johnhalazonetis/data-table
+```
+
+**Peer dependencies** (install alongside if they are not already in your app):
 
 - Vue 3.5+
-- @tanstack/vue-table ^8.21
-- @vueuse/core ^14.2
+- `@tanstack/vue-table` ^8.21
+- `@tanstack/vue-virtual` ^3.13
+- `@vueuse/core` ^14.2
 - Tailwind CSS v4
 
 ## Basic Usage
@@ -23,7 +30,8 @@ npm run dev
 ```vue
 <script setup>
 import { ref } from 'vue'
-import { DataTable } from './components/DataTable'
+import { DataTable } from '@johnhalazonetis/data-table'
+import '@johnhalazonetis/data-table/style.css'
 import { createColumnHelper } from '@tanstack/vue-table'
 
 const col = createColumnHelper()
