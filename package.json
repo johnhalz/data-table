@@ -1,8 +1,12 @@
 {
-  "name": "data-table",
+  "name": "@johnhalazonetis/data-table",
   "version": "1.23.0",
   "description": "Feature-rich Vue 3 data grid built on TanStack Table",
+  "license": "MIT",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "dist",
     "src/components/DataTable/index.d.ts"
