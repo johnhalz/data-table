@@ -130,33 +130,38 @@ const wrapperStyle = computed(() => {
         <div
           class="flex h-full gap-1 pr-1.5 pl-1 items-center justify-end pl-0.5"
         >
-          <div class="flex min-w-0 flex-1 items-center justify-end gap-0.5">
-            <button
-              v-if="isExpandableRow()"
-              class="flex items-center justify-center w-4 h-4 shrink-0 transition-transform duration-150"
-              :style="{
-                color: rowIsExpanded() ? 'var(--st-accent)' : 'var(--st-text-secondary)',
-                transform: rowIsExpanded() ? 'rotate(90deg)' : 'rotate(0deg)',
-              }"
-              title="Toggle sub-table"
-              @click.stop="toggleRowExpanded(row.id)"
+          <div class="flex min-w-0 flex-1 items-center">
+            <div class="flex w-4 shrink-0 items-center justify-center">
+              <button
+                v-if="isExpandableRow()"
+                class="flex items-center justify-center w-4 h-4 shrink-0 transition-transform duration-150"
+                :style="{
+                  color: rowIsExpanded() ? 'var(--st-accent)' : 'var(--st-text-secondary)',
+                  transform: rowIsExpanded() ? 'rotate(90deg)' : 'rotate(0deg)',
+                }"
+                title="Toggle sub-table"
+                @click.stop="toggleRowExpanded(row.id)"
+              >
+                <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M6 3l5 5-5 5V3z" />
+                </svg>
+              </button>
+              <button
+                v-else-if="editable.update"
+                class="invisible group-hover/row:visible flex items-center justify-center w-4 h-4 shrink-0"
+                :style="{ color: 'var(--st-text-secondary)' }"
+                title="Expand row"
+                @click.stop="$emit('edit-row', row.original)"
+              >
+                <svg class="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 2h8v8M14 2L6 10" />
+                </svg>
+              </button>
+            </div>
+            <span
+              class="min-w-0 flex-1 text-xs whitespace-nowrap text-right overflow-hidden"
+              :style="{ color: 'var(--st-text-tertiary)' }"
             >
-              <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M6 3l5 5-5 5V3z" />
-              </svg>
-            </button>
-            <button
-              v-else-if="editable.update"
-              class="invisible group-hover/row:visible flex items-center justify-center w-4 h-4 shrink-0"
-              :style="{ color: 'var(--st-text-secondary)' }"
-              title="Expand row"
-              @click.stop="$emit('edit-row', row.original)"
-            >
-              <svg class="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 2h8v8M14 2L6 10" />
-              </svg>
-            </button>
-            <span class="text-xs text-right whitespace-nowrap" :style="{ color: 'var(--st-text-tertiary)' }">
               {{ orderNumber }}
             </span>
           </div>
