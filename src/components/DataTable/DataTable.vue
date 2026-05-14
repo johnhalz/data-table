@@ -88,6 +88,8 @@ const props = defineProps({
   totalFilteredCount: { type: Number, default: null },
   /** When server pagination is on: fetch all matching row IDs on the parent and pass them here for cross-page bulk selection. */
   additionalSelectedRowIds: { type: Array, default: () => [] },
+  /** Single row id to keep visually highlighted (e.g. last-opened detail). Same colors as selection; independent of checkbox state. */
+  highlightedRowId: { type: [String, Number], default: null },
   /** Show “select all matching” that emits `select-all-matching` (parent loads IDs). */
   enableSelectAllMatching: { type: Boolean, default: false },
   // When false, the pagination footer hides random-access controls (page input / jump-to-page).
@@ -364,6 +366,15 @@ function isRowDisplayedSelected(row) {
 }
 
 provide('isRowDisplayedSelected', isRowDisplayedSelected)
+
+provide(
+  'highlightedRowId',
+  computed(() =>
+    props.highlightedRowId != null && props.highlightedRowId !== ''
+      ? String(props.highlightedRowId)
+      : null,
+  ),
+)
 
 // --- Staged edits state ---
 // Map<rowId, { kind, changes?, snapshot? }> — kind: 'insert' | 'update' | 'delete'

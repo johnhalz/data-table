@@ -35,6 +35,13 @@ const subTableColumnVisibility = inject('subTableColumnVisibility', {})
 const getRowPendingState = inject('getRowPendingState', () => null)
 
 const isRowDisplayedSelectedInject = inject('isRowDisplayedSelected', null)
+const highlightedRowIdInject = inject('highlightedRowId', null)
+
+const isActiveHighlightRow = computed(() => {
+  const h = unref(highlightedRowIdInject)
+  if (h == null || h === '') return false
+  return props.row.id === h
+})
 
 function rowLooksSelected(row) {
   const fn = unref(isRowDisplayedSelectedInject)
@@ -101,6 +108,7 @@ const wrapperStyle = computed(() => {
     class="st-row"
     :class="{
       'st-row--selected': rowLooksSelected(row),
+      'st-row--active': isActiveHighlightRow,
       'st-row--pending-insert': getRowPendingState(row.id) === 'insert',
       'st-row--pending-delete': getRowPendingState(row.id) === 'delete',
     }"
@@ -231,6 +239,15 @@ const wrapperStyle = computed(() => {
   background-color: var(--st-bg);
 }
 .st-row--selected .st-sticky-cell {
+  background-color: var(--st-bg-selected-cell);
+}
+.st-row--active {
+  background-color: var(--st-bg-selected);
+}
+.st-row--active:hover {
+  background-color: var(--st-bg-selected);
+}
+.st-row--active .st-sticky-cell {
   background-color: var(--st-bg-selected-cell);
 }
 .st-row--pending-insert {
