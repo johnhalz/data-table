@@ -785,14 +785,17 @@ function closeContextMenu() {
 }
 
 function handleFilterByValue(colId, val) {
+  let next
   const existing = columnFilters.value.find(f => f.id === colId)
   if (existing) {
-    columnFilters.value = columnFilters.value.map(f =>
+    next = columnFilters.value.map(f =>
       f.id === colId ? { ...f, value: { operator: '=', value: val } } : f
     )
   } else {
-    columnFilters.value = [...columnFilters.value, { id: colId, value: { operator: '=', value: val } }]
+    next = [...columnFilters.value, { id: colId, value: { operator: '=', value: val } }]
   }
+  columnFilters.value = next
+  emit('update:column-filters', next)
 }
 
 provide('themeVars', computed(() => ({ ...themeVars.value, ...fontCssVars.value })))
@@ -1044,7 +1047,7 @@ defineExpose({
         :sub-table-column-visibility="subTableColumnVisibility"
         :table-name="tableName"
         @update:sorting="val => sorting = val"
-        @update:column-filters="val => columnFilters = val"
+        @update:column-filters="val => { columnFilters = val; emit('update:column-filters', val) }"
         @update:column-visibility="val => columnVisibility = val"
         @update:sub-table-sorting="val => subTableSorting = val"
         @update:sub-table-column-filters="val => subTableColumnFilters = val"
