@@ -5,6 +5,7 @@ import { ref, nextTick, inject, computed, isRef } from 'vue'
 const META_MERGE_RESTORE_KEYS = [
   'badge',
   'cellButtons',
+  'dblClick',
   'progressBar',
   'segmentedBar',
   'suffixIcon',
@@ -96,6 +97,12 @@ const meta = computed(() => {
     typeof fromOriginal.segmentedBar === 'function'
   ) {
     merged.segmentedBar = fromOriginal.segmentedBar
+  }
+  if (
+    typeof merged.dblClick !== 'function' &&
+    typeof fromOriginal.dblClick === 'function'
+  ) {
+    merged.dblClick = fromOriginal.dblClick
   }
   return merged
 })
@@ -252,6 +259,10 @@ function handleClick() {
 }
 
 function handleDoubleClick() {
+  if (typeof meta.value.dblClick === 'function') {
+    meta.value.dblClick(props.cell.row.original)
+    return
+  }
   if (!editable.value?.update || useBooleanToggle.value || meta.value.progressBar || meta.value.segmentedBar || cellButtons.value.length > 0) return
   isEditing.value = true
   emit('editing-change', true)
