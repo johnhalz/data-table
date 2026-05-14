@@ -1,6 +1,6 @@
 {
   "name": "@johnhalazonetis/data-table",
-  "version": "1.25.0",
+  "version": "1.25.1",
   "description": "Feature-rich Vue 3 data grid built on TanStack Table",
   "license": "MIT",
   "repository": {
@@ -27,7 +27,6 @@
     "build": "BUILD_LIB=true vite build",
     "build:demo": "vite build",
     "build:lib": "BUILD_LIB=true vite build",
-    "prepare": "test -f dist/data-table.js || BUILD_LIB=true vite build",
     "preview": "vite preview --outDir dist-demo"
   },
   "peerDependencies": {

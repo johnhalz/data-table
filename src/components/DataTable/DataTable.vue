@@ -938,6 +938,8 @@ function applyAutoSizedColumnsForViewport(viewportInnerWidth) {
 }
 
 let viewportResizeObserver = null
+/** True once we've applied auto-sizing with non-empty rows at mount, or after first rows arrival (see watcher below). */
+let hasInitiallyAutoSized = false
 
 function disconnectViewportSizingObserver() {
   viewportResizeObserver?.disconnect()
@@ -952,6 +954,7 @@ onMounted(() => {
     })
     const vw = tableGridRef.value?.getScrollViewportInnerWidth?.() ?? 0
     applyAutoSizedColumnsForViewport(vw)
+    hasInitiallyAutoSized = effectiveRows.value.length > 0
     if (vw > 0) return
 
     const observeEl = typeof tableGridRef.value?.getViewportResizeObserveTarget === 'function'
@@ -970,6 +973,20 @@ onMounted(() => {
   }
   flushLayoutAndSize()
 })
+
+watch(
+  () => props.rows,
+  async (newRows) => {
+    if (hasInitiallyAutoSized || newRows.length === 0) return
+    hasInitiallyAutoSized = true
+    await nextTick()
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => resolve())
+    })
+    const vw = tableGridRef.value?.getScrollViewportInnerWidth?.() ?? 0
+    applyAutoSizedColumnsForViewport(vw)
+  },
+)
 
 onUnmounted(() => {
   disconnectViewportSizingObserver()
