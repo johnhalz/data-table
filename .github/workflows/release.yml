@@ -119,10 +119,16 @@ jobs:
       # Node/npm only for publishing. Do NOT set registry-url here — setup-node
       # would inject GITHUB_TOKEN as NODE_AUTH_TOKEN and npm would send it to
       # registry.npmjs.org, breaking Trusted Publishing (OIDC).
+      #
+      # Trusted publishing requires npm CLI >= 11.5.1 (bundled npm on Node 22 is 10.x).
+      # See https://docs.npmjs.com/trusted-publishers
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "24"
           package-manager-cache: false
+
+      - name: Install npm with Trusted Publishing support
+        run: npm install -g npm@^11.5.1
 
       - name: Publish to npm (OIDC)
         run: |

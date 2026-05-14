@@ -3,6 +3,10 @@
   "version": "1.23.0",
   "description": "Feature-rich Vue 3 data grid built on TanStack Table",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johnhalz/data-table.git"
+  },
   "type": "module",
   "publishConfig": {
     "access": "public"
