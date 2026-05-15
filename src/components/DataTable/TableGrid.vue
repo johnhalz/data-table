@@ -3,6 +3,11 @@ import { ref, computed, inject, useTemplateRef, unref, toValue } from 'vue'
 import TableColumnHeader from './TableColumnHeader.vue'
 import TableGridVirtualRows from './TableGridVirtualRows.vue'
 import TableGridFlowRows from './TableGridFlowRows.vue'
+import {
+  DATA_TABLE_STICKY_CHROME_PX,
+  DATA_TABLE_ROW_NUMBER_COL_PX,
+  DATA_TABLE_ROW_SELECT_COL_PX,
+} from './columnSizingFill.js'
 
 /** Rows at or below this render in document flow (scrollbar track size is stable); above uses TanStack Virtual. */
 const ROW_VIRTUALIZATION_THRESHOLD = 500
@@ -64,10 +69,10 @@ const headerGroups = computed(() => {
   return props.table.getHeaderGroups()
 })
 
-// Total table width = sticky columns (44 + 40) + sum of all visible column sizes
+// Total table width = sticky chrome (# + checkbox) + sum of all visible column sizes
 const totalTableWidth = computed(() => {
   const dataColWidth = props.table.getVisibleLeafColumns().reduce((sum, col) => sum + col.getSize(), 0)
-  return 84 + dataColWidth
+  return DATA_TABLE_STICKY_CHROME_PX + dataColWidth
 })
 
 const rows = computed(() => {
@@ -197,7 +202,8 @@ defineExpose({
             <th
               class="px-1.5 py-1.5 text-right font-normal sticky left-0 z-[40]"
               :style="{
-                width: '44px', minWidth: '44px',
+                width: DATA_TABLE_ROW_NUMBER_COL_PX + 'px',
+                minWidth: DATA_TABLE_ROW_NUMBER_COL_PX + 'px',
                 backgroundColor: 'var(--st-bg-header)',
                 borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
                 color: 'var(--st-text-tertiary)',
@@ -209,7 +215,9 @@ defineExpose({
             <th
               class="px-1 py-1.5 text-center align-middle sticky z-[39]"
               :style="{
-                width: '40px', minWidth: '40px', left: '44px',
+                width: DATA_TABLE_ROW_SELECT_COL_PX + 'px',
+                minWidth: DATA_TABLE_ROW_SELECT_COL_PX + 'px',
+                left: DATA_TABLE_ROW_NUMBER_COL_PX + 'px',
                 backgroundColor: 'var(--st-bg-header)',
                 borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
                 boxShadow: stickyColShadow,
@@ -281,8 +289,8 @@ defineExpose({
             <td
               class="sticky left-0 z-10 py-1.5 align-middle"
               :style="{
-                width: '44px',
-                minWidth: '44px',
+                width: DATA_TABLE_ROW_NUMBER_COL_PX + 'px',
+                minWidth: DATA_TABLE_ROW_NUMBER_COL_PX + 'px',
                 backgroundColor: 'var(--st-bg)',
                 borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
               }"
@@ -290,9 +298,9 @@ defineExpose({
             <td
               class="sticky z-10 px-1 py-1.5 text-center align-middle"
               :style="{
-                width: '40px',
-                minWidth: '40px',
-                left: '44px',
+                width: DATA_TABLE_ROW_SELECT_COL_PX + 'px',
+                minWidth: DATA_TABLE_ROW_SELECT_COL_PX + 'px',
+                left: DATA_TABLE_ROW_NUMBER_COL_PX + 'px',
                 backgroundColor: 'var(--st-bg)',
                 borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
                 boxShadow: stickyColShadow,

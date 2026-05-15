@@ -1,5 +1,8 @@
-/** Row # column + checkbox column width (matches TableGrid). */
-export const DATA_TABLE_STICKY_CHROME_PX = 84
+/** Sticky leading chrome: `#` column + row checkbox (keep in sync with TableGrid / TableGridDataRow). */
+export const DATA_TABLE_ROW_NUMBER_COL_PX = 56
+export const DATA_TABLE_ROW_SELECT_COL_PX = 40
+export const DATA_TABLE_STICKY_CHROME_PX =
+  DATA_TABLE_ROW_NUMBER_COL_PX + DATA_TABLE_ROW_SELECT_COL_PX
 
 const MIN_COL = 60
 

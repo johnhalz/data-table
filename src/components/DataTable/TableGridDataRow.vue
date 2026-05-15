@@ -2,6 +2,7 @@
 import { computed, inject, unref, toValue } from 'vue'
 import TableCell from './TableCell.vue'
 import DataTable from './DataTable.vue'
+import { DATA_TABLE_ROW_NUMBER_COL_PX, DATA_TABLE_ROW_SELECT_COL_PX } from './columnSizingFill.js'
 
 const props = defineProps({
   row: { type: Object, required: true },
@@ -123,7 +124,8 @@ const wrapperStyle = computed(() => {
         class="py-1.5 align-middle sticky left-0 z-10 st-sticky-cell"
         :style="{
           display: 'table-cell',
-          width: '44px', minWidth: '44px',
+          width: DATA_TABLE_ROW_NUMBER_COL_PX + 'px',
+          minWidth: DATA_TABLE_ROW_NUMBER_COL_PX + 'px',
           borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
         }"
       >
@@ -159,7 +161,7 @@ const wrapperStyle = computed(() => {
               </button>
             </div>
             <span
-              class="min-w-0 flex-1 text-xs whitespace-nowrap text-right overflow-hidden"
+              class="min-w-0 flex-1 text-xs tabular-nums whitespace-nowrap text-right overflow-hidden"
               :style="{ color: 'var(--st-text-tertiary)' }"
             >
               {{ orderNumber }}
@@ -171,7 +173,9 @@ const wrapperStyle = computed(() => {
         class="px-1 py-1.5 text-center align-middle sticky z-10 st-sticky-cell"
         :style="{
           display: 'table-cell',
-          width: '40px', minWidth: '40px', left: '44px',
+          width: DATA_TABLE_ROW_SELECT_COL_PX + 'px',
+          minWidth: DATA_TABLE_ROW_SELECT_COL_PX + 'px',
+          left: DATA_TABLE_ROW_NUMBER_COL_PX + 'px',
           borderBottom: showRowBorders ? '1px solid var(--st-border)' : 'none',
           boxShadow: stickyColShadow,
         }"

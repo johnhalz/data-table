@@ -115,7 +115,7 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 
 ### CSS layout patterns
 
-- Sticky columns (row numbers + checkboxes) use `position: sticky` with `left` offsets and `z-10`/`z-30`
+- Sticky columns (row numbers + checkboxes) use `position: sticky` with `left` offsets and `z-10`/`z-30`; widths are `DATA_TABLE_ROW_NUMBER_COL_PX` + `DATA_TABLE_ROW_SELECT_COL_PX` (see `columnSizingFill.js`, summed as `DATA_TABLE_STICKY_CHROME_PX` for auto-sizing).
 - Dropdowns that appear inside `<thead>` (which has `sticky` + `z-20`) are Teleported to `<body>` to escape the stacking context
 - Named Tailwind group variants: `group/header` on `<th>`, `group-hover/header:opacity-100` on chevron buttons
 - Table uses `table-fixed` layout with explicit pixel width computed from column sizes (see sticky chrome constant in `columnSizingFill.js`). Horizontal scroll appears when the data column sum exceeds the scroll viewport’s inner width.
