@@ -205,6 +205,7 @@ col.accessor('field', {
     progressBar: true,      // or { min, max } or (value, row) => 0–100
     cellButtons: [{ label, icon? (SVG HTML), onClick(row) }],
     badge: true,            // or { color?: CSSColor } or (value, row) => { color? } | null — pill for any type; boolean columns show a pill instead of the toggle when set. `color`: any CSS color (hex, rgb/hsl, named, var(--…))
+    textColor: (value, row) => '#hex' | { color: CSSColor, label?: string } | null, // plain primary text color; optional `label` overrides displayed text (e.g. em dash for null). After progress/segmented bar; if `meta.badge` is also set, badge renders first and textColor is skipped.
     suffixIcon: { svg, color? }, // or (value, row) => { svg, color? } | null — icon after text
     secondaryText: (value, row) => row.city, // or string; second line below primary (`--st-text-secondary`, smaller); plain text only — not with badge / progressBar / boolean toggle
   },

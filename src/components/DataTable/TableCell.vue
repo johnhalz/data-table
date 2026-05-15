@@ -4,6 +4,7 @@ import { ref, nextTick, inject, computed, isRef } from 'vue'
 /** Callback-valued meta keys that TanStack / reactive merges sometimes strip from `column.columnDef.meta`. */
 const META_MERGE_RESTORE_KEYS = [
   'badge',
+  'textColor',
   'cellButtons',
   'dblClick',
   'progressBar',
@@ -78,6 +79,9 @@ const meta = computed(() => {
     typeof fromOriginal.badge === 'function'
   ) {
     merged.badge = fromOriginal.badge
+  }
+  if (typeof merged.textColor !== 'function' && typeof fromOriginal.textColor === 'function') {
+    merged.textColor = fromOriginal.textColor
   }
   if (merged.suffixIcon == null && fromOriginal.suffixIcon != null) {
     merged.suffixIcon = fromOriginal.suffixIcon
@@ -154,6 +158,38 @@ const overflowMode = computed(() => {
 
 // Cell buttons: meta.cellButtons = [{ icon: '<svg…>', label: 'string', onClick: (row) => void }]
 const cellButtons = computed(() => meta.value.cellButtons ?? [])
+
+// Plain text color: meta.textColor = (value, row) => string | { color, label? } | null | false
+// When `label` is set, it replaces the displayed primary text (e.g. "—" for null, formatted numbers).
+// When only a string is returned, it is used as `color` and the cell value is shown as usual.
+// Takes precedence over the default NULL row when present; use after progress / segmented bar, before badge.
+const textColorPresentation = computed(() => {
+  const fn = meta.value.textColor
+  if (typeof fn !== 'function') return null
+  const value = props.cell.getValue()
+  const row = props.cell.row.original
+  const cfg = fn(value, row)
+  if (cfg == null || cfg === false) return null
+  let color
+  let explicitLabel
+  if (typeof cfg === 'string') {
+    color = cfg
+  } else if (typeof cfg === 'object' && cfg !== null) {
+    color = cfg.color
+    explicitLabel = cfg.label
+  } else {
+    return null
+  }
+  if (!color) return null
+
+  const isNullish = value === null || value === undefined
+  const hasExplicit =
+    explicitLabel !== undefined && explicitLabel !== null && String(explicitLabel) !== ''
+  const text = hasExplicit ? String(explicitLabel) : isNullish ? 'NULL' : String(value)
+  const useNullPlaceholderStyle = isNullish && !hasExplicit
+
+  return { color, text, useNullPlaceholderStyle }
+})
 
 // Badge: meta.badge = true | { color?, label? } | (value, row) => { color?, label? } | null | false
 // When `label` is set, it is shown inside the pill instead of stringifying the cell value.
@@ -452,16 +488,39 @@ function toggleBoolean() {
           class="flex flex-col gap-0.5 flex-1 min-w-0 text-[13px]"
           :style="{ color: 'var(--st-text)' }"
         >
-          <template v-if="cell.getValue() === null || cell.getValue() === undefined">
-            <span class="italic" :style="{ color: 'var(--st-text-placeholder)' }">NULL</span>
-          </template>
-
-          <!-- Badge style -->
-          <template v-else-if="badgePresentation">
+          <template v-if="badgePresentation">
             <span
               class="inline-flex shrink-0 self-start items-center px-1.5 py-0.5 rounded text-[11px] font-medium leading-tight"
               :style="badgePresentation.style"
             >{{ badgePresentation.text }}</span>
+          </template>
+
+          <template v-else-if="textColorPresentation">
+            <span
+              v-if="overflowMode === 'wrap'"
+              class="block whitespace-pre-wrap break-words tabular-nums"
+              :class="textColorPresentation.useNullPlaceholderStyle ? 'italic' : ''"
+              :style="
+                textColorPresentation.useNullPlaceholderStyle
+                  ? { color: 'var(--st-text-placeholder)' }
+                  : { color: textColorPresentation.color }
+              "
+            >{{ textColorPresentation.text }}</span>
+            <span
+              v-else
+              class="truncate block tabular-nums"
+              :class="textColorPresentation.useNullPlaceholderStyle ? 'italic' : ''"
+              :title="textColorPresentation.text"
+              :style="
+                textColorPresentation.useNullPlaceholderStyle
+                  ? { color: 'var(--st-text-placeholder)' }
+                  : { color: textColorPresentation.color }
+              "
+            >{{ textColorPresentation.text }}</span>
+          </template>
+
+          <template v-else-if="cell.getValue() === null || cell.getValue() === undefined">
+            <span class="italic" :style="{ color: 'var(--st-text-placeholder)' }">NULL</span>
           </template>
 
           <!-- Wrap overflow -->
