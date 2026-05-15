@@ -14,7 +14,11 @@ import TablePagination from './TablePagination.vue'
 import RowEditPanel from './RowEditPanel.vue'
 import ContextMenu from './ContextMenu.vue'
 import DeleteRowsConfirmDialog from './DeleteRowsConfirmDialog.vue'
-import { distributeWidthsLargestRemainder, DATA_TABLE_STICKY_CHROME_PX } from './columnSizingFill.js'
+import {
+  distributeWidthsLargestRemainder,
+  DATA_TABLE_STICKY_CHROME_PX,
+  DATA_TABLE_MIN_COLUMN_WIDTH_PX,
+} from './columnSizingFill.js'
 import { widthPxForCellButtons } from './cellButtonWidth.js'
 import { claimContextMenu, releaseContextMenu } from './contextMenuCoordinator.js'
 import { PENDING_EDIT_KINDS, PENDING_INSERT_ID_PREFIX } from './types.js'
@@ -880,9 +884,20 @@ function computeContentSizedColumns() {
     const isSegmentedBar = !!meta.segmentedBar
     const isFixedUiCell = (meta.type === 'boolean' && !meta.badge) || !!meta.progressBar || isSegmentedBar
     if (!isFixedUiCell) {
+      const accessorFn = col.columnDef.accessorFn
       const accessorKey = col.columnDef.accessorKey ?? col.id
-      for (const row of sample) {
-        const value = row?.[accessorKey]
+      for (let i = 0; i < sample.length; i++) {
+        const row = sample[i]
+        let value
+        if (typeof accessorFn === 'function') {
+          try {
+            value = accessorFn(row, i)
+          } catch {
+            value = undefined
+          }
+        } else {
+          value = row?.[accessorKey]
+        }
         if (value == null) continue
         const w = ctx.measureText(String(value)).width
         if (w > contentWidth) contentWidth = w
@@ -902,8 +917,9 @@ function computeContentSizedColumns() {
 }
 
 /**
- * Applies content widths; if viewport is wide enough (from TableGrid scroll shell),
- * scales visible leaf columns proportionally so data columns consume `viewport - sticky chrome`.
+ * Applies content widths: scales visible leaf columns proportionally so data columns
+ * sum to `viewport - sticky chrome` when the viewport allows (stretch up, shrink down).
+ * If usable width is smaller than min width × column count, baselines are kept (horizontal scroll).
  */
 function applyAutoSizedColumnsForViewport(viewportInnerWidth) {
   const sizing = computeContentSizedColumns()
@@ -924,17 +940,20 @@ function applyAutoSizedColumnsForViewport(viewportInnerWidth) {
     return
   }
 
-  const baselines = visibleIds.map((id) => out[id] ?? 60)
+  const baselines = visibleIds.map((id) => out[id] ?? DATA_TABLE_MIN_COLUMN_WIDTH_PX)
 
   const sumVisible = baselines.reduce((a, b) => a + b, 0)
   const usable = Math.max(0, Math.floor(vw - DATA_TABLE_STICKY_CHROME_PX))
+  const minTotalForShrink = DATA_TABLE_MIN_COLUMN_WIDTH_PX * visibleIds.length
 
-  /** Under-filled viewport: proportional stretch beyond 500px cap is allowed here */
-  if (sumVisible > 0 && sumVisible <= usable && visibleIds.length > 0) {
-    const filled = distributeWidthsLargestRemainder(visibleIds, baselines, usable)
-    visibleIds.forEach((id) => {
-      out[id] = filled[id]
-    })
+  if (sumVisible > 0 && visibleIds.length > 0 && usable >= minTotalForShrink) {
+    /** Stretch when baselines fit; shrink when they exceed usable — same proportional allocator */
+    if (sumVisible !== usable) {
+      const filled = distributeWidthsLargestRemainder(visibleIds, baselines, usable)
+      visibleIds.forEach((id) => {
+        out[id] = filled[id]
+      })
+    }
   }
 
   columnSizing.value = out

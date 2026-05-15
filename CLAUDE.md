@@ -118,7 +118,8 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 - Sticky columns (row numbers + checkboxes) use `position: sticky` with `left` offsets and `z-10`/`z-30`
 - Dropdowns that appear inside `<thead>` (which has `sticky` + `z-20`) are Teleported to `<body>` to escape the stacking context
 - Named Tailwind group variants: `group/header` on `<th>`, `group-hover/header:opacity-100` on chevron buttons
-- Table uses `table-fixed` layout with explicit pixel width computed from column sizes, so the table grows beyond the viewport when columns are wide (horizontal scroll)
+- Table uses `table-fixed` layout with explicit pixel width computed from column sizes (see sticky chrome constant in `columnSizingFill.js`). Horizontal scroll appears when the data column sum exceeds the scroll viewport’s inner width.
+- **Auto column sizing** (after mount / when rows first load): leaf column widths are measured from header labels and a sample of body values (canvas `measureText`), including `accessorFn` columns; each column is clamped 60–500px before viewport fitting. Visible data columns are then scaled **up or down** proportionally so their widths sum to `viewport inner width − sticky chrome (# + checkbox)`, when that usable width is at least `60px × visible column count`. Otherwise measured baselines are kept and the table may scroll horizontally. Explicit column `size` in defs is only the TanStack fallback until `columnSizing` state is filled by this pass.
 
 ## SDK Props
 

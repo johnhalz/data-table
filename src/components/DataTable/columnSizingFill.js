@@ -3,6 +3,9 @@ export const DATA_TABLE_STICKY_CHROME_PX = 84
 
 const MIN_COL = 60
 
+/** Minimum width (px) for auto-sized columns; also used to decide if viewport can fit all columns when shrinking. */
+export const DATA_TABLE_MIN_COLUMN_WIDTH_PX = MIN_COL
+
 function equalSplitIds(ids, totalTarget) {
   const n = ids.length
   const out = {}
@@ -18,7 +21,8 @@ function equalSplitIds(ids, totalTarget) {
 
 /**
  * Integer widths proportional to baselines, summing exactly to targetSum.
- * Only used when targetSum >= sum(baselines) (scale-up / fill viewport).
+ * Used for scale-up (targetSum >= sum(baselines)), scale-down (targetSum < sum(baselines)),
+ * or any proportional allocation to an exact pixel budget.
  * Baselines from content measure are already clamped >= MIN_COL.
  *
  * @param {string[]} ids
