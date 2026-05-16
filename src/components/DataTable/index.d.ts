@@ -126,3 +126,47 @@ export interface DataTableExpose {
 }
 
 export declare const DataTable: DefineComponent<DataTableProps>
+
+/** Default rows-per-request for infinite scroll (`types.js`); conventionally 100. */
+export declare const MINI_TABLE_PAGE_SIZE: number
+
+export interface MiniTableProps {
+  column: ColumnDef<any, any>
+  rows: unknown[]
+  tableName?: string
+  loading?: boolean
+  error?: string | null
+  /** `insert` is ignored (no insert UI). */
+  editable?: boolean | { insert?: boolean; update?: boolean; delete?: boolean }
+  selectionActions?: SelectionAction[]
+  contextMenuActions?: ReadonlyArray<RowAction>
+  cellButtonVisibility?: 'hover' | 'always' | 'select'
+  showDataTypes?: boolean
+  showRowBorders?: boolean
+  showColumnBorders?: boolean
+  theme?: 'dark' | 'light'
+  accentColor?: string
+  fontFamily?: string | null
+  emptyTitle?: string
+  emptyMessage?: string
+  countLabelSingular?: string
+  countLabelPlural?: string
+  totalCount?: number | null
+  totalFilteredCount?: number | null
+  hasMore?: boolean
+  columnFilters?: unknown[] | null
+  highlightedRowId?: string | number | null
+  enableSelectAll?: boolean
+  enableSelectAllMatching?: boolean
+  /**
+   * When true (default), Select All emits `select-all-matching` if eligible total exceeds loaded rows.
+   */
+  inferSelectAllMatching?: boolean
+  additionalSelectedRowIds?: readonly string[] | string[]
+}
+
+export interface MiniTableExpose {
+  openDeleteConfirmation: (ids: readonly string[] | string[]) => void
+}
+
+export declare const MiniTable: DefineComponent<MiniTableProps>

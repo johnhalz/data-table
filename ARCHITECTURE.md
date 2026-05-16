@@ -2,8 +2,10 @@
 
 ## Component Tree
 
+### DataTable
+
 ```
-DataTable.vue                 ← only public component; all state lives here
+DataTable.vue                 ← primary grid; all state lives here
 ├── SelectionToolbar.vue          ← shown when rows are selected (replaces toolbar)
 │   └── [Teleport] delete confirmation dialog
 ├── TableToolbar.vue              ← shown when no rows selected
@@ -18,6 +20,27 @@ DataTable.vue                 ← only public component; all state lives here
 ├── RowEditPanel.vue              ← slide-in form (insert or update)
 └── ContextMenu.vue               ← right-click menu (Teleported to body)
 ```
+
+### MiniTable
+
+```
+MiniTable.vue                  ← narrow single-column variant (own useVueTable + provide/inject)
+├── (contains filter `<input>` + Refresh row — not FilterBar)
+├── SelectionToolbar.vue        ← embedded in footer when rows selected (footerLayout + summaryRatio)
+├── TableColumnHeader.vue       ← sort via header chevron only
+├── TableCell.vue
+├── RowEditPanel.vue            ← update-only flow when editable.update
+├── ContextMenu.vue
+└── DeleteRowsConfirmDialog.vue
+```
+
+`MiniTable.vue` is **not** a wrapper around `DataTable`. It uses **`manualSorting`** and **`manualFiltering`** so the parent can react to **`sort-change`** and **`update:column-filters`** by refetching or reshaping **`rows`**.
+
+- **Layout**: Checkbox column + one data column (**no `#` column**). **`ResizeObserver`** sets **`columnSizing`** so the data column fills **`viewportWidth - checkboxWidth`** with **`overflow-x: hidden`** on the scroll shell.
+- **Toolbar**: **Contains search field + Refresh** is **always** shown — selection does not hide filtering.
+- **Infinite scroll**: **`IntersectionObserver`** on a sentinel emits **`load-more`** when **`hasMore && !loading`**. Batch size convention: **`MINI_TABLE_PAGE_SIZE`** (**100**) in `types.js`.
+- **Footer**: Idle: **`total-count`** (or **`rows.length`**) trailing total. With selection: **`SelectionToolbar`** (`footerLayout`) — ratio summary, **Delete…**, **Actions**, **Clear**, **Select All** (`flex-wrap` when narrow). No TanStack pagination — the scroll lists **all** loaded rows after filter/sort.
+- **Provide/inject**: Mirrors `DataTable` for reused children (`themeVars`, `editable`, `originalColumnMetaById`, `tableSourceRows`, staged-edit no-ops, `isRowDisplayedSelected`, `highlightedRowId`, etc.).
 
 ## State Management
 

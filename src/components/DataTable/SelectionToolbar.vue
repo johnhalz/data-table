@@ -2,6 +2,7 @@
 import { ref, computed, inject, toValue } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import { isDestructiveRowAction } from './rowActionDestructive.js'
+import { DATA_TABLE_FOOTER_ROW_HEIGHT_CLASSES } from './types.js'
 
 const tableSourceRows = inject('tableSourceRows', null)
 
@@ -17,9 +18,24 @@ const props = defineProps({
   countLabelSingular: { type: String, default: 'record' },
   countLabelPlural: { type: String, default: 'records' },
   enableSelectAllMatching: { type: Boolean, default: false },
+  /** When true, summary reads `{count} selected` instead of `{count} row(s) selected`. */
+  selectionSummaryCompact: { type: Boolean, default: false },
+  /** When true, summary reads `{count}/{total} selected` using totalRowCount (MiniTable footer). */
+  summaryRatio: { type: Boolean, default: false },
+  /** When false, hides the Actions dropdown (Copy/Download/custom menus). */
+  showBulkActionsMenu: { type: Boolean, default: true },
+  /** When true, root row uses fixed min-height so swapping filter ↔ selection bars does not jump (MiniTable top bar). */
+  fixedToolbarRowHeight: { type: Boolean, default: false },
+  /**
+   * MiniTable footer: border-top like TablePagination; summary left, flex spacer, controls right;
+   * shorter Clear / Select All labels.
+   */
+  footerLayout: { type: Boolean, default: false },
+  /** When true, "Clear selection" uses `--st-danger` (MiniTable sidebar). */
+  clearSelectionDanger: { type: Boolean, default: false },
 })
 
-// Total row count across all pages (post-filter). Used for "Select all N …".
+// Total row count across all pages (post-filter). Used for "Select all N …" and ratio denominator.
 const totalRowCount = computed(() => {
   if (props.totalFilteredCount != null) return props.totalFilteredCount
   if (tableSourceRows != null) void toValue(tableSourceRows)
@@ -28,6 +44,32 @@ const totalRowCount = computed(() => {
 const allItemsSelected = computed(() => props.selectedCount >= totalRowCount.value && totalRowCount.value > 0)
 
 const emit = defineEmits(['delete-confirm-request', 'selection-action', 'select-all-matching', 'clear-full-selection'])
+
+const rootClasses = computed(() => {
+  const cls = ['px-3', 'py-1.5', 'flex', 'items-center', 'shrink-0', 'text-[13px]']
+  cls.push(props.footerLayout ? 'gap-3' : 'gap-2')
+  if (props.footerLayout) {
+    cls.push('flex-wrap', ...DATA_TABLE_FOOTER_ROW_HEIGHT_CLASSES)
+  } else if (props.fixedToolbarRowHeight) {
+    cls.push('min-h-[41px]')
+  }
+  return cls
+})
+
+const rootStyle = computed(() =>
+  props.footerLayout
+    ? {
+        borderTop: '1px solid var(--st-border)',
+        backgroundColor: 'var(--st-bg)',
+        color: 'var(--st-text-secondary)',
+      }
+    : {
+        borderBottom: '1px solid var(--st-border)',
+        backgroundColor: 'var(--st-bg)',
+      },
+)
+
+const compactLabels = computed(() => props.footerLayout)
 
 const showActionsMenu = ref(false)
 
@@ -120,115 +162,260 @@ function handleCustomAction(action) {
 </script>
 
 <template>
-  <div class="px-3 py-1.5 flex items-center gap-2" :style="{ borderBottom: '1px solid var(--st-border)', backgroundColor: 'var(--st-bg)' }">
-    <span class="text-[13px]" :style="{ color: 'var(--st-text)' }">{{ selectedCount }} row{{ selectedCount > 1 ? 's' : '' }} selected</span>
+  <div :class="rootClasses" :style="rootStyle">
+    <template v-if="footerLayout">
+      <span
+        v-if="summaryRatio"
+        class="text-[13px] tabular-nums shrink-0"
+        :style="{ color: 'var(--st-text)' }"
+      >{{ selectedCount }}/{{ totalRowCount }} selected</span>
+      <span
+        v-else-if="selectionSummaryCompact"
+        class="text-[13px] shrink-0"
+        :style="{ color: 'var(--st-text)' }"
+      >{{ selectedCount }} selected</span>
+      <span
+        v-else
+        class="text-[13px] shrink-0"
+        :style="{ color: 'var(--st-text)' }"
+      >{{ selectedCount }} row{{ selectedCount > 1 ? 's' : '' }} selected</span>
 
-    <!-- Delete -->
-    <button
-      v-if="editable.delete"
-      class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[13px] transition-colors"
-      style="border: 1px solid rgba(239,68,68,0.4); color: #ef4444; background-color: rgba(239,68,68,0.1);"
-      @click="emit('delete-confirm-request')"
-    >
-      <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M6.5 1.75a.25.25 0 01.25-.25h2.5a.25.25 0 01.25.25V3h-3V1.75zM11 3V1.75C11 .784 10.216 0 9.25 0h-2.5C5.784 0 5 .784 5 1.75V3H2.75a.75.75 0 000 1.5h.31l.72 9.678A1.75 1.75 0 005.525 16h4.95a1.75 1.75 0 001.745-1.822L12.94 4.5h.31a.75.75 0 000-1.5H11z"/>
-      </svg>
-      Delete...
-    </button>
+      <div class="flex-1 min-w-[0.5rem]" />
 
-    <!-- Actions -->
-    <div ref="actionsDropdownRef" class="relative">
+      <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+        <!-- Delete -->
+        <button
+          v-if="editable.delete"
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[13px] transition-colors"
+          style="border: 1px solid rgba(239,68,68,0.4); color: #ef4444; background-color: rgba(239,68,68,0.1);"
+          @click="emit('delete-confirm-request')"
+        >
+          <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M6.5 1.75a.25.25 0 01.25-.25h2.5a.25.25 0 01.25.25V3h-3V1.75zM11 3V1.75C11 .784 10.216 0 9.25 0h-2.5C5.784 0 5 .784 5 1.75V3H2.75a.75.75 0 000 1.5h.31l.72 9.678A1.75 1.75 0 005.525 16h4.95a1.75 1.75 0 001.745-1.822L12.94 4.5h.31a.75.75 0 000-1.5H11z"/>
+          </svg>
+          Delete...
+        </button>
+
+        <div v-if="showBulkActionsMenu" ref="actionsDropdownRef" class="relative">
+          <button
+            class="flex items-center gap-1 px-2.5 py-1 rounded text-[13px] transition-colors"
+            :style="{ border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)' }"
+            @click="showActionsMenu = !showActionsMenu"
+          >
+            Actions
+            <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M4.427 6.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 6H4.604a.25.25 0 00-.177.427z"/>
+            </svg>
+          </button>
+          <div
+            v-if="showActionsMenu"
+            class="absolute top-full left-0 mt-1 w-48 rounded shadow-xl z-50 py-1 text-[13px]"
+            :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"
+          >
+            <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="copyAs('csv')">Copy as CSV</button>
+            <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="copyAs('sql')">Copy as SQL</button>
+            <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="copyAs('json')">Copy as JSON</button>
+            <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
+            <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('csv')">Download as CSV</button>
+            <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('tsv')">Download as TSV</button>
+            <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('json')">Download as JSON</button>
+            <template v-if="contextMenuActions.length > 0">
+              <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
+              <template v-for="(action, idx) in contextMenuActions" :key="action.divider ? `divider-${idx}` : action.key">
+                <div
+                  v-if="action.divider"
+                  class="my-1"
+                  :style="{ borderTop: '1px solid var(--st-border-secondary)' }"
+                />
+                <button
+                  v-else
+                  type="button"
+                  class="w-full text-left px-3 py-1.5 hover-menu-item flex items-center gap-2 disabled:pointer-events-none"
+                  :disabled="resolveBulkContextActionDisabled(action)"
+                  :class="{ 'opacity-40 cursor-not-allowed': resolveBulkContextActionDisabled(action) }"
+                  :style="{ color: isDestructiveRowAction(action) ? 'var(--st-danger)' : 'var(--st-text)' }"
+                  @click="handleRowActionsBulk(action)"
+                >
+                  <span v-if="action.icon" class="shrink-0 w-3.5 h-3.5 inline-flex items-center justify-center [&_svg]:max-w-full [&_svg]:max-h-full" v-html="action.icon" />
+                  <span>{{ action.label }}</span>
+                </button>
+              </template>
+            </template>
+            <template v-if="selectionActions.length > 0">
+              <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
+              <button
+                v-for="action in selectionActions"
+                :key="action.key"
+                class="w-full text-left px-3 py-1.5 hover-menu-item"
+                :style="{ color: 'var(--st-text)' }"
+                @click="handleCustomAction(action)"
+              >
+                {{ action.label }}
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <button
+          class="text-[13px] transition-colors shrink-0"
+          :style="{
+            color: clearSelectionDanger ? 'var(--st-danger)' : 'var(--st-text-secondary)',
+          }"
+          type="button"
+          @click="emit('clear-full-selection')"
+        >
+          {{ compactLabels ? 'Clear' : 'Clear selection' }}
+        </button>
+
+        <button
+          v-if="enableSelectAllMatching && totalFilteredCount != null && !allItemsSelected"
+          class="text-[13px] transition-colors shrink-0"
+          :style="{ color: 'var(--st-accent)' }"
+          type="button"
+          @click="emit('select-all-matching')"
+        >
+          {{ compactLabels ? 'Select All' : `Select all ${totalRowCount} ${totalRowCount === 1 ? countLabelSingular : countLabelPlural}` }}
+        </button>
+
+        <button
+          v-else-if="enableSelectAll && !enableSelectAllMatching && !allItemsSelected"
+          class="text-[13px] transition-colors shrink-0"
+          :style="{ color: 'var(--st-accent)' }"
+          type="button"
+          @click="table.toggleAllRowsSelected(true)"
+        >
+          {{ compactLabels ? 'Select All' : `Select all ${totalRowCount} ${totalRowCount === 1 ? countLabelSingular : countLabelPlural}` }}
+        </button>
+      </div>
+    </template>
+
+    <template v-else>
+      <span
+        v-if="summaryRatio"
+        class="text-[13px] tabular-nums"
+        :style="{ color: 'var(--st-text)' }"
+      >{{ selectedCount }}/{{ totalRowCount }} selected</span>
+      <span
+        v-else-if="selectionSummaryCompact"
+        class="text-[13px]"
+        :style="{ color: 'var(--st-text)' }"
+      >{{ selectedCount }} selected</span>
+      <span
+        v-else
+        class="text-[13px]"
+        :style="{ color: 'var(--st-text)' }"
+      >{{ selectedCount }} row{{ selectedCount > 1 ? 's' : '' }} selected</span>
+
+      <!-- Delete -->
       <button
-        class="flex items-center gap-1 px-2.5 py-1 rounded text-[13px] transition-colors"
-        :style="{ border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)' }"
-        @click="showActionsMenu = !showActionsMenu"
+        v-if="editable.delete"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[13px] transition-colors"
+        style="border: 1px solid rgba(239,68,68,0.4); color: #ef4444; background-color: rgba(239,68,68,0.1);"
+        @click="emit('delete-confirm-request')"
       >
-        Actions
-        <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M4.427 6.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 6H4.604a.25.25 0 00-.177.427z"/>
+        <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M6.5 1.75a.25.25 0 01.25-.25h2.5a.25.25 0 01.25.25V3h-3V1.75zM11 3V1.75C11 .784 10.216 0 9.25 0h-2.5C5.784 0 5 .784 5 1.75V3H2.75a.75.75 0 000 1.5h.31l.72 9.678A1.75 1.75 0 005.525 16h4.95a1.75 1.75 0 001.745-1.822L12.94 4.5h.31a.75.75 0 000-1.5H11z"/>
         </svg>
+        Delete...
       </button>
-      <div
-        v-if="showActionsMenu"
-        class="absolute top-full left-0 mt-1 w-48 rounded shadow-xl z-50 py-1 text-[13px]"
-        :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"
-      >
-        <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="copyAs('csv')">Copy as CSV</button>
-        <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="copyAs('sql')">Copy as SQL</button>
-        <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="copyAs('json')">Copy as JSON</button>
-        <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
-        <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('csv')">Download as CSV</button>
-        <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('tsv')">Download as TSV</button>
-        <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('json')">Download as JSON</button>
-        <template v-if="contextMenuActions.length > 0">
+
+      <!-- Actions (copy/export/custom); optional — MiniTable hides when non-interactive -->
+      <div v-if="showBulkActionsMenu" ref="actionsDropdownRef" class="relative">
+        <button
+          class="flex items-center gap-1 px-2.5 py-1 rounded text-[13px] transition-colors"
+          :style="{ border: '1px solid var(--st-border-secondary)', color: 'var(--st-text-secondary)' }"
+          @click="showActionsMenu = !showActionsMenu"
+        >
+          Actions
+          <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M4.427 6.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 6H4.604a.25.25 0 00-.177.427z"/>
+          </svg>
+        </button>
+        <div
+          v-if="showActionsMenu"
+          class="absolute top-full left-0 mt-1 w-48 rounded shadow-xl z-50 py-1 text-[13px]"
+          :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"
+        >
+          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="copyAs('csv')">Copy as CSV</button>
+          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="copyAs('sql')">Copy as SQL</button>
+          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="copyAs('json')">Copy as JSON</button>
           <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
-          <template v-for="(action, idx) in contextMenuActions" :key="action.divider ? `divider-${idx}` : action.key">
-            <div
-              v-if="action.divider"
-              class="my-1"
-              :style="{ borderTop: '1px solid var(--st-border-secondary)' }"
-            />
+          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('csv')">Download as CSV</button>
+          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('tsv')">Download as TSV</button>
+          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="downloadAs('json')">Download as JSON</button>
+          <template v-if="contextMenuActions.length > 0">
+            <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
+            <template v-for="(action, idx) in contextMenuActions" :key="action.divider ? `divider-${idx}` : action.key">
+              <div
+                v-if="action.divider"
+                class="my-1"
+                :style="{ borderTop: '1px solid var(--st-border-secondary)' }"
+              />
+              <button
+                v-else
+                type="button"
+                class="w-full text-left px-3 py-1.5 hover-menu-item flex items-center gap-2 disabled:pointer-events-none"
+                :disabled="resolveBulkContextActionDisabled(action)"
+                :class="{ 'opacity-40 cursor-not-allowed': resolveBulkContextActionDisabled(action) }"
+                :style="{ color: isDestructiveRowAction(action) ? 'var(--st-danger)' : 'var(--st-text)' }"
+                @click="handleRowActionsBulk(action)"
+              >
+                <span v-if="action.icon" class="shrink-0 w-3.5 h-3.5 inline-flex items-center justify-center [&_svg]:max-w-full [&_svg]:max-h-full" v-html="action.icon" />
+                <span>{{ action.label }}</span>
+              </button>
+            </template>
+          </template>
+          <template v-if="selectionActions.length > 0">
+            <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
             <button
-              v-else
-              type="button"
-              class="w-full text-left px-3 py-1.5 hover-menu-item flex items-center gap-2 disabled:pointer-events-none"
-              :disabled="resolveBulkContextActionDisabled(action)"
-              :class="{ 'opacity-40 cursor-not-allowed': resolveBulkContextActionDisabled(action) }"
-              :style="{ color: isDestructiveRowAction(action) ? 'var(--st-danger)' : 'var(--st-text)' }"
-              @click="handleRowActionsBulk(action)"
+              v-for="action in selectionActions"
+              :key="action.key"
+              class="w-full text-left px-3 py-1.5 hover-menu-item"
+              :style="{ color: 'var(--st-text)' }"
+              @click="handleCustomAction(action)"
             >
-              <span v-if="action.icon" class="shrink-0 w-3.5 h-3.5 inline-flex items-center justify-center [&_svg]:max-w-full [&_svg]:max-h-full" v-html="action.icon" />
-              <span>{{ action.label }}</span>
+              {{ action.label }}
             </button>
           </template>
-        </template>
-        <template v-if="selectionActions.length > 0">
-          <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
-          <button
-            v-for="action in selectionActions"
-            :key="action.key"
-            class="w-full text-left px-3 py-1.5 hover-menu-item"
-            :style="{ color: 'var(--st-text)' }"
-            @click="handleCustomAction(action)"
-          >
-            {{ action.label }}
-          </button>
-        </template>
+        </div>
       </div>
-    </div>
 
-    <!-- Clear selection -->
-    <button
-      class="text-[13px] transition-colors"
-      :style="{ color: 'var(--st-text-secondary)' }"
-      @click="emit('clear-full-selection')"
-    >
-      Clear selection
-    </button>
+      <!-- Clear selection -->
+      <button
+        class="text-[13px] transition-colors"
+        :style="{
+          color: clearSelectionDanger ? 'var(--st-danger)' : 'var(--st-text-secondary)',
+        }"
+        type="button"
+        @click="emit('clear-full-selection')"
+      >
+        {{ compactLabels ? 'Clear' : 'Clear selection' }}
+      </button>
 
-    <!-- Select all matching (server) — parent loads IDs -->
-    <button
-      v-if="enableSelectAllMatching && totalFilteredCount != null && !allItemsSelected"
-      class="text-[13px] transition-colors"
-      :style="{ color: 'var(--st-accent)' }"
-      type="button"
-      @click="emit('select-all-matching')"
-    >
-      Select all {{ totalRowCount }} {{ totalRowCount === 1 ? countLabelSingular : countLabelPlural }}
-    </button>
+      <!-- Select all matching (server) — parent loads IDs -->
+      <button
+        v-if="enableSelectAllMatching && totalFilteredCount != null && !allItemsSelected"
+        class="text-[13px] transition-colors"
+        :style="{ color: 'var(--st-accent)' }"
+        type="button"
+        @click="emit('select-all-matching')"
+      >
+        Select all {{ totalRowCount }} {{ totalRowCount === 1 ? countLabelSingular : countLabelPlural }}
+      </button>
 
-    <!-- Client / page-only: select every row currently in the table (one page when server-paginated) -->
-    <button
-      v-else-if="enableSelectAll && !enableSelectAllMatching && !allItemsSelected"
-      class="text-[13px] transition-colors"
-      :style="{ color: 'var(--st-accent)' }"
-      type="button"
-      @click="table.toggleAllRowsSelected(true)"
-    >
-      Select all {{ totalRowCount }} {{ totalRowCount === 1 ? countLabelSingular : countLabelPlural }}
-    </button>
+      <!-- Client / page-only: select every row currently in the table (one page when server-paginated) -->
+      <button
+        v-else-if="enableSelectAll && !enableSelectAllMatching && !allItemsSelected"
+        class="text-[13px] transition-colors"
+        :style="{ color: 'var(--st-accent)' }"
+        type="button"
+        @click="table.toggleAllRowsSelected(true)"
+      >
+        Select all {{ totalRowCount }} {{ totalRowCount === 1 ? countLabelSingular : countLabelPlural }}
+      </button>
 
-    <div class="flex-1"></div>
+      <div class="flex-1"></div>
+    </template>
   </div>
 </template>
 

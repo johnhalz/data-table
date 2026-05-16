@@ -80,9 +80,15 @@ export const FILTER_OPERATORS = [
 
 export const PAGE_SIZE_OPTIONS = [100, 500, 1000];
 
+/** Default batch size for `<MiniTable>` infinite-scroll `load-more` (parent should fetch this many rows per request). */
+export const MINI_TABLE_PAGE_SIZE = 100;
+
 export const DEFAULT_COLUMN_WIDTH = 180;
 export const ROW_NUMBER_WIDTH = 60;
 export const CHECKBOX_WIDTH = 50;
+
+/** Pagination / MiniTable / footer SelectionToolbar: same min height as control row + consistent border-box for top border alignment. */
+export const DATA_TABLE_FOOTER_ROW_HEIGHT_CLASSES = ["min-h-[39px]", "box-border"];
 
 export const PENDING_EDIT_KINDS = {
   INSERT: "insert",

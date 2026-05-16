@@ -1,8 +1,127 @@
 <script setup>
-import { ref } from 'vue'
-import { DataTable } from './components/DataTable'
+import { ref, computed, watch } from 'vue'
+import { createColumnHelper } from '@tanstack/vue-table'
+import { DataTable, MiniTable, MINI_TABLE_PAGE_SIZE } from './components/DataTable'
 import { columns, employeeColumns } from './demo/demoColumns.js'
 import { stores, employeesByStore } from './demo/demoData.js'
+
+/** --- MiniTable demo: infinite scroll + single visible column --- */
+const miniCol = createColumnHelper()
+const miniColumn = miniCol.accessor('name', {
+  id: 'name',
+  header: 'Store name',
+  meta: {
+    type: 'varchar',
+    isNullable: false,
+    cellButtons: [
+      {
+        label: 'Log',
+        icon: '<svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3h6v1H5V3zm0 2h8v1H5V5zm0 2h8v1H5V7zm0 2h6v1H5V9z"/></svg>',
+        onClick: (row) => console.log('[MiniTable demo]', row),
+      },
+    ],
+  },
+  enableSorting: true,
+  enableColumnFilter: true,
+})
+
+function buildMiniDemoSource() {
+  const out = []
+  for (let c = 0; c < 3; c++) {
+    for (const r of stores) {
+      out.push({
+        ...r,
+        id: r.id + c * 1000,
+        store_code: `${r.store_code}-${c}`,
+      })
+    }
+  }
+  return out
+}
+
+const miniSourceAll = buildMiniDemoSource()
+const miniColumnFilters = ref([])
+const miniSorting = ref([])
+
+function cellMatchesMiniFilter(row, filter) {
+  const fv = filter.value
+  if (!fv || typeof fv !== 'object') return true
+  const { operator, value } = fv
+  const colId = filter.id
+  if (!operator || value === '' || value === undefined) return true
+  const cellValue = row[colId]
+  const cellStr = cellValue == null ? '' : String(cellValue)
+  switch (operator) {
+    case '~~':
+      return cellStr.includes(String(value))
+    case '~~*':
+      return cellStr.toLowerCase().includes(String(value).toLowerCase())
+    case '=':
+      return cellStr === String(value)
+    default:
+      return true
+  }
+}
+
+const miniFiltered = computed(() => {
+  let list = [...miniSourceAll]
+  for (const f of miniColumnFilters.value) {
+    list = list.filter((row) => cellMatchesMiniFilter(row, f))
+  }
+  const s = miniSorting.value[0]
+  if (s && s.id === 'name') {
+    const desc = s.desc
+    list.sort((a, b) => {
+      const cmp = String(a.name ?? '').localeCompare(String(b.name ?? ''))
+      return desc ? -cmp : cmp
+    })
+  }
+  return list
+})
+
+const miniLoadEnd = ref(MINI_TABLE_PAGE_SIZE)
+
+/** IDs selected beyond infinite-scroll slice (`select-all-matching`). */
+const miniAdditionalSelectedIds = ref([])
+
+watch([miniFiltered, miniColumnFilters, miniSorting], () => {
+  miniLoadEnd.value = MINI_TABLE_PAGE_SIZE
+  miniAdditionalSelectedIds.value = []
+}, { deep: true })
+
+const miniRows = computed(() => miniFiltered.value.slice(0, miniLoadEnd.value))
+
+const miniHasMore = computed(() => miniLoadEnd.value < miniFiltered.value.length)
+
+const miniLoadingMore = ref(false)
+
+function handleMiniLoadMore() {
+  if (miniLoadingMore.value || !miniHasMore.value) return
+  miniLoadingMore.value = true
+  setTimeout(() => {
+    miniLoadEnd.value = Math.min(
+      miniLoadEnd.value + MINI_TABLE_PAGE_SIZE,
+      miniFiltered.value.length,
+    )
+    miniLoadingMore.value = false
+  }, 350)
+}
+
+function handleMiniRefresh() {
+  miniLoadEnd.value = MINI_TABLE_PAGE_SIZE
+  miniAdditionalSelectedIds.value = []
+}
+
+function handleMiniSelectAllMatching() {
+  miniAdditionalSelectedIds.value = miniFiltered.value.map((r) => String(r.id))
+}
+
+function handleMiniSortChange(sorting) {
+  miniSorting.value = sorting
+}
+
+/** Right sidebar: MiniTable demo */
+const showMiniSidebar = ref(false)
 
 const rows = ref([...stores])
 function handleInsert(payload) {
@@ -185,7 +304,7 @@ const dividerColor = (dark) => dark ? '#333' : '#e4e4e7'
 
 <template>
   <div
-    class="h-screen flex flex-col transition-colors"
+    class="h-screen flex flex-col min-h-0 transition-colors"
     :style="{ backgroundColor: theme === 'dark' ? '#1c1c1c' : '#f4f4f5' }"
     @click="showOptionsMenu = false; showThemeMenu = false"
   >
@@ -202,6 +321,25 @@ const dividerColor = (dark) => dark ? '#333' : '#e4e4e7'
       <span>stores</span>
 
       <div class="flex-1"></div>
+
+      <button
+        type="button"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors shrink-0"
+        :style="{
+          border: btnBorder(theme === 'dark'),
+          color: btnColor(theme === 'dark'),
+          backgroundColor: showMiniSidebar ? menuHoverBg(theme === 'dark') : btnBg(theme === 'dark'),
+          boxShadow: showMiniSidebar ? `inset 0 0 0 1px ${accentColor}` : 'none',
+        }"
+        :aria-pressed="showMiniSidebar"
+        title="Toggle MiniTable sidebar"
+        @click.stop="showMiniSidebar = !showMiniSidebar"
+      >
+        <svg class="w-3.5 h-3.5 shrink-0 opacity-80" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M3 2h4v12H3V2zm6 0h4v12H9V2z" />
+        </svg>
+        MiniTable
+      </button>
 
       <!-- Options dropdown -->
       <div class="relative" @click.stop>
@@ -495,32 +633,95 @@ const dividerColor = (dark) => dark ? '#333' : '#e4e4e7'
       </div>
     </nav>
 
-    <!-- The component -->
-    <DataTable
-      :columns="columns"
-      :rows="isEmpty ? [] : rows"
-      table-name="stores"
-      :theme="theme"
-      :accent-color="accentColor"
-      :editable="editable"
-      :staged-edits="stagedEdits"
-      :controlled-column-visibility="controlledColumnVisibility"
-      :cell-overflow="cellOverflow"
-      :cell-button-visibility="cellButtonVisibility"
-      :insert-actions="showInsertActionsDemo ? insertActionsDemo : []"
-      :selection-actions="selectionActions"
-      :toolbar-actions="toolbarActions"
-      :get-sub-table="getSubTable"
-      :sub-table-columns="employeeColumns"
-      @insert-row="handleInsert"
-      @insert-action="handleInsertAction"
-      @update-row="handleUpdate"
-      @delete-rows="handleDelete"
-      @commit-edits="handleCommitEdits"
-      @refresh="handleRefresh"
-      @selection-action="handleSelectionAction"
-      @toolbar-action="handleToolbarAction"
-    />
+    <div class="flex-1 flex min-h-0 overflow-hidden">
+      <div class="flex-1 min-h-0 min-w-0 flex flex-col">
+        <DataTable
+          :columns="columns"
+          :rows="isEmpty ? [] : rows"
+          table-name="stores"
+          :theme="theme"
+          :accent-color="accentColor"
+          :editable="editable"
+          :staged-edits="stagedEdits"
+          :controlled-column-visibility="controlledColumnVisibility"
+          :cell-overflow="cellOverflow"
+          :cell-button-visibility="cellButtonVisibility"
+          :insert-actions="showInsertActionsDemo ? insertActionsDemo : []"
+          :selection-actions="selectionActions"
+          :toolbar-actions="toolbarActions"
+          :get-sub-table="getSubTable"
+          :sub-table-columns="employeeColumns"
+          @insert-row="handleInsert"
+          @insert-action="handleInsertAction"
+          @update-row="handleUpdate"
+          @delete-rows="handleDelete"
+          @commit-edits="handleCommitEdits"
+          @refresh="handleRefresh"
+          @selection-action="handleSelectionAction"
+          @toolbar-action="handleToolbarAction"
+        />
+      </div>
+
+      <div
+        class="shrink-0 overflow-hidden transition-[width] duration-200 ease-out"
+        :style="{
+          width: showMiniSidebar ? 'min(22rem, calc(100vw - 2rem))' : '0',
+        }"
+      >
+        <aside
+          class="flex flex-col h-full w-[min(22rem,calc(100vw-2rem))] border-l min-h-0"
+          :style="{
+            borderColor: theme === 'dark' ? '#333' : '#e4e4e7',
+            backgroundColor: theme === 'dark' ? '#1c1c1c' : '#f4f4f5',
+          }"
+        >
+          <div
+            class="px-3 py-2 text-xs font-semibold shrink-0 flex items-center gap-2 border-b"
+            :style="{
+              color: btnColor(theme === 'dark'),
+              borderColor: theme === 'dark' ? '#333' : '#e4e4e7',
+            }"
+          >
+            <span>MiniTable</span>
+            <span class="opacity-50 font-normal">· {{ MINI_TABLE_PAGE_SIZE }}/batch</span>
+            <div class="flex-1" />
+            <button
+              type="button"
+              class="p-1 rounded opacity-70 hover:opacity-100"
+              :style="{ color: btnColor(theme === 'dark') }"
+              title="Close sidebar"
+              aria-label="Close MiniTable sidebar"
+              @click="showMiniSidebar = false"
+            >
+              <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
+            <MiniTable
+              class="flex-1 min-h-0 min-w-0"
+              :column="miniColumn"
+              :rows="miniRows"
+              table-name="stores_mini"
+              :theme="theme"
+              :accent-color="accentColor"
+              :editable="false"
+              :loading="miniLoadingMore"
+              :has-more="miniHasMore"
+              :total-count="miniFiltered.length"
+              v-model:column-filters="miniColumnFilters"
+              v-model:additional-selected-row-ids="miniAdditionalSelectedIds"
+              :cell-button-visibility="cellButtonVisibility"
+              @refresh="handleMiniRefresh"
+              @load-more="handleMiniLoadMore"
+              @sort-change="handleMiniSortChange"
+              @select-all-matching="handleMiniSelectAllMatching"
+            />
+          </div>
+        </aside>
+      </div>
+    </div>
 
   </div>
 </template>

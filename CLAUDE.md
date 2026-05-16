@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-DataTable is a Vue 3 data table component. It is a single reusable component (`<DataTable>`) built on TanStack Table v8 with Tailwind CSS v4, supporting dark and light themes with customizable accent colors.
+DataTable is a Vue 3 data table package. It exposes **`DataTable`** (full grid) and **`MiniTable`** (narrow single-column list with infinite scroll), both built on TanStack Table v8 with Tailwind CSS v4.
 
 ## Tech Stack
 
@@ -26,13 +26,14 @@ There is no test suite, linter, or type checker configured.
 
 ```
 src/
-  App.vue                          # Demo app — uses DataTable with sample data
+  App.vue                          # Demo — DataTable + MiniTable
   demo/
     demoColumns.js                 # Column definitions for the demo
     demoData.js                    # Sample row data for the demo
   components/DataTable/
-    index.js                       # Named export: { DataTable }
-    DataTable.vue                  # Root component — all SDK props, state, provide/inject hub
+    index.js                       # Named export: { DataTable, MiniTable, MINI_TABLE_PAGE_SIZE }
+    DataTable.vue                  # Full grid — SDK props, state, provide/inject hub
+    MiniTable.vue                  # Checkbox + one column; infinite scroll; contains filter input + shared cells/selection
     TableToolbar.vue               # Toolbar: filter bar, sort, columns, insert, refresh
     SelectionToolbar.vue           # Appears when rows selected: delete, actions, clear/select all
     TableGrid.vue                  # Table element: headers, rows, cells, checkboxes, row numbers
@@ -54,11 +55,9 @@ src/
 
 ### Data flow
 
-`DataTable.vue` is the only public component. It:
-1. Accepts `columns` and `rows` props from the parent
-2. Creates a TanStack `useVueTable` instance with all state (sorting, filters, pagination, selection, column visibility, column sizing)
-3. Distributes the table instance and configuration to children via `provide/inject`
-4. Emits events back to the parent for mutations (`insert-row`, `update-row`, `delete-rows`, etc.)
+`DataTable.vue` (full grid) and `MiniTable.vue` (narrow variant) each create a TanStack `useVueTable` instance with reactive Vue `ref()` state wired through `state` getters and `on*Change` handlers. Both distribute config via `provide()` so **`TableCell`**, **`TableColumnHeader`**, and **`SelectionToolbar`** behave consistently; **`DataTable`** also composes **`FilterBar`** via **`TableToolbar`**, while **`MiniTable`** uses a simple contains **`input`** bound to **`columnFilters`** instead of **`FilterBar`**.
+
+`MiniTable` omits the `#` column, sort/columns/insert toolbar, **rows-per-page**, and footer page navigation. A **contains** filter **`input`** (visible column only, operator **`~~*`**) **+ Refresh** stays visible even when rows are selected. **Bulk selection UI** (`SelectionToolbar` with **`footerLayout`** — ratio **`selected/eligible`**, Delete, Actions, Clear, Select All) appears in the **footer** when there is a selection; otherwise the footer shows only the **total** count (`toLocaleString()` + count noun). All loaded **`rows`** appear in the scroll list after filter/sort (no client-side paging). Parents conventionally fetch in batches of **`MINI_TABLE_PAGE_SIZE`** (**100**) via **`load-more`** + **`hasMore`**. It forces **`cellOverflow: truncate`** with a fluid data-column width.
 
 ### Reactivity pattern
 
@@ -66,7 +65,7 @@ TanStack's `useVueTable` returns a non-reactive object. All table state is store
 
 ### Provide/inject map
 
-These values are provided by `DataTable.vue` and injected by child components:
+These values are provided by `DataTable.vue` / `MiniTable.vue` and injected by child components:
 
 | Key                | Type         | Consumers |
 |--------------------|--------------|-----------|

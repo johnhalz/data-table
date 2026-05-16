@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, inject, toValue } from 'vue'
+import { DATA_TABLE_FOOTER_ROW_HEIGHT_CLASSES } from './types.js'
 
 const themeVars = inject('themeVars', {})
 const tableSourceRows = inject('tableSourceRows', null)
@@ -80,6 +81,7 @@ function confirmDiscard() {
 <template>
   <div
     class="px-3 py-1.5 flex items-center gap-3 text-[13px] shrink-0"
+    :class="DATA_TABLE_FOOTER_ROW_HEIGHT_CLASSES"
     :style="{ borderTop: '1px solid var(--st-border)', backgroundColor: 'var(--st-bg)', color: 'var(--st-text-secondary)' }"
   >
     <!-- Prev -->
