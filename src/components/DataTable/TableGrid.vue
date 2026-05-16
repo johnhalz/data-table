@@ -171,7 +171,7 @@ defineExpose({
 </script>
 
 <template>
-  <div :class="nestingDepth === 0 ? 'flex-1 min-h-0 relative' : 'overflow-auto'">
+  <div :class="nestingDepth === 0 ? 'flex-1 min-h-0 relative' : 'overflow-auto relative min-h-[180px]'">
   <div
     ref="scroller"
     :class="
