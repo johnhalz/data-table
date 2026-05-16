@@ -81,53 +81,141 @@ const rows = ref([
 
 ## MiniTable
 
-Use **`MiniTable`** for a **narrow, single-column** list with the same theming and many of the same behaviors as `DataTable`, without sort/columns/insert toolbar controls.
+Use **`MiniTable`** for a **narrow, single-column** list with the same **CSS theme tokens** (`theme`, `accentColor`, `fontFamily`) and many of the same behaviors as **`DataTable`**, without the full toolbar (no multi-column sort panel, column picker, or insert UI).
 
-**Import**
+### Import
 
 ```js
 import { MiniTable, MINI_TABLE_PAGE_SIZE } from '@johnhalazonetis/data-table'
+import '@johnhalazonetis/data-table/style.css'
 ```
 
-`MINI_TABLE_PAGE_SIZE` is **`100`** — use this as the batch size when implementing infinite scroll on the server.
+`MINI_TABLE_PAGE_SIZE` is **`100`** (exported from `types.js`) — use it as the conventional batch size when implementing **infinite scroll** on the server.
 
-**Behavior**
+### Minimal example
 
-- **Columns**: Pass exactly **one** TanStack column definition as `column`. Sorting uses the column header chevron (no Sort panel). **`meta.cellButtons`** are supported.
-- **Toolbar**: Single **search-style contains filter** on the visible column (case-insensitive substring via operator **`~~*`**) plus **Refresh** — always visible, including during bulk selection. **`v-model:column-filters`** still reflects this filter (and any extras, e.g. **`=`** from the row context menu). Parents should treat **`update:column-filters`** like **`DataTable`** when syncing server-side data.
-- **No** row-number (`#`) column — only a checkbox column and the data column.
-- **Overflow**: Text cells use **truncate**; horizontal scrolling is disabled; the data column width follows the scroll viewport (minus the checkbox column).
-- **Footer**: When nothing is selected: **`total-count`** (or **`rows.length`**) only — `toLocaleString()` plus **`countLabelSingular`** / **`countLabelPlural`**, right-aligned (~same height as `TablePagination`). When rows are selected: **`SelectionToolbar`** in **`footerLayout`** mode — **`selected/eligible selected`** (ratio uses **`totalFilteredCount`** / **`totalCount`** / filtered loaded rows like **`DataTable`**), spacer, then **Delete…**, **Actions**, **Clear**, **Select All** as applicable. Controls may **wrap** on narrow widths. No client-side paging — all loaded **`rows`** render in the scroll area.
-- **Infinite scroll**: Still supported — accumulate rows in the parent and append when **`load-more`** fires. Typical pattern: fetch **`MINI_TABLE_PAGE_SIZE`** rows per request; set **`has-more`** when more data exists.
-- **`editable`**: Same shape as `DataTable`, but **`insert` is ignored** (no insert UI). **`update`** / **`delete`** control inline edit and selection delete.
-- **Selection**: **`selection-change`** emits the merged list of selected row IDs whenever selection changes. Use **`v-model:additional-selected-row-ids`** for IDs selected outside the loaded set. **`select-all-matching`** fires when **Select All** must include unloaded rows; implement it by merging the full filtered/server ID list into **`additional-selected-row-ids`** (see demo). When **`total-count`** or **`total-filtered-count`** is greater than **`rows.length`**, **`infer-select-all-matching`** (default **`true`**) routes **Select All** through matching semantics unless **`enable-select-all-matching`** is set explicitly or **`infer-select-all-matching`** is **`false`**.
+```vue
+<script setup>
+import { ref } from 'vue'
+import { MiniTable, MINI_TABLE_PAGE_SIZE } from '@johnhalazonetis/data-table'
+import { createColumnHelper } from '@tanstack/vue-table'
 
-**Props** (main)
+const col = createColumnHelper()
+const column = col.accessor('name', {
+  header: 'Name',
+  meta: { type: 'varchar', isNullable: false },
+  enableSorting: true,
+})
 
-| Prop | Description |
-|------|-------------|
-| `column` | Single TanStack column def (**required**) |
-| `rows` | Rows currently loaded (**required**); parent appends on `load-more` |
-| `hasMore` | When true, scrolling to the bottom requests more rows (`load-more`) |
-| `totalCount` | Optional total for the **trailing** footer label (defaults to `rows.length`) |
-| `totalFilteredCount` | Optional; for “Select all N matching” |
-| `inferSelectAllMatching` | Default **`true`**: use matching **Select All** when eligible total exceeds loaded **`rows.length`** |
-| `columnFilters` | `v-model:column-filters` |
-| `additionalSelectedRowIds` | `v-model:additional-selected-row-ids` |
+const rows = ref([])
+const hasMore = ref(true)
+const loading = ref(false)
 
-**Events**
+async function fetchNextBatch() {
+  loading.value = true
+  const chunk = await api.fetchNames({ limit: MINI_TABLE_PAGE_SIZE, offset: rows.value.length })
+  rows.value = rows.value.concat(chunk)
+  hasMore.value = chunk.length === MINI_TABLE_PAGE_SIZE
+  loading.value = false
+}
+</script>
 
-| Event | Description |
-|-------|-------------|
-| `refresh` | Refresh clicked |
-| `load-more` | Sentinel visible and `hasMore && !loading` |
-| `sort-change` | Sort state changed (manual sorting; parent should reorder/refetch) |
-| `update:column-filters` | Filters changed |
-| `selection-change` | `(ids: string[])` — full selection including `additionalSelectedRowIds` |
-| `selection-action` | `(actionKey, rows, mergedIds)` — same third argument as `DataTable` |
-| `select-all-matching`, `update:additionalSelectedRowIds`, `row-action`, `delete-rows`, `update-row` | Same roles as on `DataTable` |
+<template>
+  <MiniTable
+    :column="column"
+    :rows="rows"
+    :has-more="hasMore"
+    :loading="loading"
+    count-label-plural="names"
+    @load-more="fetchNextBatch"
+    @refresh="fetchNextBatch"
+  />
+</template>
+```
 
-**Expose**: `openDeleteConfirmation(ids)` — same as `DataTable`.
+### Layout and visuals
+
+- **Columns**: Exactly **one** leaf column via prop **`column`**. Header sorting uses the column chevron (TanStack sort state); implement **`sort-change`** / manual sorting on the parent when using server-side ordering.
+- **Chrome**: **Checkbox** column + **data** column only (no **`#`** row-number column). The sticky checkbox column uses a **light drop shadow** toward the content area — there is **no hard vertical rule** between checkbox and data so the sidebar stays visually quiet next to a full **`DataTable`**.
+- **Cells**: Body cells use the same **`TableCell`** component as **`DataTable`**. Column **`meta`** supports the same presentation hooks where applicable (e.g. **`secondaryText`**, **`badge`**, **`progressBar`**, **`cellButtons`**, **`textColor`**, **`suffixIcon`**) with the same caveats as in **Additional column `meta`** above.
+- **Resize**: Column resize handles are **hidden** in MiniTable (width follows the viewport).
+- **Row hover / selection**: Row background uses **`--st-bg-row-hover`** on hover and the same selected / highlighted (**`highlightedRowId`**) styling as the main grid.
+
+### Toolbar and filters
+
+- Single **search-style “contains”** filter on the visible column (case-insensitive substring, operator **`~~*`**) plus **Refresh**. This row stays visible even when rows are selected (selection UI moves to the footer).
+- Bind **`v-model:column-filters`** to sync with the parent (same pattern as **`DataTable`** for server-driven data). Context-menu filters can add other operators (e.g. **`=`**); the search field stays in sync.
+
+### Footer
+
+- **Idle**: Total count — **`totalCount`** if set, otherwise **`rows.length`** — formatted with **`countLabelSingular`** / **`countLabelPlural`**. Footer **min-height** matches **`TablePagination`** so strips align when MiniTable sits beside a full grid.
+- **Selection**: **`SelectionToolbar`** runs in **footer** layout: **`selected / eligible`** summary (uses **`totalFilteredCount`** / **`totalCount`** like **`DataTable`**), then **Delete…**, **Actions**, **Clear**, **Select All** as applicable. Controls may wrap on very narrow widths.
+- No client-side paging: all loaded **`rows`** are rendered in the scroll area.
+
+### Infinite scroll and selection
+
+- Emit **`load-more`** when the sentinel nears the viewport and **`hasMore && !loading`**. Append rows in the parent.
+- **`selection-change`** emits the **merged** list of selected row IDs (including **`additionalSelectedRowIds`**).
+- **`v-model:additional-selected-row-ids`**: IDs selected but not present in the current **`rows`** slice (e.g. after **Select all matching** on the server).
+- **`select-all-matching`**: Fires when **Select All** must cover unloaded rows; merge server IDs into **`additional-selected-row-ids`**.
+- **`inferSelectAllMatching`** (default **`true`**): If **`totalFilteredCount`** or **`totalCount`** is greater than **`rows.length`**, **Select All** uses matching semantics unless you override with **`enableSelectAllMatching`** / **`inferSelectAllMatching`**.
+
+### `editable`
+
+Same shape as **`DataTable`** (`boolean` or `{ insert, update, delete }`), but **`insert` is ignored** — there is no insert UI. **`update`** / **`delete`** gate inline edit, row edit panel, and bulk delete.
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `column` | Column def | **required** | Single TanStack column definition |
+| `rows` | `Array` | **required** | Loaded rows; parent appends on **`load-more`** |
+| `tableName` | `string` | `'table'` | Edit panel title |
+| `loading` | `boolean` | `false` | Disables refresh spinners / infinite-scroll guard |
+| `error` | `string \| null` | `null` | Dismissible error banner (same behavior as **`DataTable`**) |
+| `editable` | `boolean \| object` | `false` | **`insert`** ignored |
+| `selectionActions` | `array` | `[]` | Bulk actions (selection toolbar **Actions** menu) |
+| `contextMenuActions` | `array` | `[]` | Extra context-menu entries (+ bulk **Actions** when multi-select) |
+| `cellButtonVisibility` | `string` | `'hover'` | **`hover`** \| **`always`** \| **`select`** for **`meta.cellButtons`** |
+| `showDataTypes` | `boolean` | `false` | Type badges in header |
+| `showRowBorders` | `boolean` | `true` | Horizontal row dividers |
+| `showColumnBorders` | `boolean` | `true` | Vertical borders between **data** columns (only one data column; affects header/cell rules) |
+| `theme` | `string` | `'dark'` | **`dark`** \| **`light`** |
+| `accentColor` | `string` | `'#3ecf8e'` | Accent color |
+| `fontFamily` | `string \| null` | `null` | Optional font stack |
+| `emptyTitle` | `string` | `'No rows found'` | Empty state heading |
+| `emptyMessage` | `string` | `'Nothing to show yet.'` | Empty state body |
+| `countLabelSingular` | `string` | `'record'` | Footer / selection labels |
+| `countLabelPlural` | `string` | `'records'` | Footer / selection labels |
+| `totalCount` | `number \| null` | `null` | Total rows (footer + selection denominator) |
+| `totalFilteredCount` | `number \| null` | `null` | Filtered total for **Select all N matching** |
+| `hasMore` | `boolean` | `false` | Enables **`load-more`** sentinel |
+| `columnFilters` | `array \| null` | `null` | **`v-model:column-filters`** |
+| `highlightedRowId` | `string \| number \| null` | `null` | Keyboard / programmatic row highlight |
+| `enableSelectAll` | `boolean` | `true` | Show **Select all N** when eligible |
+| `enableSelectAllMatching` | `boolean` | `false` | Force matching select-all path when set |
+| `inferSelectAllMatching` | `boolean` | `true` | Auto matching semantics when totals exceed loaded rows |
+| `additionalSelectedRowIds` | `array` | `[]` | **`v-model:additional-selected-row-ids`** |
+
+### Events
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `refresh` | — | Refresh clicked |
+| `load-more` | — | Infinite scroll: load next batch |
+| `sort-change` | — | Sort state changed (manual / server sort) |
+| `update:column-filters` | `Array` | Filters changed |
+| `selection-change` | `ids: string[]` | Full selection |
+| `selection-action` | `(actionKey, rows, mergedIds)` | Same contract as **`DataTable`** |
+| `select-all-matching` | — | Parent selects all matching IDs on the server |
+| `update:additionalSelectedRowIds` | `Array` | Sync extra selected IDs |
+| `row-action` | `(key, row)` | Per-row action from context menu |
+| `delete-rows` | `ids[]` | Confirmed deletion |
+| `update-row` | `{ id, changes }` | Cell / panel save |
+
+### Expose
+
+Template ref: **`openDeleteConfirmation(ids)`** — same as **`DataTable`**.
 
 ## Props
 
