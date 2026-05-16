@@ -71,11 +71,13 @@ const subCfg = computed(() =>
 /** Forward `getSubTable` config to nested `DataTable`, stripping callbacks that aren't props. */
 const nestedSubTableVBind = computed(() => {
   const c = subCfg.value
-  if (!c) return { tableProps: null, onRowAction: null }
-  const { onRowAction, ...tableProps } = c
+  if (!c) return { tableProps: null, onRowAction: null, onPageChange: null, onSortChange: null }
+  const { onRowAction, onPageChange, onSortChange, ...tableProps } = c
   return {
     tableProps,
     onRowAction: typeof onRowAction === 'function' ? onRowAction : null,
+    onPageChange: typeof onPageChange === 'function' ? onPageChange : null,
+    onSortChange: typeof onSortChange === 'function' ? onSortChange : null,
   }
 })
 
@@ -215,7 +217,9 @@ const wrapperStyle = computed(() => {
           backgroundColor: 'var(--st-bg)',
         }"
       >
+        <!-- Remount nested grid when lazily-loaded `rows` length changes — avoids stale bindings if parent row snapshots lag. -->
         <DataTable
+          :key="`${row.id}-${(subCfg?.rows ?? []).length}`"
           v-bind="nestedSubTableVBind.tableProps"
           :editable="subCfg.editable ?? { insert: false, update: false, delete: false }"
           :theme="subCfg.theme ?? unref(parentTheme)"
@@ -225,6 +229,8 @@ const wrapperStyle = computed(() => {
           :controlled-column-filters="subTableColumnFilters"
           :controlled-column-visibility="subTableColumnVisibility"
           @row-action="(key, rowData) => nestedSubTableVBind.onRowAction?.(key, rowData)"
+          @page-change="(p) => nestedSubTableVBind.onPageChange?.(p)"
+          @sort-change="(s) => nestedSubTableVBind.onSortChange?.(s)"
         />
       </div>
     </div>

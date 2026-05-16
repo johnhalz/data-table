@@ -39,6 +39,8 @@
  * @property {Function} [getSubTable] - Recursive: allows nested sub-tables within sub-tables
  * @property {Array<{key?:string,label?:string,icon?:string,danger?:boolean,variant?:string,divider?:boolean,disabled?:boolean|Function}>} [contextMenuActions] - Extra right-click / bulk actions in nested table (`divider` renders a separator; `disabled` boolean or `(row) => boolean` for right-click)
  * @property {Function} [onRowAction] - `(key, rowData) => void`; not forwarded as a prop; wired to `@row-action`
+ * @property {Function} [onPageChange] - `({ pageIndex, pageSize }) => void`; stripped before props; forwarded to nested `@page-change` for server-side child paging
+ * @property {Function} [onSortChange] - `(sorting) => void`; stripped before props; forwarded to nested `@sort-change` (TanStack sort payload)
  */
 
 export const DATE_TIME_TYPES = [

@@ -37,17 +37,27 @@ export interface RowAction {
   disabled?: boolean | ((row: any) => boolean)
 }
 
+/** TanStack-compatible sort payload (passed through nested `sort-change`). */
+export type SubTableSortingState = ReadonlyArray<{ id: string; desc?: boolean }>
+
 /** Returned from `getSubTable` — nested rows + column defs. */
 export interface SubTableConfig {
   rows: unknown[]
   /** Use `ColumnDef<any>` so callers can pass TanStack defs typed to their row model. */
   columns: ColumnDef<any, any>[]
+  /** Passed through — enables footer pagination + server mode when set. */
+  totalCount?: number | null
+  showPagination?: boolean
   /** Optional; passed through to the nested `DataTable`. */
   fontFamily?: string | null
   /** Extra context-menu items for nested rows; forwarded as `contextMenuActions`. */
   contextMenuActions?: ReadonlyArray<RowAction>
   /** Handled internally (stripped before `v-bind`); invokes on nested `@row-action`. */
   onRowAction?: (key: string, rowData: unknown) => void
+  /** Stripped before `v-bind`; wired to nested `@page-change` (server child pagination). */
+  onPageChange?: (payload: { pageIndex: number; pageSize: number }) => void
+  /** Stripped before `v-bind`; wired to nested `@sort-change` (server child refetch). */
+  onSortChange?: (sorting: SubTableSortingState) => void
 }
 
 /** Commit payload when `stagedEdits` is true. */
@@ -123,6 +133,8 @@ export interface DataTableProps {
 /** Exposed instance API (template ref): `ref.value.openDeleteConfirmation(['id', ...])`. */
 export interface DataTableExpose {
   openDeleteConfirmation: (ids: readonly string[] | string[]) => void
+  /** Depth-0 only: merged Sort-panel rules applied to nested tables (for paging / refetch). */
+  getSubTableSorting?: () => SubTableSortingState
 }
 
 export declare const DataTable: DefineComponent<DataTableProps>

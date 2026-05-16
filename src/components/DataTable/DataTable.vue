@@ -255,7 +255,14 @@ const columnVisibility = ref(props.controlledColumnVisibility ?? { ...props.defa
 
 // Sync externally controlled state into internal refs (for nested sub-tables)
 watch(() => props.controlledSorting, (val) => {
-  if (val !== null) sorting.value = val
+  if (val !== null) {
+    sorting.value = val
+    // Sort panel pushes `sub-table-sorting` as `controlledSorting`; server tables must emit to refetch.
+    if (isServerPagination.value) {
+      pagination.value = { ...pagination.value, pageIndex: 0 }
+      emit('sort-change', sorting.value)
+    }
+  }
 }, { deep: true })
 watch(() => props.controlledColumnFilters, (val) => {
   if (val !== null) columnFilters.value = val
@@ -1017,6 +1024,8 @@ onUnmounted(() => {
 
 defineExpose({
   openDeleteConfirmation,
+  /** Caller refetch hooks (e.g. child table pagination): current Sort-panel rules for nested tables at depth 0. */
+  getSubTableSorting: () => subTableSorting.value,
 })
 </script>
 
