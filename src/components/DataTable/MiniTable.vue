@@ -578,8 +578,7 @@ function yieldForSpinnerPaint() {
   })
 }
 
-async function handleHeaderCheckboxClick(event) {
-  event.preventDefault()
+async function handleHeaderCheckboxClick() {
   const n = rowModels.value.length
   const showSpinner = n > MINI_TABLE_BULK_SELECTION_SPINNER_THRESHOLD
   if (showSpinner) {
@@ -611,7 +610,6 @@ function toggleRow(row, event, rowIndex) {
 }
 
 async function handleRowCheckboxClick(row, event, rowIndex) {
-  event.preventDefault()
   let spinId = null
   if (event.shiftKey && lastClickedRowIndex.value !== null) {
     const start = Math.min(lastClickedRowIndex.value, rowIndex)
@@ -979,7 +977,7 @@ defineExpose({
                         :checked="isAllPageSelected"
                         :indeterminate="isSomePageSelected"
                         title="Select all rows on this page"
-                        @click.prevent="handleHeaderCheckboxClick"
+                        @click="handleHeaderCheckboxClick"
                       />
                     </div>
                     </th>
@@ -1082,7 +1080,7 @@ defineExpose({
                         class="cursor-pointer align-middle"
                         :style="{ accentColor: 'var(--st-accent)' }"
                         :checked="isRowDisplayedSelected(row)"
-                        @click.prevent="handleRowCheckboxClick(row, $event, rowIndex)"
+                        @click="handleRowCheckboxClick(row, $event, rowIndex)"
                       />
                     </div>
                   </div>
