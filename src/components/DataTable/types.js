@@ -83,6 +83,9 @@ export const PAGE_SIZE_OPTIONS = [100, 500, 1000];
 /** Default batch size for `<MiniTable>` infinite-scroll `load-more` (parent should fetch this many rows per request). */
 export const MINI_TABLE_PAGE_SIZE = 100;
 
+/** When a single checkbox action affects more than this many rows, MiniTable shows a spinner on that control. */
+export const MINI_TABLE_BULK_SELECTION_SPINNER_THRESHOLD = 1000;
+
 export const DEFAULT_COLUMN_WIDTH = 180;
 export const ROW_NUMBER_WIDTH = 60;
 export const CHECKBOX_WIDTH = 50;

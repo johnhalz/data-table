@@ -130,6 +130,9 @@ export declare const DataTable: DefineComponent<DataTableProps>
 /** Default rows-per-request for infinite scroll (`types.js`); conventionally 100. */
 export declare const MINI_TABLE_PAGE_SIZE: number
 
+/** Checkbox bulk actions affecting more than this many rows show a spinner on the clicked control. */
+export declare const MINI_TABLE_BULK_SELECTION_SPINNER_THRESHOLD: number
+
 export interface MiniTableProps {
   column: ColumnDef<any, any>
   rows: unknown[]

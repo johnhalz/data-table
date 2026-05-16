@@ -26,7 +26,10 @@ import {
   DATA_TABLE_ROW_SELECT_COL_PX,
   DATA_TABLE_MIN_COLUMN_WIDTH_PX,
 } from './columnSizingFill.js'
-import { DATA_TABLE_FOOTER_ROW_HEIGHT_CLASSES } from './types.js'
+import {
+  DATA_TABLE_FOOTER_ROW_HEIGHT_CLASSES,
+  MINI_TABLE_BULK_SELECTION_SPINNER_THRESHOLD,
+} from './types.js'
 import { claimContextMenu, releaseContextMenu } from './contextMenuCoordinator.js'
 
 /** Provide/inject: resolved font stacks for nesting (matches DataTable). */
@@ -338,7 +341,11 @@ const additionalSelectedSet = computed(
   () => new Set((props.additionalSelectedRowIds || []).map((id) => String(id))),
 )
 
+/** While clearing, props may still hold stale additional IDs until v-model applies — treat merge as empty. */
+const clearingSelection = ref(false)
+
 function getMergedSelectedRowIds() {
+  if (clearingSelection.value) return []
   const set = new Set()
   for (const id of props.additionalSelectedRowIds || []) {
     set.add(String(id))
@@ -353,6 +360,7 @@ function getMergedSelectedRowIds() {
 let lastEmittedSelectionIds = null
 
 const mergedSelectedCount = computed(() => {
+  if (clearingSelection.value) return 0
   const addSet = additionalSelectedSet.value
   let extra = 0
   for (const k of Object.keys(rowSelection.value)) {
@@ -364,6 +372,7 @@ const hasSelection = computed(() => mergedSelectedCount.value > 0)
 const selectedCount = mergedSelectedCount
 
 function isRowDisplayedSelected(row) {
+  if (clearingSelection.value) return row.getIsSelected()
   const key = primaryKeyField.value
   const id = String(row.original[key] ?? row.original.id)
   return row.getIsSelected() || additionalSelectedSet.value.has(id)
@@ -558,6 +567,33 @@ function toggleAllPageRows() {
   table.toggleAllPageRowsSelected(!isAllPageSelected.value)
 }
 
+/** `'header'` or row id string — shows inline spinner on that checkbox while a large selection runs. */
+const bulkSelectionBusyTarget = ref(null)
+
+function yieldForSpinnerPaint() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(resolve)
+    })
+  })
+}
+
+async function handleHeaderCheckboxClick(event) {
+  event.preventDefault()
+  const n = rowModels.value.length
+  const showSpinner = n > MINI_TABLE_BULK_SELECTION_SPINNER_THRESHOLD
+  if (showSpinner) {
+    bulkSelectionBusyTarget.value = 'header'
+    await nextTick()
+    await yieldForSpinnerPaint()
+  }
+  try {
+    toggleAllPageRows()
+  } finally {
+    if (showSpinner) bulkSelectionBusyTarget.value = null
+  }
+}
+
 const lastClickedRowIndex = ref(null)
 
 function toggleRow(row, event, rowIndex) {
@@ -572,6 +608,29 @@ function toggleRow(row, event, rowIndex) {
     row.toggleSelected(!isRowDisplayedSelected(row))
   }
   lastClickedRowIndex.value = rowIndex
+}
+
+async function handleRowCheckboxClick(row, event, rowIndex) {
+  event.preventDefault()
+  let spinId = null
+  if (event.shiftKey && lastClickedRowIndex.value !== null) {
+    const start = Math.min(lastClickedRowIndex.value, rowIndex)
+    const end = Math.max(lastClickedRowIndex.value, rowIndex)
+    const count = end - start + 1
+    if (count > MINI_TABLE_BULK_SELECTION_SPINNER_THRESHOLD) {
+      spinId = String(row.id)
+    }
+  }
+  if (spinId != null) {
+    bulkSelectionBusyTarget.value = spinId
+    await nextTick()
+    await yieldForSpinnerPaint()
+  }
+  try {
+    toggleRow(row, event, rowIndex)
+  } finally {
+    if (spinId != null) bulkSelectionBusyTarget.value = null
+  }
 }
 
 const selectedCell = ref(null)
@@ -591,8 +650,14 @@ function editingChange(editing, rowId) {
 
 function clearFullSelection() {
   lastEmittedSelectionIds = null
+  clearingSelection.value = true
   table.resetRowSelection()
   emit('update:additionalSelectedRowIds', [])
+  emitSelectionChange()
+  nextTick(() => {
+    clearingSelection.value = false
+    emitSelectionChange()
+  })
 }
 
 function beginSelectionToolbarDeleteConfirmation() {
@@ -602,8 +667,14 @@ function beginSelectionToolbarDeleteConfirmation() {
 function handleDeleteRows(ids) {
   emit('delete-rows', ids)
   lastEmittedSelectionIds = null
+  clearingSelection.value = true
   table.resetRowSelection()
   emit('update:additionalSelectedRowIds', [])
+  emitSelectionChange()
+  nextTick(() => {
+    clearingSelection.value = false
+    emitSelectionChange()
+  })
 }
 
 function openDeleteConfirmation(ids) {
@@ -883,15 +954,34 @@ defineExpose({
                         boxShadow: stickyColShadow,
                       }"
                     >
+                    <div
+                      class="relative flex items-center justify-center min-h-5"
+                      :aria-busy="bulkSelectionBusyTarget === 'header' ? 'true' : undefined"
+                    >
+                      <svg
+                        v-if="bulkSelectionBusyTarget === 'header'"
+                        class="w-4 h-4 animate-spin shrink-0"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                        :style="{ color: 'var(--st-accent)' }"
+                        aria-hidden="true"
+                      >
+                        <path d="M8 3a5 5 0 104.546 2.914.5.5 0 01.908-.418A6 6 0 118 2v1z" />
+                        <path
+                          d="M8 4.466V.534a.25.25 0 01.41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 018 4.466z"
+                        />
+                      </svg>
                       <input
+                        v-else
                         type="checkbox"
                         class="cursor-pointer align-middle"
                         :style="{ accentColor: 'var(--st-accent)' }"
                         :checked="isAllPageSelected"
                         :indeterminate="isSomePageSelected"
                         title="Select all rows on this page"
-                        @change="toggleAllPageRows"
+                        @click.prevent="handleHeaderCheckboxClick"
                       />
+                    </div>
                     </th>
                     <TableColumnHeader
                       v-for="header in headerGroup.headers"
@@ -969,13 +1059,32 @@ defineExpose({
                       boxShadow: stickyColShadow,
                     }"
                   >
-                    <input
-                      type="checkbox"
-                      class="cursor-pointer align-middle"
-                      :style="{ accentColor: 'var(--st-accent)' }"
-                      :checked="isRowDisplayedSelected(row)"
-                      @click="(e) => toggleRow(row, e, rowIndex)"
-                    />
+                    <div
+                      class="relative flex items-center justify-center min-h-5"
+                      :aria-busy="bulkSelectionBusyTarget === String(row.id) ? 'true' : undefined"
+                    >
+                      <svg
+                        v-if="bulkSelectionBusyTarget === String(row.id)"
+                        class="w-4 h-4 animate-spin shrink-0"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                        :style="{ color: 'var(--st-accent)' }"
+                        aria-hidden="true"
+                      >
+                        <path d="M8 3a5 5 0 104.546 2.914.5.5 0 01.908-.418A6 6 0 118 2v1z" />
+                        <path
+                          d="M8 4.466V.534a.25.25 0 01.41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 018 4.466z"
+                        />
+                      </svg>
+                      <input
+                        v-else
+                        type="checkbox"
+                        class="cursor-pointer align-middle"
+                        :style="{ accentColor: 'var(--st-accent)' }"
+                        :checked="isRowDisplayedSelected(row)"
+                        @click.prevent="handleRowCheckboxClick(row, $event, rowIndex)"
+                      />
+                    </div>
                   </div>
                   <TableCell
                     v-for="cell in row.getVisibleCells()"
