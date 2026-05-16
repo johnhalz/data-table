@@ -349,7 +349,17 @@ function getMergedSelectedRowIds() {
   return [...set]
 }
 
-const mergedSelectedCount = computed(() => getMergedSelectedRowIds().length)
+/** Avoid selection-change feedback loops when parent reassigns the same merged IDs (new array ref). */
+let lastEmittedSelectionIds = null
+
+const mergedSelectedCount = computed(() => {
+  const addSet = additionalSelectedSet.value
+  let extra = 0
+  for (const k of Object.keys(rowSelection.value)) {
+    if (!addSet.has(String(k))) extra++
+  }
+  return addSet.size + extra
+})
 const hasSelection = computed(() => mergedSelectedCount.value > 0)
 const selectedCount = mergedSelectedCount
 
@@ -370,7 +380,19 @@ const highlightedRowIdStr = computed(() =>
 provide('highlightedRowId', highlightedRowIdStr)
 
 function emitSelectionChange() {
-  emit('selection-change', getMergedSelectedRowIds())
+  const newIds = getMergedSelectedRowIds()
+  if (lastEmittedSelectionIds !== null && lastEmittedSelectionIds.length === newIds.length) {
+    let same = true
+    for (let i = 0; i < newIds.length; i++) {
+      if (newIds[i] !== lastEmittedSelectionIds[i]) {
+        same = false
+        break
+      }
+    }
+    if (same) return
+  }
+  lastEmittedSelectionIds = newIds
+  emit('selection-change', newIds)
 }
 
 watch([rowSelection, () => props.additionalSelectedRowIds], () => emitSelectionChange(), {
@@ -568,6 +590,7 @@ function editingChange(editing, rowId) {
 }
 
 function clearFullSelection() {
+  lastEmittedSelectionIds = null
   table.resetRowSelection()
   emit('update:additionalSelectedRowIds', [])
 }
@@ -578,6 +601,7 @@ function beginSelectionToolbarDeleteConfirmation() {
 
 function handleDeleteRows(ids) {
   emit('delete-rows', ids)
+  lastEmittedSelectionIds = null
   table.resetRowSelection()
   emit('update:additionalSelectedRowIds', [])
 }
