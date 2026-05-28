@@ -1,5 +1,5 @@
 <script setup>
-import { computed, inject, unref, toValue } from 'vue'
+import { computed, inject, isRef, unref, toValue } from 'vue'
 import TableCell from './TableCell.vue'
 import DataTable from './DataTable.vue'
 import { DATA_TABLE_ROW_NUMBER_COL_PX, DATA_TABLE_ROW_SELECT_COL_PX } from './columnSizingFill.js'
@@ -80,6 +80,11 @@ const nestedSubTableVBind = computed(() => {
     onSortChange: typeof onSortChange === 'function' ? onSortChange : null,
   }
 })
+
+function handleNestedSortChange(sorting) {
+  nestedSubTableVBind.value.onSortChange?.(sorting)
+  if (isRef(subTableSorting)) subTableSorting.value = sorting
+}
 
 const expandedMap = computed(() => unref(expandedInject) ?? {})
 
@@ -230,7 +235,7 @@ const wrapperStyle = computed(() => {
           :controlled-column-visibility="subTableColumnVisibility"
           @row-action="(key, rowData) => nestedSubTableVBind.onRowAction?.(key, rowData)"
           @page-change="(p) => nestedSubTableVBind.onPageChange?.(p)"
-          @sort-change="(s) => nestedSubTableVBind.onSortChange?.(s)"
+          @sort-change="handleNestedSortChange"
         />
       </div>
     </div>
