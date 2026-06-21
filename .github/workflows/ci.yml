@@ -4,11 +4,18 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      - name: Cleanup old workflow artifacts
+        uses: ./.github/actions/cleanup-artifacts
 
       - uses: oven-sh/setup-bun@v2
         with:

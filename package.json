@@ -1,6 +1,6 @@
 {
   "name": "@johnhalazonetis/data-table",
-  "version": "1.28.1",
+  "version": "1.28.2",
   "description": "Feature-rich Vue 3 data grid built on TanStack Table",
   "license": "MIT",
   "repository": {

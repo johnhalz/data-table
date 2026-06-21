@@ -1,0 +1,76 @@
+name: Cleanup old workflow artifacts
+description: Delete stale workflow artifacts to avoid Actions storage quota issues
+
+inputs:
+  retain-days:
+    description: Delete artifacts older than this many days from other workflow runs
+    required: false
+    default: '1'
+  include-current-run:
+    description: When true, also delete matching artifacts created by the current workflow run
+    required: false
+    default: 'false'
+  artifact-name:
+    description: Optional artifact name filter (omit to match all artifact names)
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/github-script@v7
+      with:
+        script: |
+          const retainDays = Number('${{ inputs.retain-days }}');
+          if (!Number.isFinite(retainDays) || retainDays < 0) {
+            throw new Error(`Invalid retain-days: ${{ inputs.retain-days }}`);
+          }
+
+          const includeCurrentRun = '${{ inputs.include-current-run }}' === 'true';
+          const artifactName = '${{ inputs.artifact-name }}'.trim();
+          const cutoff = Date.now() - retainDays * 24 * 60 * 60 * 1000;
+          const currentRunId = context.runId;
+          const { owner, repo } = context.repo;
+
+          const artifacts = await github.paginate(
+            github.rest.actions.listArtifactsForRepo,
+            { owner, repo, per_page: 100 },
+          );
+
+          let deleted = 0;
+          let kept = 0;
+
+          for (const artifact of artifacts) {
+            if (artifactName && artifact.name !== artifactName) {
+              kept++;
+              continue;
+            }
+
+            const fromCurrentRun = artifact.workflow_run?.id === currentRunId;
+            const isStale = new Date(artifact.created_at).getTime() < cutoff;
+
+            const shouldDelete =
+              (includeCurrentRun && fromCurrentRun) ||
+              (!fromCurrentRun && isStale);
+
+            if (!shouldDelete) {
+              kept++;
+              continue;
+            }
+
+            try {
+              await github.rest.actions.deleteArtifact({
+                owner,
+                repo,
+                artifact_id: artifact.id,
+              });
+              deleted++;
+              console.log(
+                `Deleted artifact ${artifact.id} (${artifact.name}, ${artifact.size_in_bytes} bytes, ${artifact.created_at})`,
+              );
+            } catch (error) {
+              console.warn(`Failed to delete artifact ${artifact.id}: ${error.message}`);
+            }
+          }
+
+          console.log(`Artifact cleanup: deleted=${deleted}, kept=${kept}`);
