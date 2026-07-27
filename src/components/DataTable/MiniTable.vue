@@ -306,6 +306,8 @@ function operatorFilterFn(row, columnId, filterValue) {
       return cellStr.includes(value)
     case '~~*':
       return cellStr.toLowerCase().includes(value.toLowerCase())
+    case '!~~*':
+      return cellValue != null && !cellStr.toLowerCase().includes(String(value).toLowerCase())
     case 'in': {
       const list = value.split(',').map((s) => s.trim())
       return list.includes(cellStr)

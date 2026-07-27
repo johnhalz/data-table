@@ -56,6 +56,8 @@ function cellMatchesMiniFilter(row, filter) {
       return cellStr.includes(String(value))
     case '~~*':
       return cellStr.toLowerCase().includes(String(value).toLowerCase())
+    case '!~~*':
+      return cellValue != null && !cellStr.toLowerCase().includes(String(value).toLowerCase())
     case '=':
       return cellStr === String(value)
     default:

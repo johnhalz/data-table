@@ -318,7 +318,7 @@ col.accessor('field_name', {
 ## Features
 
 ### Toolbar
-- **Filter bar** — Click to add column filters with operator support (equals, like, greater than, etc.)
+- **Filter bar** — Click to add column filters with operator support (equals, comparisons, pattern matching: **`~~*`** case-insensitive contains, **`~~`** case-sensitive contains, **`!~~*`** excludes, plus in-list and null checks)
 - **Sort** — Multi-column sort with drag-and-drop reordering, ASC/DESC toggle
 - **Columns** — Toggle column visibility with Show All / Default reset
 - **Insert** — When `editable.insert` is true: if `defaultInsertLabel` is set, primary click emits `insert-row`; pairing with `insertActions` adds a chevron menu that emits `insert-action` per item. With no default label, an **Insert** dropdown lists `insertActions` or built-in items (insert row / column / CSV placeholder). Optional `toolbarActions` adds a separate **Actions** menu next to Sort.

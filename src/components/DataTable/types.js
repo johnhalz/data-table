@@ -17,7 +17,7 @@
 /**
  * @typedef {Object} Filter
  * @property {string} column - Column name
- * @property {string} operator - Filter operator (=, <>, >, <, >=, <=, ~~, ~~*, in, is)
+ * @property {string} operator - Filter operator (=, <>, >, <, >=, <=, ~~, ~~*, !~~*, in, is)
  * @property {string} value - Filter value
  */
 
@@ -67,8 +67,9 @@ export const FILTER_OPERATORS = [
   {
     group: "Pattern Matching",
     operators: [
-      { label: "Contains", value: "~~" },
-      { label: "Excludes", value: "~~*" },
+      { label: "Contains", value: "~~*" },
+      { label: "Contains (case sensitive)", value: "~~" },
+      { label: "Excludes", value: "!~~*" },
     ],
   },
   {
