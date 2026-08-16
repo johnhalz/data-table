@@ -1,7 +1,7 @@
 <script setup>
 import TableGridDataRow from './TableGridDataRow.vue'
 
-defineProps({
+const props = defineProps({
   rows: { type: Array, required: true },
   totalTableWidth: { type: Number, required: true },
   selectedCell: { type: String, default: null },
@@ -21,6 +21,18 @@ const emit = defineEmits([
 function orderForIndex(i, state) {
   return state.pageIndex * state.pageSize + i + 1
 }
+
+/**
+ * Derive per-row selection props from the single global `selectedCell` string so an
+ * unrelated row's props stay referentially equal across a click — Vue then skips
+ * re-rendering it instead of every row re-evaluating its cells on every selection change.
+ */
+function selectedColIdForRow(rowId) {
+  const sel = props.selectedCell
+  if (!sel) return null
+  const prefix = `${rowId}:`
+  return sel.startsWith(prefix) ? sel.slice(prefix.length) : null
+}
 </script>
 
 <template>
@@ -32,8 +44,8 @@ function orderForIndex(i, state) {
       :row-index="rowIndex"
       :order-number="orderForIndex(rowIndex, paginationState)"
       :total-table-width="totalTableWidth"
-      :selected-cell="selectedCell"
-      :editing-row-id="editingRowId"
+      :selected-col-id="selectedColIdForRow(row.id)"
+      :is-editing="editingRowId === row.id"
       @toggle-row-select="(r, e, idx) => emit('toggle-row-select', r, e, idx)"
       @edit-row="(orig) => emit('edit-row', orig)"
       @context-menu="(ev, r, cell) => emit('context-menu', ev, r, cell)"

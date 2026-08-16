@@ -11,8 +11,9 @@ const props = defineProps({
   /** `null`: document-flow layout (stable scrollbar). Else: TanStack Virtual Y offset */
   virtualOffsetY: { type: Number, default: null },
   totalTableWidth: { type: Number, required: true },
-  selectedCell: { type: String, default: null },
-  editingRowId: { type: [String, Number, null], default: null },
+  /** This row's selected column id, already resolved by the parent (`TableGrid*Rows`) from its single global `selectedCell`. */
+  selectedColId: { type: String, default: null },
+  isEditing: { type: Boolean, default: false },
 })
 
 const editableInject = inject('editable', true)
@@ -106,7 +107,7 @@ const wrapperStyle = computed(() => {
     left: '0px',
     width: '100%',
     transform: `translateY(${props.virtualOffsetY}px)`,
-    zIndex: props.editingRowId === props.row.id ? 5 : 'auto',
+    zIndex: props.isEditing ? 5 : 'auto',
   }
 })
 </script>
@@ -199,7 +200,7 @@ const wrapperStyle = computed(() => {
         v-for="cell in row.getVisibleCells()"
         :key="cell.id"
         :cell="cell"
-        :is-selected="selectedCell === `${row.id}:${cell.column.id}`"
+        :is-selected="selectedColId === cell.column.id"
         @select="$emit('select-cell', row.id, cell.column.id)"
         @update="(value) => $emit('update-cell', row.id, cell.column.id, value)"
         @editing-change="(editing) => $emit('editing-change', editing, row.id)"
