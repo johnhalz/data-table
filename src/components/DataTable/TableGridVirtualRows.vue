@@ -21,6 +21,18 @@ const emit = defineEmits([
   'editing-change',
 ])
 
+/**
+ * Derive per-row selection props from the single global `selectedCell` string so an
+ * unrelated row's props stay referentially equal across a click — Vue then skips
+ * re-rendering it instead of every row re-evaluating its cells on every selection change.
+ */
+function selectedColIdForRow(rowId) {
+  const sel = props.selectedCell
+  if (!sel) return null
+  const prefix = `${rowId}:`
+  return sel.startsWith(prefix) ? sel.slice(prefix.length) : null
+}
+
 const cellOverflowProvided = inject('cellOverflow', 'truncate')
 const getSubTable = inject('getSubTable', null)
 const expandedInject = inject('expanded')
@@ -104,8 +116,8 @@ function orderForIndex(i) {
       :order-number="orderForIndex(vRow.index)"
       :virtual-offset-y="vRow.start"
       :total-table-width="totalTableWidth"
-      :selected-cell="selectedCell"
-      :editing-row-id="editingRowId"
+      :selected-col-id="selectedColIdForRow(rows[vRow.index]?.id)"
+      :is-editing="editingRowId === rows[vRow.index]?.id"
       @toggle-row-select="(r, e, idx) => emit('toggle-row-select', r, e, idx)"
       @edit-row="(orig) => emit('edit-row', orig)"
       @context-menu="(ev, row, cell) => emit('context-menu', ev, row, cell)"
