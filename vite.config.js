@@ -19,7 +19,7 @@ export default defineConfig(() => {
           fileName: () => 'data-table.js',
         },
         rollupOptions: {
-          external: ['vue', '@tanstack/vue-table', '@tanstack/vue-virtual', '@vueuse/core'],
+          external: ['vue', '@tanstack/vue-table', '@tanstack/vue-virtual'],
           output: {
             entryFileNames: 'data-table.js',
             assetFileNames: 'data-table.[ext]',

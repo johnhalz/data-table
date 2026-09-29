@@ -1,4 +1,49 @@
-@import "tailwindcss";
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/**
+ * Tailwind's preflight is NOT imported: it would reset margins/borders/fonts on the host page.
+ * This is the subset the components rely on, scoped to `.data-table-root` (the table root and
+ * every teleported menu/dialog carries that class). Base layer, so utilities still win.
+ */
+@layer base {
+  :where(.data-table-root, .data-table-root *),
+  :where(.data-table-root) ::before,
+  :where(.data-table-root) ::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+  }
+  :where(.data-table-root) :where(button, input, select, textarea) {
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+    background-color: transparent;
+    border-radius: 0;
+  }
+  :where(.data-table-root) ::placeholder {
+    opacity: 1;
+    color: color-mix(in oklab, currentcolor 50%, transparent);
+  }
+  :where(.data-table-root) :where(table) {
+    border-collapse: collapse;
+    text-indent: 0;
+    border-color: inherit;
+  }
+  :where(.data-table-root) :where(h1, h2, h3, h4, h5, h6) {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+  :where(.data-table-root) :where(svg, img) {
+    display: block;
+    vertical-align: middle;
+  }
+  :where(.data-table-root) :where(code) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+}
 
 /**
  * All embeddable table UI typography + scrollbars are scoped under `.data-table-root`
@@ -9,6 +54,10 @@
   isolation: isolate;
   /* --dt-font-family is always set inline on this element (bundled default or `fontFamily` prop). */
   font-family: var(--dt-font-family);
+  /* Preflight used to supply these via `html`; the host page may not. */
+  line-height: 1.5;
+  tab-size: 4;
+  -webkit-text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 

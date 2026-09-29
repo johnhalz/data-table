@@ -94,7 +94,7 @@ function onBackdropClick() {
       <div
         v-if="showPicker"
         ref="pickerRef"
-        class="fixed z-50"
+        class="data-table-root fixed z-50"
         :style="{
           ...themeVars,
           top: triggerRef ? (triggerRef.getBoundingClientRect().bottom + 6) + 'px' : '0',

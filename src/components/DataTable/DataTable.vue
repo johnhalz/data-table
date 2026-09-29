@@ -1,11 +1,19 @@
 <script setup>
-import { ref, computed, provide, inject, watch, onMounted, onUnmounted, nextTick, unref } from 'vue'
+import { ref, computed, provide, inject, watch, onMounted, onUnmounted, nextTick, toRef } from 'vue'
 import {
-  useVueTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
+  useTable,
+  tableFeatures,
+  rowSortingFeature,
+  columnFilteringFeature,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  columnSizingFeature,
+  columnResizingFeature,
+  columnVisibilityFeature,
+  createSortedRowModel,
+  createFilteredRowModel,
+  createPaginatedRowModel,
+  sortFns,
 } from '@tanstack/vue-table'
 import TableToolbar from './TableToolbar.vue'
 import SelectionToolbar from './SelectionToolbar.vue'
@@ -22,13 +30,30 @@ import {
 import { widthPxForCellButtons } from './cellButtonWidth.js'
 import { claimContextMenu, releaseContextMenu } from './contextMenuCoordinator.js'
 import { PENDING_EDIT_KINDS, PENDING_INSERT_ID_PREFIX } from './types.js'
+import {
+  DT_FONT_FAMILY_KEY,
+  DEFAULT_DT_FONT,
+  resolveFontFamily,
+  buildThemeVars,
+  operatorFilterFn,
+  applyUpdater,
+  stripDeselectedAdditional,
+} from './utils.js'
 
-/** Provide/inject: resolved font stacks for nesting (see `fontFamily` prop). */
-const DT_FONT_FAMILY_KEY = Symbol('dataTable.fontFamily')
-
-/** Default UI stack when `font-family` prop is omitted (matches shipped CSS fallback). */
-const DEFAULT_DT_FONT =
-  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+const features = tableFeatures({
+  rowSortingFeature,
+  columnFilteringFeature,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  columnSizingFeature,
+  columnResizingFeature,
+  columnVisibilityFeature,
+  sortedRowModel: createSortedRowModel(),
+  filteredRowModel: createFilteredRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+  sortFns,
+  filterFns: { operator: operatorFilterFn },
+})
 
 const props = defineProps({
   columns: { type: Array, required: true },
@@ -111,73 +136,11 @@ const props = defineProps({
   stagedEdits: { type: Boolean, default: false },
 })
 
-// Theme CSS custom properties
-function darkenHex(hex, amount) {
-  const num = parseInt(hex.replace('#', ''), 16)
-  const r = Math.max(0, (num >> 16) - amount)
-  const g = Math.max(0, ((num >> 8) & 0xff) - amount)
-  const b = Math.max(0, (num & 0xff) - amount)
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
-}
-
-function luminance(hex) {
-  const num = parseInt(hex.replace('#', ''), 16)
-  const r = (num >> 16) / 255
-  const g = ((num >> 8) & 0xff) / 255
-  const b = (num & 0xff) / 255
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b
-}
-
-const themeVars = computed(() => {
-  const dark = props.theme === 'dark'
-  const accent = props.accentColor
-  const accentHover = darkenHex(accent, 20)
-  const accentOnText = luminance(accent) > 0.4 ? '#000' : '#fff'
-  // For active indicator borders/text using accent at partial opacity
-  const accentBg10 = `color-mix(in srgb, ${accent} 10%, transparent)`
-  const accentBorder40 = `color-mix(in srgb, ${accent} 40%, transparent)`
-  const accentBorder30 = `color-mix(in srgb, ${accent} 30%, transparent)`
-
-  return {
-    '--st-bg':               dark ? '#1c1c1c' : '#ffffff',
-    '--st-bg-header':        dark ? '#2a2a2a' : '#f4f4f5',
-    '--st-bg-surface':       dark ? '#2a2a2a' : '#ffffff',
-    '--st-bg-input':         dark ? '#2a2a2a' : '#f4f4f5',
-    '--st-bg-row-hover':     dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-    '--st-bg-menu-hover':    dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
-    '--st-bg-selected':      dark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.08)',
-    '--st-bg-selected-cell': dark ? 'rgba(59,130,246,0.25)' : 'rgba(59,130,246,0.12)',
-    '--st-bg-overlay':       dark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)',
-    '--st-bg-panel-overlay': dark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.15)',
-    '--st-border':           dark ? '#333333' : '#e4e4e7',
-    '--st-border-secondary': dark ? '#444444' : '#d4d4d8',
-    '--st-border-tertiary':  dark ? '#555555' : '#a1a1aa',
-    '--st-text':             dark ? '#e5e5e5' : '#18181b',
-    '--st-text-secondary':   dark ? '#a1a1aa' : '#52525b',
-    '--st-text-tertiary':    dark ? '#71717a' : '#a1a1aa',
-    '--st-text-placeholder': dark ? '#52525b' : '#a1a1aa',
-    '--st-text-on-accent':   accentOnText,
-    '--st-accent':           accent,
-    '--st-accent-hover':     accentHover,
-    '--st-accent-bg':        accentBg10,
-    '--st-accent-border':    accentBorder40,
-    '--st-accent-border-light': accentBorder30,
-    '--st-toggle-off':       dark ? '#52525b' : '#d4d4d8',
-    '--st-shadow-sticky':    dark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.08)',
-    '--st-danger':           dark ? '#f87171' : '#dc2626',
-  }
-})
+const themeVars = computed(() => buildThemeVars(props.theme, props.accentColor))
 
 const parentFontFamily = inject(DT_FONT_FAMILY_KEY, null)
 
-const resolvedFontFamily = computed(() => {
-  if (props.fontFamily != null && String(props.fontFamily).trim() !== '') {
-    return String(props.fontFamily).trim()
-  }
-  const p = parentFontFamily == null ? null : unref(parentFontFamily)
-  if (p != null && String(p).trim() !== '') return String(p).trim()
-  return null
-})
+const resolvedFontFamily = computed(() => resolveFontFamily(props.fontFamily, parentFontFamily))
 
 provide(DT_FONT_FAMILY_KEY, resolvedFontFamily)
 
@@ -202,9 +165,6 @@ const emit = defineEmits([
   'insert-row',
   'update-row',
   'delete-rows',
-  'insert-column',
-  'update-column',
-  'delete-column',
   'refresh',
   'selection-action',
   'row-action',
@@ -243,7 +203,7 @@ const columnFilters = ref(props.controlledColumnFilters ?? props.columnFilters ?
 const rowSelection = ref({})
 const pagination = ref({ pageIndex: 0, pageSize: 100 })
 const columnSizing = ref({})
-const columnSizingInfo = ref({
+const columnResizing = ref({
   startOffset: null,
   startSize: null,
   deltaOffset: null,
@@ -292,45 +252,6 @@ function toggleRowExpanded(rowId) {
       ...internalExpanded.value,
       [rowId]: !internalExpanded.value[rowId],
     }
-  }
-}
-
-// Custom filter function that supports operator-based filtering
-function operatorFilterFn(row, columnId, filterValue) {
-  if (!filterValue || typeof filterValue !== 'object') return true
-  const { operator, value } = filterValue
-  if (!operator || value === '' || value === undefined) return true
-
-  const cellValue = row.getValue(columnId)
-  const cellStr = cellValue == null ? '' : String(cellValue)
-  const cellNum = Number(cellValue)
-  const valNum = Number(value)
-  const bothNumeric = !isNaN(cellNum) && !isNaN(valNum) && value !== ''
-
-  switch (operator) {
-    case '=': return cellStr === value
-    case '<>': return cellStr !== value
-    case '>': return bothNumeric ? cellNum > valNum : cellStr > value
-    case '<': return bothNumeric ? cellNum < valNum : cellStr < value
-    case '>=': return bothNumeric ? cellNum >= valNum : cellStr >= value
-    case '<=': return bothNumeric ? cellNum <= valNum : cellStr <= value
-    case '~~': return cellStr.includes(value)
-    case '~~*': return cellStr.toLowerCase().includes(value.toLowerCase())
-    case '!~~*':
-      return cellValue != null && !cellStr.toLowerCase().includes(String(value).toLowerCase())
-    case 'in': {
-      const list = value.split(',').map(s => s.trim())
-      return list.includes(cellStr)
-    }
-    case 'is': {
-      const v = value.toLowerCase()
-      if (v === 'null') return cellValue == null
-      if (v === 'not null') return cellValue != null
-      if (v === 'true') return cellValue === true
-      if (v === 'false') return cellValue === false
-      return true
-    }
-    default: return cellStr.toLowerCase().includes(value.toLowerCase())
   }
 }
 
@@ -562,12 +483,10 @@ function discardEdits() {
   emit('discard-edits')
 }
 
-// Drive TanStack with a computed so @tanstack/vue-table's watchEffect re-runs when `props.rows`
-// changes. A plain ref + inner .value updates alone can fail to refresh row models (nested ref).
-const table = useVueTable({
+const table = useTable({
+  features,
   data: effectiveRows,
   get columns() { return props.columns },
-  filterFns: { operator: operatorFilterFn },
   defaultColumn: { filterFn: 'operator' },
   state: {
     get sorting() { return sorting.value },
@@ -575,120 +494,73 @@ const table = useVueTable({
     get rowSelection() { return rowSelection.value },
     get pagination() { return pagination.value },
     get columnSizing() { return columnSizing.value },
-    get columnSizingInfo() { return columnSizingInfo.value },
+    get columnResizing() { return columnResizing.value },
     get columnVisibility() { return columnVisibility.value },
   },
   get manualSorting() { return isServerPagination.value },
   get manualFiltering() { return isServerPagination.value },
-  onSortingChange: updater => {
-    sorting.value = typeof updater === 'function' ? updater(sorting.value) : updater
-    if (isServerPagination.value) {
-      emit('sort-change', sorting.value)
-    }
-  },
-  onColumnFiltersChange: updater => {
-    columnFilters.value = typeof updater === 'function' ? updater(columnFilters.value) : updater
-    emit('update:column-filters', columnFilters.value)
-  },
-  onRowSelectionChange: updater => {
-    const prev = rowSelection.value
-    const next = typeof updater === 'function' ? updater(prev) : updater
-    if (isServerPagination.value && (props.additionalSelectedRowIds?.length ?? 0) > 0) {
-      const prevKeys = new Set(Object.keys(prev))
-      const nextKeys = new Set(Object.keys(next))
-      const removed = [...prevKeys].filter((k) => !nextKeys.has(k))
-      if (removed.length > 0) {
-        const addList = props.additionalSelectedRowIds || []
-        const addSet = new Set(addList.map(String))
-        const toStrip = removed.filter((id) => addSet.has(String(id)))
-        if (toStrip.length > 0) {
-          const strip = new Set(toStrip.map(String))
-          emit(
-            'update:additionalSelectedRowIds',
-            addList.filter((id) => !strip.has(String(id))),
-          )
-        }
-      }
-    }
-    rowSelection.value = next
-  },
-  onPaginationChange: updater => {
-    const next = typeof updater === 'function' ? updater(pagination.value) : updater
-    pagination.value = next
-    if (isServerPagination.value) {
-      emit('page-change', { pageIndex: next.pageIndex, pageSize: next.pageSize })
-    }
-  },
-  onColumnSizingChange: updater => {
-    const next = typeof updater === 'function' ? updater(columnSizing.value) : updater
-    columnSizing.value = next
-  },
-  onColumnSizingInfoChange: updater => {
-    const prev = columnSizingInfo.value
-    const next = typeof updater === 'function' ? updater(prev) : updater
-    columnSizingInfo.value = next
-    if (prev.isResizingColumn && !next.isResizingColumn) {
-      emit('column-resize', columnSizing.value)
-    }
-  },
-  onColumnVisibilityChange: updater => {
-    columnVisibility.value = typeof updater === 'function' ? updater(columnVisibility.value) : updater
-  },
-  getCoreRowModel: getCoreRowModel(),
-  getSortedRowModel: getSortedRowModel(),
-  getFilteredRowModel: getFilteredRowModel(),
-  getPaginationRowModel: getPaginationRowModel(),
   get manualPagination() { return isServerPagination.value },
   get pageCount() {
     if (!isServerPagination.value) return undefined
     return Math.ceil(props.totalCount / pagination.value.pageSize)
   },
-  enableRowSelection: true,
-  enableMultiRowSelection: true,
+  onSortingChange: updater => {
+    sorting.value = applyUpdater(updater, sorting.value)
+    if (isServerPagination.value) emit('sort-change', sorting.value)
+  },
+  onColumnFiltersChange: updater => {
+    columnFilters.value = applyUpdater(updater, columnFilters.value)
+    emit('update:column-filters', columnFilters.value)
+  },
+  onRowSelectionChange: updater => {
+    const next = applyUpdater(updater, rowSelection.value)
+    const stripped = stripDeselectedAdditional(rowSelection.value, next, props.additionalSelectedRowIds)
+    if (stripped) emit('update:additionalSelectedRowIds', stripped)
+    rowSelection.value = next
+  },
+  onPaginationChange: updater => {
+    pagination.value = applyUpdater(updater, pagination.value)
+    if (isServerPagination.value) emit('page-change', { ...pagination.value })
+  },
+  onColumnSizingChange: updater => {
+    columnSizing.value = applyUpdater(updater, columnSizing.value)
+  },
+  onColumnResizingChange: updater => {
+    const prev = columnResizing.value
+    columnResizing.value = applyUpdater(updater, prev)
+    if (prev.isResizingColumn && !columnResizing.value.isResizingColumn) {
+      emit('column-resize', columnSizing.value)
+    }
+  },
+  onColumnVisibilityChange: updater => {
+    columnVisibility.value = applyUpdater(updater, columnVisibility.value)
+  },
+  enableRowRangeSelection: false,
   enableColumnResizing: true,
   columnResizeMode: 'onChange',
   getRowId: (row) => row.__stagedId ? String(row.__stagedId) : String(row[primaryKeyField.value] ?? row.id),
 })
 
-/**
- * Leaf-column `meta` from `props.columns`. TanStack merges `defaultColumn` with defs; shallow merges
- * plus reactive proxies can drop function-valued keys (`badge`, `suffixIcon`, …) from `column.columnDef.meta`.
- * TableCell merges this back so badge renderers resolve reliably.
- */
-const originalColumnMetaById = computed(() => {
-  const map = Object.create(null)
-  function walk(cols) {
-    if (!Array.isArray(cols)) return
-    for (const c of cols) {
-      const id = c.id ?? c.accessorKey
-      if (id != null && c.meta) map[String(id)] = c.meta
-      if (c.columns?.length) walk(c.columns)
-    }
+/** `base` plus every on-page row whose id the parent holds in `additionalSelectedRowIds` (server mode only). */
+function withAdditionalOnPage(base) {
+  const add = props.additionalSelectedRowIds
+  if (props.totalCount == null || !add?.length) return base
+  const addSet = new Set(add.map(String))
+  const pk = primaryKeyField.value
+  const next = { ...base }
+  for (const row of props.rows) {
+    const id = String(row[pk] ?? row.id)
+    if (addSet.has(id)) next[id] = true
   }
-  walk(props.columns)
-  return map
-})
+  return next
+}
 
-watch(
-  () => [props.rows, props.additionalSelectedRowIds, props.totalCount],
-  () => {
-    if (props.totalCount == null) return
-    const add = new Set((props.additionalSelectedRowIds || []).map(String))
-    if (add.size === 0) return
-    const pk = primaryKeyField.value
-    const next = { ...rowSelection.value }
-    let changed = false
-    for (const row of props.rows) {
-      const id = String(row[pk] ?? row.id)
-      if (add.has(id) && !next[id]) {
-        next[id] = true
-        changed = true
-      }
-    }
-    if (changed) rowSelection.value = next
-  },
-  { deep: true },
-)
+// New rows (page change / refetch) reset the checkbox state, keeping cross-page selections from the parent.
+// Assigned directly (not via resetRowSelection) so the reset doesn't strip the parent's additional ids.
+watch(() => props.rows, () => { rowSelection.value = withAdditionalOnPage({}) })
+watch(() => [props.additionalSelectedRowIds, props.additionalSelectedRowIds?.length, props.totalCount], () => {
+  rowSelection.value = withAdditionalOnPage(rowSelection.value)
+})
 
 function clearFullSelection() {
   table.resetRowSelection()
@@ -739,7 +611,7 @@ function handleSavePanel(data) {
       }
       if (Object.keys(changes).length > 0) queueUpdate(rowId, changes)
     } else {
-      emit('update-row', { id: data.id, changes: data })
+      emit('update-row', { id: data[primaryKeyField.value] ?? data.id, changes: data })
     }
   }
   closeEditPanel()
@@ -812,18 +684,16 @@ function handleFilterByValue(colId, val) {
 }
 
 provide('themeVars', computed(() => ({ ...themeVars.value, ...fontCssVars.value })))
-provide('originalColumnMetaById', originalColumnMetaById)
 provide('table', table)
-/** Lets row-model computeds subscribe to data changes (TanStack table is not reactive). */
-provide('tableSourceRows', effectiveRows)
-provide('tableName', props.tableName)
-provide('showDataTypes', props.showDataTypes)
+provide('tableName', toRef(props, 'tableName'))
+provide('showDataTypes', toRef(props, 'showDataTypes'))
 provide('editable', editableCaps)
-provide('showRowBorders', props.showRowBorders)
-provide('showColumnBorders', props.showColumnBorders)
+provide('showRowBorders', toRef(props, 'showRowBorders'))
+provide('showColumnBorders', toRef(props, 'showColumnBorders'))
 provide('cellButtonVisibility', computed(() => props.cellButtonVisibility))
 provide('cellOverflow', computed(() => props.cellOverflow))
 provide('insertRow', () => emit('insert-row'))
+provide('emitInsertAction', (key) => emit('insert-action', key))
 provide('openInsertPanel', openInsertPanel)
 provide('emptyTitle', computed(() => props.emptyTitle))
 provide('emptyMessage', computed(() => props.emptyMessage))
@@ -833,7 +703,7 @@ provide('loading', computed(() => props.loading))
 // Expandable row groups
 provide('expanded', expanded)
 provide('toggleRowExpanded', toggleRowExpanded)
-provide('getSubTable', props.getSubTable)
+provide('getSubTable', toRef(props, 'getSubTable'))
 provide('nestingDepth', props.nestingDepth)
 provide('parentTheme', computed(() => props.theme))
 provide('parentAccentColor', computed(() => props.accentColor))
@@ -848,16 +718,15 @@ provide('getCellPreviousValue', getCellPreviousValue)
 provide('undoRowEdit', undoRowEdit)
 provide('undoCellEdit', undoCellEdit)
 
-// Reset selection when rows change
-watch(() => props.rows, () => {
-  table.resetRowSelection()
-})
+/** Reused across sizing passes instead of allocating a canvas each time. */
+let measureCtx = null
 
 /** Canvas/content-based widths (min 60, max 500) for every leaf column. */
 function computeContentSizedColumns() {
   const sizing = {}
   if (typeof document === 'undefined') return sizing
-  const ctx = document.createElement('canvas').getContext('2d')
+  measureCtx ??= document.createElement('canvas').getContext('2d')
+  const ctx = measureCtx
   if (!ctx) return sizing
 
   let fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'

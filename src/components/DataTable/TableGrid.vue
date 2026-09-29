@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, inject, useTemplateRef, unref, toValue } from 'vue'
+import { onClickOutside } from './utils.js'
 import TableColumnHeader from './TableColumnHeader.vue'
 import TableGridVirtualRows from './TableGridVirtualRows.vue'
 import TableGridFlowRows from './TableGridFlowRows.vue'
@@ -24,13 +25,7 @@ const props = defineProps({
   table: { type: Object, required: true },
 })
 
-const editableInject = inject('editable', true)
-const editable = computed(() => {
-  const e = unref(editableInject)
-  if (e === true) return { insert: true, update: true, delete: true }
-  if (e === false) return { insert: false, update: false, delete: false }
-  return { insert: true, update: true, delete: true, ...e }
-})
+const editable = inject('editable')
 const showRowBorders = inject('showRowBorders', true)
 const showColumnBorders = inject('showColumnBorders', true)
 const loadingInject = inject('loading', false)
@@ -53,8 +48,11 @@ const emptyStatePlainPrimaryInsert = computed(() => {
   return resolvedInsertActions.value.length === 0
 })
 const insertRow = inject('insertRow', () => {})
+const emitInsertAction = inject('emitInsertAction', () => {})
 
 const showEmptyInsertMenu = ref(false)
+const emptyInsertRef = ref(null)
+onClickOutside(emptyInsertRef, () => { showEmptyInsertMenu.value = false })
 const nestingDepth = inject('nestingDepth', 0)
 
 const emit = defineEmits(['update-cell', 'context-menu', 'edit-row'])
@@ -62,12 +60,7 @@ const emit = defineEmits(['update-cell', 'context-menu', 'edit-row'])
 const selectedCell = ref(null)
 const editingRowId = ref(null)
 
-const tableSourceRows = inject('tableSourceRows', null)
-
-const headerGroups = computed(() => {
-  if (tableSourceRows != null) void toValue(tableSourceRows)
-  return props.table.getHeaderGroups()
-})
+const headerGroups = computed(() => props.table.getHeaderGroups())
 
 // Total table width = sticky chrome (# + checkbox) + sum of all visible column sizes
 const totalTableWidth = computed(() => {
@@ -75,17 +68,11 @@ const totalTableWidth = computed(() => {
   return DATA_TABLE_STICKY_CHROME_PX + dataColWidth
 })
 
-const rows = computed(() => {
-  if (tableSourceRows != null) void toValue(tableSourceRows)
-  return props.table.getRowModel().rows
-})
+const rows = computed(() => props.table.getRowModel().rows)
 
-const visibleColumns = computed(() => {
-  if (tableSourceRows != null) void toValue(tableSourceRows)
-  return props.table.getVisibleLeafColumns()
-})
+const visibleColumns = computed(() => props.table.getVisibleLeafColumns())
 
-const paginationState = computed(() => props.table.getState().pagination)
+const paginationState = computed(() => props.table.atoms.pagination?.get() ?? { pageIndex: 0, pageSize: rows.value.length })
 
 const isRowDisplayedSelectedFn = inject('isRowDisplayedSelected', null)
 
@@ -140,7 +127,7 @@ function toggleRow(row, event, rowIndex) {
 }
 
 const stickyColShadow = computed(() => {
-  const border = showColumnBorders ? 'inset -1px 0 0 var(--st-border)' : ''
+  const border = unref(showColumnBorders) ? 'inset -1px 0 0 var(--st-border)' : ''
   const shadow = '2px 0 4px var(--st-shadow-sticky)'
   return border ? `${border}, ${shadow}` : shadow
 })
@@ -354,7 +341,7 @@ defineExpose({
         <p class="text-[13px] max-w-xs leading-relaxed" :style="{ color: 'var(--st-text-tertiary)' }">{{ emptyMessage }}</p>
       </div>
       <!-- Insert button — mirrors the toolbar insert button (plain when label-only; split when insertActions) -->
-      <div v-if="editable.insert" class="relative mt-1">
+      <div v-if="editable.insert" ref="emptyInsertRef" class="relative mt-1">
         <button
           v-if="emptyStatePlainPrimaryInsert"
           class="flex items-center gap-1.5 px-3 py-1 rounded text-[13px] font-medium transition-colors"
@@ -402,20 +389,22 @@ defineExpose({
           class="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-48 rounded shadow-xl z-50 py-1 text-[13px]"
           :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"
         >
-          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="openInsertPanel(); showEmptyInsertMenu = false">
+          <template v-if="resolvedInsertActions.length > 0">
+            <button
+              v-for="action in resolvedInsertActions"
+              :key="action.key"
+              class="w-full flex items-center gap-2 text-left px-3 py-1.5 hover-menu-item"
+              :style="{ color: 'var(--st-text)' }"
+              @click="emitInsertAction(action.key); showEmptyInsertMenu = false"
+            >
+              <span v-if="action.icon" class="w-3.5 h-3.5 shrink-0 flex items-center justify-center" v-html="action.icon" />
+              <span>{{ action.label }}</span>
+            </button>
+          </template>
+          <button v-else class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="openInsertPanel(); showEmptyInsertMenu = false">
             Insert row
           </button>
-          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="showEmptyInsertMenu = false">
-            Insert column
-          </button>
-          <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
-          <button class="w-full text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="showEmptyInsertMenu = false">
-            Import data from CSV
-          </button>
         </div>
-        <Teleport to="body">
-          <div v-if="showEmptyInsertMenu" class="fixed inset-0 z-40" @click="showEmptyInsertMenu = false" />
-        </Teleport>
       </div>
     </div>
   </div>

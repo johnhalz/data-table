@@ -23,7 +23,7 @@ function confirm() {
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-50 flex items-center justify-center"
+      class="data-table-root fixed inset-0 z-50 flex items-center justify-center"
       :style="{ ...themeVars }"
     >
       <div

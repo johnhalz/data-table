@@ -1,7 +1,8 @@
 <script setup>
-import { ref, inject } from 'vue'
+import { ref, inject, unref } from 'vue'
 import { FlexRender } from '@tanstack/vue-table'
 import { widthPxForCellButtons } from './cellButtonWidth.js'
+import { copyText } from './utils.js'
 
 const props = defineProps({
   header: { type: Object, required: true },
@@ -46,20 +47,13 @@ function sortDesc() {
 }
 
 function copyName() {
-  navigator.clipboard.writeText(props.header.column.id)
-  closeDropdown()
-}
-
-function handleFreezeToggle() {
-  if (meta) {
-    meta.isFrozen = !meta.isFrozen
-  }
+  copyText(props.header.column.id)
   closeDropdown()
 }
 
 // Column resize
 function onResizeStart(e) {
-  const handler = props.header.getResizeHandler()
+  const handler = props.header.getResizeHandler?.()  // absent when the table has no columnResizingFeature (MiniTable)
   if (handler) handler(e)
 }
 
@@ -90,7 +84,7 @@ function autoFitColumn() {
 
   let contentWidth = ctx.measureText(headerLabel).width
 
-  if (showDataTypes && colMeta.type) {
+  if (unref(showDataTypes) && colMeta.type) {
     contentWidth += TYPE_BADGE_GAP_PX + ctx.measureText(String(colMeta.type)).width
   }
 
@@ -98,11 +92,9 @@ function autoFitColumn() {
     (colMeta.type === 'boolean' && !colMeta.badge) || !!colMeta.progressBar
 
   if (!isFixedUiCell) {
-    const accessorKey = col.columnDef.accessorKey ?? col.id
     const rows = props.table.getFilteredRowModel().rows
     for (let i = 0; i < rows.length; i++) {
-      const original = rows[i].original
-      const value = original?.[accessorKey]
+      const value = rows[i].getValue(col.id)
       if (value == null) continue
       const w = ctx.measureText(String(value)).width
       if (w > contentWidth) contentWidth = w
@@ -116,7 +108,7 @@ function autoFitColumn() {
   const finalWidth = Math.ceil(contentWidth) + CELL_PADDING_PX + HEADER_CHROME_PX
   const newWidth = Math.min(Math.max(finalWidth, MIN_WIDTH), MAX_WIDTH)
 
-  props.table.options.onColumnSizingChange(prev => ({ ...prev, [colId]: newWidth }))
+  props.table.setColumnSizing(prev => ({ ...prev, [colId]: newWidth }))
 }
 </script>
 
@@ -135,11 +127,7 @@ function autoFitColumn() {
     <div class="flex items-center gap-1.5 px-2 py-1.5 cursor-default overflow-hidden">
       <!-- Column name -->
       <span class="shrink-0 text-[13px]" :style="{ color: 'var(--st-text)' }">
-        <FlexRender
-          v-if="!header.isPlaceholder"
-          :render="header.column.columnDef.header"
-          :props="header.getContext()"
-        />
+        <FlexRender v-if="!header.isPlaceholder" :header="header" />
       </span>
       <!-- Data type -->
       <span v-if="showDataTypes" class="text-xs font-normal truncate min-w-0" :style="{ color: 'var(--st-text-tertiary)' }">{{ meta.type }}</span>
@@ -151,13 +139,6 @@ function autoFitColumn() {
       >
         {{ header.column.getIsSorted() === 'asc' ? '↑' : '↓' }}
       </span>
-      <!-- Frozen indicator -->
-      <span
-        v-if="meta.isFrozen"
-        class="shrink-0 text-xs"
-        :style="{ color: 'var(--st-text-tertiary)' }"
-        title="Column is frozen"
-      >&#10052;</span>
       <!-- Dropdown trigger -->
       <button
         ref="triggerRef"
@@ -177,7 +158,7 @@ function autoFitColumn() {
       <div v-if="showDropdown" class="fixed inset-0 z-40" @click="closeDropdown" />
       <div
         v-if="showDropdown"
-        class="fixed w-52 rounded shadow-xl z-50 py-1 text-[13px]"
+        class="data-table-root fixed w-52 rounded shadow-xl z-50 py-1 text-[13px]"
         :style="{ ...themeVars, fontFamily: 'var(--dt-font-family)', top: dropdownPos.top + 'px', left: dropdownPos.left + 'px', backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)', color: 'var(--st-text)' }"
         @click.stop
       >
@@ -194,17 +175,13 @@ function autoFitColumn() {
           </span>
           Copy name
         </button>
-        <button class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="handleFreezeToggle">
-          <span class="w-4 text-center" :style="{ color: 'var(--st-text-secondary)' }">&#10052;</span>
-          {{ meta.isFrozen ? 'Unfreeze column' : 'Freeze column' }}
-        </button>
       </div>
     </Teleport>
 
     <!-- Resize handle -->
     <div
       class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 active:bg-blue-500"
-      :class="{ 'bg-blue-500': header.column.getIsResizing() }"
+      :class="{ 'bg-blue-500': header.column.getIsResizing?.() }"
       @mousedown="onResizeStart"
       @touchstart="onResizeStart"
       @dblclick.stop="autoFitColumn"

@@ -54,7 +54,11 @@ initForm()
 function handleSave() {
   const payload = { ...formData.value }
   columns.value.forEach(col => {
-    if (['int8', 'int4', 'float8'].includes(col.meta.type) && payload[col.id] !== '') {
+    const numeric = ['int8', 'int4', 'float8'].includes(col.meta.type)
+    // The form shows NULL as '' — send it back as null rather than turning NULLs into empty strings.
+    if (payload[col.id] === '') {
+      if (numeric || (props.mode === 'update' && props.rowData?.[col.id] == null)) payload[col.id] = null
+    } else if (numeric) {
       payload[col.id] = Number(payload[col.id])
     }
   })

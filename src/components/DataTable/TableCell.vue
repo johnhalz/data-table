@@ -1,20 +1,6 @@
 <script setup>
 import { ref, nextTick, inject, computed, isRef } from 'vue'
 
-/** Callback-valued meta keys that TanStack / reactive merges sometimes strip from `column.columnDef.meta`. */
-const META_MERGE_RESTORE_KEYS = [
-  'badge',
-  'textColor',
-  'cellButtons',
-  'dblClick',
-  'progressBar',
-  'segmentedBar',
-  'suffixIcon',
-  'secondaryText',
-  'overflow',
-  'multiline',
-]
-
 const props = defineProps({
   cell: { type: Object, required: true },
   isSelected: { type: Boolean, default: false },
@@ -57,59 +43,7 @@ const textareaRef = ref(null)
 /** Stable fallback when columnDef.meta is missing (avoid allocating new {} per read). */
 const EMPTY_COLUMN_META = {}
 
-const originalColumnMetaById = inject('originalColumnMetaById', null)
-
-// Merge TanStack's column.columnDef.meta with props.columns[].meta so functions like meta.badge survive merges/proxies.
-const meta = computed(() => {
-  const id = String(props.cell.column.id)
-  const fromOriginal = originalColumnMetaById?.value?.[id]
-  const fromDef = props.cell.column.columnDef.meta || {}
-  if (!fromOriginal) {
-    return Object.keys(fromDef).length ? fromDef : EMPTY_COLUMN_META
-  }
-  const merged = { ...fromOriginal, ...fromDef }
-  for (const k of META_MERGE_RESTORE_KEYS) {
-    if ((merged[k] === undefined || merged[k] === null) && fromOriginal[k] != null) {
-      merged[k] = fromOriginal[k]
-    }
-  }
-  if (
-    typeof merged.badge !== 'function' &&
-    merged.badge !== true &&
-    typeof fromOriginal.badge === 'function'
-  ) {
-    merged.badge = fromOriginal.badge
-  }
-  if (typeof merged.textColor !== 'function' && typeof fromOriginal.textColor === 'function') {
-    merged.textColor = fromOriginal.textColor
-  }
-  if (merged.suffixIcon == null && fromOriginal.suffixIcon != null) {
-    merged.suffixIcon = fromOriginal.suffixIcon
-  }
-  if (merged.secondaryText == null && fromOriginal.secondaryText != null) {
-    merged.secondaryText = fromOriginal.secondaryText
-  }
-  if (
-    typeof merged.secondaryText !== 'function' &&
-    typeof merged.secondaryText !== 'string' &&
-    typeof fromOriginal.secondaryText === 'function'
-  ) {
-    merged.secondaryText = fromOriginal.secondaryText
-  }
-  if (
-    typeof merged.segmentedBar !== 'function' &&
-    typeof fromOriginal.segmentedBar === 'function'
-  ) {
-    merged.segmentedBar = fromOriginal.segmentedBar
-  }
-  if (
-    typeof merged.dblClick !== 'function' &&
-    typeof fromOriginal.dblClick === 'function'
-  ) {
-    merged.dblClick = fromOriginal.dblClick
-  }
-  return merged
-})
+const meta = computed(() => props.cell.column.columnDef.meta ?? EMPTY_COLUMN_META)
 
 const isBoolean = computed(() => meta.value.type === 'boolean')
 
@@ -321,10 +255,15 @@ function autoResize() {
 
 function saveEdit() {
   const t = meta.value.type
-  const newValue = t === 'int8' || t === 'int4' || t === 'float8'
-    ? Number(editValue.value)
-    : editValue.value
-  emit('update', newValue)
+  let newValue = editValue.value
+  if (t === 'int8' || t === 'int4' || t === 'float8') {
+    const raw = String(newValue).trim()
+    newValue = raw === '' ? null : Number(raw)
+    if (Number.isNaN(newValue)) return // keep the editor open on invalid numbers
+  }
+  const oldValue = props.cell.getValue()
+  const unchanged = newValue === oldValue || (newValue === '' && oldValue == null)
+  if (!unchanged) emit('update', newValue)
   isEditing.value = false
   emit('editing-change', false)
 }

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { onClickOutside } from '@vueuse/core'
+import { onClickOutside } from './utils.js'
 import SortPanel from './SortPanel.vue'
 import FilterBar from './FilterBar.vue'
 import ColumnVisibilityPanel from './ColumnVisibilityPanel.vue'
@@ -246,7 +246,7 @@ const subTableColumnList = computed(() => {
            A) defaultInsertLabel + insertActions  → dropdown button (labeled with defaultInsertLabel, opens custom dropdown)
            B) defaultInsertLabel, no insertActions → plain accent button (fires insert-row directly)
            C) no defaultInsertLabel + insertActions → "Insert ▼" dropdown with custom actions
-           D) neither                              → "Insert ▼" dropdown with hardcoded items
+           D) neither                              → "Insert ▼" dropdown with "Insert row"
       -->
       <div v-if="editable.insert" ref="insertContainerRef" class="relative">
         <!-- A: labeled dropdown button -->
@@ -305,19 +305,10 @@ const subTableColumnList = computed(() => {
             </button>
           </template>
 
-          <!-- Hardcoded items (case D) -->
-          <template v-else>
-            <button class="whitespace-nowrap text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="emit('insert-row'); showInsertMenu = false">
-              Insert row
-            </button>
-            <button class="whitespace-nowrap text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="showInsertMenu = false">
-              Insert column
-            </button>
-            <div class="my-1" :style="{ borderTop: '1px solid var(--st-border-secondary)' }"></div>
-            <button class="whitespace-nowrap text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="showInsertMenu = false">
-              Import data from CSV
-            </button>
-          </template>
+          <!-- Case D -->
+          <button v-else class="whitespace-nowrap text-left px-3 py-1.5 hover-menu-item" :style="{ color: 'var(--st-text)' }" @click="emit('insert-row'); showInsertMenu = false">
+            Insert row
+          </button>
         </div>
 
       </div>
