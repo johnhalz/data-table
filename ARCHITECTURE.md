@@ -24,7 +24,7 @@ DataTable.vue                 ← primary grid; all state lives here
 ### MiniTable
 
 ```
-MiniTable.vue                  ← narrow single-column variant (own useVueTable + provide/inject)
+MiniTable.vue                  ← narrow single-column variant (own useTable + provide/inject)
 ├── (contains filter `<input>` + Refresh row — not FilterBar)
 ├── SelectionToolbar.vue        ← embedded in footer when rows selected (footerLayout + summaryRatio)
 ├── TableColumnHeader.vue       ← sort via header chevron only
@@ -40,7 +40,7 @@ MiniTable.vue                  ← narrow single-column variant (own useVueTable
 - **Toolbar**: **Contains search field + Refresh** is **always** shown — selection does not hide filtering.
 - **Infinite scroll**: **`IntersectionObserver`** on a sentinel emits **`load-more`** when **`hasMore && !loading`**. Batch size convention: **`MINI_TABLE_PAGE_SIZE`** (**100**) in `types.js`.
 - **Footer**: Idle: **`total-count`** (or **`rows.length`**) trailing total. With selection: **`SelectionToolbar`** (`footerLayout`) — ratio summary, **Delete…**, **Actions**, **Clear**, **Select All** (`flex-wrap` when narrow). No TanStack pagination — the scroll lists **all** loaded rows after filter/sort.
-- **Provide/inject**: Mirrors `DataTable` for reused children (`themeVars`, `editable`, `originalColumnMetaById`, `tableSourceRows`, staged-edit no-ops, `isRowDisplayedSelected`, `highlightedRowId`, etc.).
+- **Provide/inject**: Mirrors `DataTable` for reused children (`themeVars`, `editable`, staged-edit no-ops, `isRowDisplayedSelected`, `highlightedRowId`, etc.).
 
 ## State Management
 
@@ -55,13 +55,15 @@ All table state is owned by `DataTable.vue` as Vue `ref()`s:
 | `columnSizing` | `Object<colId, number>` | Column widths after resize |
 | `columnVisibility` | `Object<colId, boolean>` | Hidden/shown columns |
 
-### TanStack reactivity workaround
+### TanStack reactivity
 
-`useVueTable()` returns a plain object — Vue's reactivity system doesn't track its internal changes. The pattern used here:
+TanStack Table v9's Vue adapter (`useTable`) backs table state with Vue refs/computeds and unwraps a `ref`/`computed`/getter `data` option, so reads inside `computed()` track data and state changes on their own. The pattern used here:
 
-1. Each state ref is wired into `useVueTable({ state: { get sorting() { return sorting.value } } })`
+1. Each state ref is wired into `useTable({ features, state: { get sorting() { return sorting.value } } })`
 2. Each `on*Change` handler updates the corresponding ref
-3. Child components that read from the table instance (e.g., `table.getRowModel().rows`) wrap those calls in `computed()` which naturally tracks the underlying refs as dependencies
+3. Child components wrap table reads (`table.getRowModel().rows`, `table.atoms.pagination.get()`) in `computed()`; no manual dependency hints are needed
+
+Features are declared explicitly with `tableFeatures({...})` in `DataTable.vue` / `MiniTable.vue` (MiniTable omits pagination and column resizing, so shared children call resize APIs with optional chaining).
 
 ## Communication Patterns
 
@@ -139,7 +141,6 @@ Columns are defined using TanStack's `createColumnHelper()`. The `meta` object i
   type: 'varchar',       // Determines input type, value coercion, toggle rendering
   isPrimaryKey: false,   // Disables editing in update mode (RowEditPanel)
   isNullable: true,      // Controls required vs optional sections in RowEditPanel
-  isFrozen: false,       // (Column header dropdown toggle — not yet fully implemented)
 }
 ```
 

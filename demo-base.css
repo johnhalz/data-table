@@ -1,5 +1,8 @@
 /** Standalone Vite demo only — not bundled with library entry. */
 
+/* The library no longer ships Tailwind's global preflight; the demo page opts into it itself. */
+@import "tailwindcss/preflight.css" layer(base);
+
 html,
 body {
   margin: 0;

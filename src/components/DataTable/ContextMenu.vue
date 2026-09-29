@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, inject } from 'vue'
-import { onClickOutside } from '@vueuse/core'
 import { isDestructiveRowAction } from './rowActionDestructive.js'
+import { onClickOutside, copyText } from './utils.js'
 
 const themeVars = inject('themeVars', {})
 const getRowPendingState = inject('getRowPendingState', () => null)
@@ -43,21 +43,6 @@ const colId = computed(() => {
   if (!props.cell) return null
   return props.cell.column.id
 })
-
-function copyText(text) {
-  if (navigator.clipboard && document.hasFocus()) {
-    navigator.clipboard.writeText(text)
-  } else {
-    const ta = document.createElement('textarea')
-    ta.value = text
-    ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none'
-    document.body.appendChild(ta)
-    ta.focus()
-    ta.select()
-    document.execCommand('copy')
-    document.body.removeChild(ta)
-  }
-}
 
 function copyCellValue() {
   if (cellValue.value !== null && cellValue.value !== undefined) {
@@ -158,7 +143,7 @@ const menuStyle = computed(() => {
 
 <template>
   <Teleport to="body">
-    <div ref="menuRef" :style="{ ...themeVars, ...menuStyle }">
+    <div ref="menuRef" class="data-table-root" :style="{ ...themeVars, ...menuStyle }">
       <div
         class="w-52 rounded shadow-xl py-1 text-[13px]"
         :style="{ backgroundColor: 'var(--st-bg-surface)', border: '1px solid var(--st-border-secondary)' }"

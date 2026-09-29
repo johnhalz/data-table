@@ -1,6 +1,6 @@
 # DataTable
 
-A feature-rich Vue 3 data table component built on [TanStack Table v8](https://tanstack.com/table/v8) with Tailwind CSS dark theme styling.
+A feature-rich Vue 3 data table component built on [TanStack Table v9](https://tanstack.com/table/latest) with Tailwind CSS dark theme styling.
 
 ## Quick Start
 
@@ -20,10 +20,17 @@ npm install @johnhalazonetis/data-table
 **Peer dependencies** (install alongside if they are not already in your app):
 
 - Vue 3.5+
-- `@tanstack/vue-table` ^8.21
+- `@tanstack/vue-table` ^9.2
 - `@tanstack/vue-virtual` ^3.13
-- `@vueuse/core` ^14.2
-- Tailwind CSS v4
+
+`style.css` is precompiled and scoped to the table (it does not reset your page), so your app does not need Tailwind.
+
+### Upgrading from 1.x
+
+- Peer dependency is now `@tanstack/vue-table@^9`. Plain JS column defs built with `createColumnHelper()` keep working; TypeScript users pass the v9 generics (`createColumnHelper<typeof features, Row>()` / `ColumnDef<any, Row>`). Column `sortingFn` is now `sortFn` in v9.
+- `@vueuse/core` is no longer a peer dependency.
+- `style.css` no longer ships Tailwind's global preflight, so host pages keep their own margins, borders and fonts. If your app relied on that reset, import Tailwind's preflight yourself.
+- The placeholder **Insert column** / **Import data from CSV** menu items and the **Freeze column** header item (none of which did anything) are gone; use `insertActions` for custom insert menu entries.
 
 ## Basic Usage
 
@@ -531,7 +538,7 @@ onMounted(() => loadPage({ pageIndex: 0, pageSize: 100 }))
 ## Tech Stack
 
 - **Vue 3** — Composition API with `<script setup>`
-- **TanStack Table v8** — Headless table engine (sorting, filtering, pagination, column visibility, row selection, column resizing)
-- **Tailwind CSS v4** — Dark theme styling
-- **VueUse** — `onClickOutside` for dropdown/menu dismissal
+- **TanStack Table v9** — Headless table engine (sorting, filtering, pagination, column visibility, row selection, column resizing)
+- **TanStack Virtual** — Row virtualization for pages over 500 rows
+- **Tailwind CSS v4** — Styling (compiled into `style.css`, scoped to the table)
 - **Vite** — Build tooling

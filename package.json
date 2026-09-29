@@ -1,6 +1,6 @@
 {
   "name": "@johnhalazonetis/data-table",
-  "version": "1.31.0",
+  "version": "2.0.0",
   "description": "Feature-rich Vue 3 data grid built on TanStack Table",
   "license": "MIT",
   "repository": {
@@ -30,19 +30,17 @@
     "preview": "vite preview --outDir dist-demo"
   },
   "peerDependencies": {
-    "@tanstack/vue-table": "^8.21",
+    "@tanstack/vue-table": "^9.2",
     "@tanstack/vue-virtual": "^3.13",
-    "@vueuse/core": "^14.2",
     "vue": "^3.5"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
-    "@tanstack/vue-table": "^8.21.3",
-    "@tanstack/vue-virtual": "^3.13.32",
-    "@vitejs/plugin-vue": "^6.0.8",
-    "@vueuse/core": "^14.3.0",
+    "@tanstack/vue-table": "^9.2.4",
+    "@tanstack/vue-virtual": "^3.13.39",
+    "@vitejs/plugin-vue": "^6.0.9",
     "tailwindcss": "^4.3.3",
-    "vite": "^8.1.5",
-    "vue": "^3.5.40"
+    "vite": "^8.3.1",
+    "vue": "^3.5.43"
   }
 }

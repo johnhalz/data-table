@@ -16,13 +16,7 @@ const props = defineProps({
   isEditing: { type: Boolean, default: false },
 })
 
-const editableInject = inject('editable', true)
-const editable = computed(() => {
-  const e = unref(editableInject)
-  if (e === true) return { insert: true, update: true, delete: true }
-  if (e === false) return { insert: false, update: false, delete: false }
-  return { insert: true, update: true, delete: true, ...e }
-})
+const editable = inject('editable')
 const showRowBorders = inject('showRowBorders', true)
 const showColumnBorders = inject('showColumnBorders', true)
 const getSubTable = inject('getSubTable', null)
@@ -60,14 +54,12 @@ defineEmits([
 ])
 
 const stickyColShadow = computed(() => {
-  const border = showColumnBorders ? 'inset -1px 0 0 var(--st-border)' : ''
+  const border = unref(showColumnBorders) ? 'inset -1px 0 0 var(--st-border)' : ''
   const shadow = '2px 0 4px var(--st-shadow-sticky)'
   return border ? `${border}, ${shadow}` : shadow
 })
 
-const subCfg = computed(() =>
-  getSubTable ? getSubTable(props.row.original) : null,
-)
+const subCfg = computed(() => unref(getSubTable)?.(props.row.original) ?? null)
 
 /** Forward `getSubTable` config to nested `DataTable`, stripping callbacks that aren't props. */
 const nestedSubTableVBind = computed(() => {

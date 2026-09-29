@@ -446,7 +446,7 @@ watchEffect((onCleanup) => {
                 <div
                     v-if="dropdownState === 'columns'"
                     id="column-picker"
-                    class="fixed w-60 rounded shadow-xl z-50 py-1 max-h-60 overflow-auto"
+                    class="data-table-root fixed w-60 rounded shadow-xl z-50 py-1 max-h-60 overflow-auto"
                     :style="{
                         ...themeVars,
                         top: dropdownPos.top + 'px',
@@ -496,7 +496,7 @@ watchEffect((onCleanup) => {
                 <div
                     v-if="dropdownState === 'operators'"
                     id="operator-picker"
-                    class="fixed w-52 rounded shadow-xl z-50 py-1 max-h-60 overflow-auto"
+                    class="data-table-root fixed w-52 rounded shadow-xl z-50 py-1 max-h-60 overflow-auto"
                     :style="{
                         ...themeVars,
                         top: dropdownPos.top + 'px',

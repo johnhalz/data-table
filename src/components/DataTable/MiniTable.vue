@@ -8,13 +8,19 @@ import {
   onMounted,
   onUnmounted,
   nextTick,
-  unref,
+  toRef,
 } from 'vue'
 import {
-  useVueTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
+  useTable,
+  tableFeatures,
+  rowSortingFeature,
+  columnFilteringFeature,
+  rowSelectionFeature,
+  columnSizingFeature,
+  columnVisibilityFeature,
+  createSortedRowModel,
+  createFilteredRowModel,
+  sortFns,
 } from '@tanstack/vue-table'
 import SelectionToolbar from './SelectionToolbar.vue'
 import TableColumnHeader from './TableColumnHeader.vue'
@@ -31,11 +37,27 @@ import {
   MINI_TABLE_BULK_SELECTION_SPINNER_THRESHOLD,
 } from './types.js'
 import { claimContextMenu, releaseContextMenu } from './contextMenuCoordinator.js'
+import {
+  DT_FONT_FAMILY_KEY,
+  DEFAULT_DT_FONT,
+  resolveFontFamily,
+  buildThemeVars,
+  operatorFilterFn,
+  applyUpdater,
+  stripDeselectedAdditional,
+} from './utils.js'
 
-/** Provide/inject: resolved font stacks for nesting (matches DataTable). */
-const DT_FONT_FAMILY_KEY = Symbol('dataTable.fontFamily')
-const DEFAULT_DT_FONT =
-  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+const features = tableFeatures({
+  rowSortingFeature,
+  columnFilteringFeature,
+  rowSelectionFeature,
+  columnSizingFeature,
+  columnVisibilityFeature,
+  sortedRowModel: createSortedRowModel(),
+  filteredRowModel: createFilteredRowModel(),
+  sortFns,
+  filterFns: { operator: operatorFilterFn },
+})
 
 const props = defineProps({
   column: { type: Object, required: true },
@@ -94,71 +116,11 @@ const emit = defineEmits([
   'update-row',
 ])
 
-function darkenHex(hex, amount) {
-  const num = parseInt(hex.replace('#', ''), 16)
-  const r = Math.max(0, (num >> 16) - amount)
-  const g = Math.max(0, ((num >> 8) & 0xff) - amount)
-  const b = Math.max(0, (num & 0xff) - amount)
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
-}
-
-function luminance(hex) {
-  const num = parseInt(hex.replace('#', ''), 16)
-  const r = (num >> 16) / 255
-  const g = ((num >> 8) & 0xff) / 255
-  const b = (num & 0xff) / 255
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b
-}
-
-const themeVars = computed(() => {
-  const dark = props.theme === 'dark'
-  const accent = props.accentColor
-  const accentHover = darkenHex(accent, 20)
-  const accentOnText = luminance(accent) > 0.4 ? '#000' : '#fff'
-  const accentBg10 = `color-mix(in srgb, ${accent} 10%, transparent)`
-  const accentBorder40 = `color-mix(in srgb, ${accent} 40%, transparent)`
-  const accentBorder30 = `color-mix(in srgb, ${accent} 30%, transparent)`
-
-  return {
-    '--st-bg': dark ? '#1c1c1c' : '#ffffff',
-    '--st-bg-header': dark ? '#2a2a2a' : '#f4f4f5',
-    '--st-bg-surface': dark ? '#2a2a2a' : '#ffffff',
-    '--st-bg-input': dark ? '#2a2a2a' : '#f4f4f5',
-    '--st-bg-row-hover': dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-    '--st-bg-menu-hover': dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
-    '--st-bg-selected': dark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.08)',
-    '--st-bg-selected-cell': dark ? 'rgba(59,130,246,0.25)' : 'rgba(59,130,246,0.12)',
-    '--st-bg-overlay': dark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)',
-    '--st-bg-panel-overlay': dark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.15)',
-    '--st-border': dark ? '#333333' : '#e4e4e7',
-    '--st-border-secondary': dark ? '#444444' : '#d4d4d8',
-    '--st-border-tertiary': dark ? '#555555' : '#a1a1aa',
-    '--st-text': dark ? '#e5e5e5' : '#18181b',
-    '--st-text-secondary': dark ? '#a1a1aa' : '#52525b',
-    '--st-text-tertiary': dark ? '#71717a' : '#a1a1aa',
-    '--st-text-placeholder': dark ? '#52525b' : '#a1a1aa',
-    '--st-text-on-accent': accentOnText,
-    '--st-accent': accent,
-    '--st-accent-hover': accentHover,
-    '--st-accent-bg': accentBg10,
-    '--st-accent-border': accentBorder40,
-    '--st-accent-border-light': accentBorder30,
-    '--st-toggle-off': dark ? '#52525b' : '#d4d4d8',
-    '--st-shadow-sticky': dark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.08)',
-    '--st-danger': dark ? '#f87171' : '#dc2626',
-  }
-})
+const themeVars = computed(() => buildThemeVars(props.theme, props.accentColor))
 
 const parentFontFamily = inject(DT_FONT_FAMILY_KEY, null)
 
-const resolvedFontFamily = computed(() => {
-  if (props.fontFamily != null && String(props.fontFamily).trim() !== '') {
-    return String(props.fontFamily).trim()
-  }
-  const p = parentFontFamily == null ? null : unref(parentFontFamily)
-  if (p != null && String(p).trim() !== '') return String(p).trim()
-  return null
-})
+const resolvedFontFamily = computed(() => resolveFontFamily(props.fontFamily, parentFontFamily))
 
 provide(DT_FONT_FAMILY_KEY, resolvedFontFamily)
 
@@ -210,14 +172,6 @@ const sorting = ref([])
 const columnFilters = ref(props.columnFilters ?? [])
 const rowSelection = ref({})
 const columnSizing = ref({})
-const columnSizingInfo = ref({
-  startOffset: null,
-  startSize: null,
-  deltaOffset: null,
-  deltaPercentage: null,
-  isResizingColumn: false,
-  columnSizingStart: [],
-})
 const columnVisibility = ref({})
 
 function isMiniToolbarContainsFilter(f) {
@@ -276,53 +230,6 @@ function onMiniContainsInput(e) {
   const trimmed = raw.trim()
   const next = mergeMiniContainsIntoFilters(columnFilters.value, trimmed)
   setColumnFiltersAndEmit(next)
-}
-
-function operatorFilterFn(row, columnId, filterValue) {
-  if (!filterValue || typeof filterValue !== 'object') return true
-  const { operator, value } = filterValue
-  if (!operator || value === '' || value === undefined) return true
-
-  const cellValue = row.getValue(columnId)
-  const cellStr = cellValue == null ? '' : String(cellValue)
-  const cellNum = Number(cellValue)
-  const valNum = Number(value)
-  const bothNumeric = !isNaN(cellNum) && !isNaN(valNum) && value !== ''
-
-  switch (operator) {
-    case '=':
-      return cellStr === value
-    case '<>':
-      return cellStr !== value
-    case '>':
-      return bothNumeric ? cellNum > valNum : cellStr > value
-    case '<':
-      return bothNumeric ? cellNum < valNum : cellStr < value
-    case '>=':
-      return bothNumeric ? cellNum >= valNum : cellStr >= value
-    case '<=':
-      return bothNumeric ? cellNum <= valNum : cellStr <= value
-    case '~~':
-      return cellStr.includes(value)
-    case '~~*':
-      return cellStr.toLowerCase().includes(value.toLowerCase())
-    case '!~~*':
-      return cellValue != null && !cellStr.toLowerCase().includes(String(value).toLowerCase())
-    case 'in': {
-      const list = value.split(',').map((s) => s.trim())
-      return list.includes(cellStr)
-    }
-    case 'is': {
-      const v = String(value).toLowerCase()
-      if (v === 'null') return cellValue == null
-      if (v === 'not null') return cellValue != null
-      if (v === 'true') return cellValue === true
-      if (v === 'false') return cellValue === false
-      return true
-    }
-    default:
-      return cellStr.toLowerCase().includes(String(value).toLowerCase())
-  }
 }
 
 const resolvedTotalFilteredCount = computed(() => {
@@ -411,7 +318,7 @@ watch([rowSelection, () => props.additionalSelectedRowIds], () => emitSelectionC
 })
 
 watch(
-  () => [props.rows, props.additionalSelectedRowIds],
+  () => [props.rows, props.rows.length, props.additionalSelectedRowIds, props.additionalSelectedRowIds?.length],
   () => {
     const add = new Set((props.additionalSelectedRowIds || []).map(String))
     if (add.size === 0) return
@@ -427,112 +334,47 @@ watch(
     }
     if (changed) rowSelection.value = next
   },
-  { deep: true },
 )
 
-const originalColumnMetaById = computed(() => {
-  const c = props.column
-  const id = String(c.id ?? c.accessorKey ?? 'column')
-  const map = Object.create(null)
-  if (c.meta) map[id] = c.meta
-  return map
-})
-
-const table = useVueTable({
-  get data() {
-    return props.rows
-  },
-  get columns() {
-    return [props.column]
-  },
-  filterFns: { operator: operatorFilterFn },
+const table = useTable({
+  features,
+  get data() { return props.rows },
+  get columns() { return [props.column] },
   defaultColumn: { filterFn: 'operator' },
   state: {
-    get sorting() {
-      return sorting.value
-    },
-    get columnFilters() {
-      return columnFilters.value
-    },
-    get rowSelection() {
-      return rowSelection.value
-    },
-    get columnSizing() {
-      return columnSizing.value
-    },
-    get columnSizingInfo() {
-      return columnSizingInfo.value
-    },
-    get columnVisibility() {
-      return columnVisibility.value
-    },
+    get sorting() { return sorting.value },
+    get columnFilters() { return columnFilters.value },
+    get rowSelection() { return rowSelection.value },
+    get columnSizing() { return columnSizing.value },
+    get columnVisibility() { return columnVisibility.value },
   },
   manualSorting: true,
   manualFiltering: true,
   onSortingChange: (updater) => {
-    sorting.value = typeof updater === 'function' ? updater(sorting.value) : updater
+    sorting.value = applyUpdater(updater, sorting.value)
     emit('sort-change', sorting.value)
   },
   onColumnFiltersChange: (updater) => {
-    columnFilters.value =
-      typeof updater === 'function' ? updater(columnFilters.value) : updater
+    columnFilters.value = applyUpdater(updater, columnFilters.value)
   },
   onRowSelectionChange: (updater) => {
-    const prev = rowSelection.value
-    const next = typeof updater === 'function' ? updater(prev) : updater
-    if ((props.additionalSelectedRowIds?.length ?? 0) > 0) {
-      const prevKeys = new Set(Object.keys(prev))
-      const nextKeys = new Set(Object.keys(next))
-      const removed = [...prevKeys].filter((k) => !nextKeys.has(k))
-      if (removed.length > 0) {
-        const addList = props.additionalSelectedRowIds || []
-        const addSet = new Set(addList.map(String))
-        const toStrip = removed.filter((id) => addSet.has(String(id)))
-        if (toStrip.length > 0) {
-          const strip = new Set(toStrip.map(String))
-          emit(
-            'update:additionalSelectedRowIds',
-            addList.filter((id) => !strip.has(String(id))),
-          )
-        }
-      }
-    }
+    const next = applyUpdater(updater, rowSelection.value)
+    const stripped = stripDeselectedAdditional(rowSelection.value, next, props.additionalSelectedRowIds)
+    if (stripped) emit('update:additionalSelectedRowIds', stripped)
     rowSelection.value = next
   },
   onColumnSizingChange: (updater) => {
-    columnSizing.value =
-      typeof updater === 'function' ? updater(columnSizing.value) : updater
-  },
-  onColumnSizingInfoChange: (updater) => {
-    columnSizingInfo.value =
-      typeof updater === 'function' ? updater(columnSizingInfo.value) : updater
+    columnSizing.value = applyUpdater(updater, columnSizing.value)
   },
   onColumnVisibilityChange: (updater) => {
-    columnVisibility.value =
-      typeof updater === 'function' ? updater(columnVisibility.value) : updater
+    columnVisibility.value = applyUpdater(updater, columnVisibility.value)
   },
-  getCoreRowModel: getCoreRowModel(),
-  getSortedRowModel: getSortedRowModel(),
-  getFilteredRowModel: getFilteredRowModel(),
-  enableRowSelection: true,
-  enableMultiRowSelection: true,
-  enableColumnResizing: false,
-  columnResizeMode: 'onChange',
+  enableRowRangeSelection: false,
   getRowId: (row) => String(row[primaryKeyField.value] ?? row.id),
 })
 
-const headerGroups = computed(() => {
-  void props.rows.length
-  return table.getHeaderGroups()
-})
-
-const rowModels = computed(() => {
-  void props.rows.length
-  void sorting.value
-  void columnFilters.value
-  void rowSelection.value
-  return table.getRowModel().rows
-})
+const headerGroups = computed(() => table.getHeaderGroups())
+const rowModels = computed(() => table.getRowModel().rows)
 
 const totalRecordsFooter = computed(() => {
   if (props.totalCount != null && Number.isFinite(Number(props.totalCount))) {
@@ -746,17 +588,16 @@ function handleFilterByValue(colId, val) {
 }
 
 provide('themeVars', computed(() => ({ ...themeVars.value, ...fontCssVars.value })))
-provide('originalColumnMetaById', originalColumnMetaById)
 provide('table', table)
-provide('tableSourceRows', computed(() => props.rows))
-provide('tableName', props.tableName)
-provide('showDataTypes', props.showDataTypes)
+provide('tableName', toRef(props, 'tableName'))
+provide('showDataTypes', toRef(props, 'showDataTypes'))
 provide('editable', editableCaps)
-provide('showRowBorders', props.showRowBorders)
-provide('showColumnBorders', props.showColumnBorders)
+provide('showRowBorders', toRef(props, 'showRowBorders'))
+provide('showColumnBorders', toRef(props, 'showColumnBorders'))
 provide('cellButtonVisibility', computed(() => props.cellButtonVisibility))
 provide('cellOverflow', computed(() => 'truncate'))
 provide('insertRow', () => {})
+provide('emitInsertAction', () => {})
 provide('openInsertPanel', openInsertPanel)
 provide('emptyTitle', computed(() => props.emptyTitle))
 provide('emptyMessage', computed(() => props.emptyMessage))

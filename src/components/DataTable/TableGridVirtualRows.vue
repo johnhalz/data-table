@@ -1,5 +1,5 @@
 <script setup>
-import { computed, inject, unref } from 'vue'
+import { computed, inject, unref, nextTick } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import TableGridDataRow from './TableGridDataRow.vue'
 
@@ -54,7 +54,7 @@ const virtualizer = useVirtualizer(
     const wrap = unref(cellOverflowProvided) === 'wrap'
 
     const cache = {}
-    const gt = getSubTable
+    const gt = unref(getSubTable)
     if (gt) {
       for (const row of rowModels) {
         const cfg = gt(row.original)
@@ -91,7 +91,10 @@ function bindMeasure(el, vRow) {
   const dom = el.$el ?? el
   if (!dom || typeof dom.setAttribute !== 'function') return
   dom.setAttribute('data-index', String(vRow.index))
-  virtualizer.value.measureElement(dom)
+  // Ref callbacks can fire before the row is attached: measuring then reads offsetHeight 0, and
+  // virtual-core ≥ 3.17 caches it and later "corrects" every row, jumping the scroll position.
+  if (dom.isConnected) virtualizer.value.measureElement(dom)
+  else nextTick(() => { if (dom.isConnected) virtualizer.value.measureElement(dom) })
 }
 
 function orderForIndex(i) {
@@ -100,7 +103,9 @@ function orderForIndex(i) {
 </script>
 
 <template>
+  <!-- shrink-0: rows are absolutely positioned, so as a flex item this would otherwise collapse to ~0 and cap scrolling -->
   <div
+    class="shrink-0"
     :style="{
       position: 'relative',
       height: totalHeight + 'px',

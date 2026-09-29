@@ -2,14 +2,14 @@
 
 ## Project Overview
 
-DataTable is a Vue 3 data table package. It exposes **`DataTable`** (full grid) and **`MiniTable`** (narrow single-column list with infinite scroll), both built on TanStack Table v8 with Tailwind CSS v4.
+DataTable is a Vue 3 data table package. It exposes **`DataTable`** (full grid) and **`MiniTable`** (narrow single-column list with infinite scroll), both built on TanStack Table v9 with Tailwind CSS v4.
 
 ## Tech Stack
 
 - **Vue 3.5+** — Composition API with `<script setup>`
-- **TanStack Table v8** (`@tanstack/vue-table`) — headless table engine
+- **TanStack Table v9** (`@tanstack/vue-table`) — headless table engine; features declared via `tableFeatures()`
+- **TanStack Virtual** (`@tanstack/vue-virtual`) — row virtualization above 500 rows/page
 - **Tailwind CSS v4** — utility-first styling (layout/spacing), CSS custom properties for colors
-- **VueUse** (`@vueuse/core`) — `onClickOutside` utility
 - **Vite 8** — dev server and build
 
 ## Commands
@@ -20,7 +20,7 @@ npm run build    # Production build
 npm run preview  # Preview production build
 ```
 
-There is no test suite, linter, or type checker configured.
+There is no test suite, linter, or type checker configured. `node src/components/DataTable/utils.check.js` runs assert checks for the pure helpers (filter operators, CSV/SQL export, color luminance).
 
 ## Project Structure
 
@@ -49,19 +49,20 @@ src/
     ContextMenu.vue                # Right-click menu: copy, filter, edit, delete
     DeleteRowsConfirmDialog.vue    # Shared delete confirmation modal (toolbar + `openDeleteConfirmation` ref)
     types.js                       # Filter operators, page size options, constants
+    utils.js                       # Shared helpers: theme vars, operator filterFn, export (CSV/TSV/SQL/JSON), copyText, onClickOutside
 ```
 
 ## Architecture
 
 ### Data flow
 
-`DataTable.vue` (full grid) and `MiniTable.vue` (narrow variant) each create a TanStack `useVueTable` instance with reactive Vue `ref()` state wired through `state` getters and `on*Change` handlers. Both distribute config via `provide()` so **`TableCell`**, **`TableColumnHeader`**, and **`SelectionToolbar`** behave consistently; **`DataTable`** also composes **`FilterBar`** via **`TableToolbar`**, while **`MiniTable`** uses a simple contains **`input`** bound to **`columnFilters`** instead of **`FilterBar`**.
+`DataTable.vue` (full grid) and `MiniTable.vue` (narrow variant) each create a TanStack `useTable` instance with reactive Vue `ref()` state wired through `state` getters and `on*Change` handlers. Both distribute config via `provide()` so **`TableCell`**, **`TableColumnHeader`**, and **`SelectionToolbar`** behave consistently; **`DataTable`** also composes **`FilterBar`** via **`TableToolbar`**, while **`MiniTable`** uses a simple contains **`input`** bound to **`columnFilters`** instead of **`FilterBar`**.
 
 `MiniTable` omits the `#` column, sort/columns/insert toolbar, **rows-per-page**, and footer page navigation. A **contains** filter **`input`** (visible column only, operator **`~~*`**, case-insensitive) **+ Refresh** stays visible even when rows are selected. The full **`DataTable`** filter bar also offers **`~~`** (case-sensitive contains) and **`!~~*`** (excludes / not-contains). **Bulk selection UI** (`SelectionToolbar` with **`footerLayout`** — ratio **`selected/eligible`**, Delete, Actions, Clear, Select All) appears in the **footer** when there is a selection; otherwise the footer shows only the **total** count (`toLocaleString()` + count noun). All loaded **`rows`** appear in the scroll list after filter/sort (no client-side paging). Parents conventionally fetch in batches of **`MINI_TABLE_PAGE_SIZE`** (**100**) via **`load-more`** + **`hasMore`**. It forces **`cellOverflow: truncate`** with a fluid data-column width.
 
 ### Reactivity pattern
 
-TanStack's `useVueTable` returns a non-reactive object. All table state is stored in Vue `ref()`s and wired into the table via `state` getters and `on*Change` handlers. Child components that read from the table instance wrap those reads in `computed()` so Vue tracks the reactive refs as dependencies.
+All table state is stored in Vue `ref()`s and wired into `useTable` via `state` getters and `on*Change` handlers. TanStack v9's Vue adapter is reactive (state atoms are Vue refs, `data` may be a computed), so child components just wrap table reads in `computed()` — use `table.atoms.<slice>.get()` instead of the removed `getState()`.
 
 ### Provide/inject map
 
@@ -70,15 +71,19 @@ These values are provided by `DataTable.vue` / `MiniTable.vue` and injected by c
 | Key                | Type         | Consumers |
 |--------------------|--------------|-----------|
 | `table`            | Object       | SortPanel, ColumnVisibilityPanel |
-| `tableName`        | String       | RowEditPanel (via prop) |
-| `showDataTypes`    | Boolean      | TableColumnHeader, ColumnVisibilityPanel, SortPanel, FilterBar |
+| `tableName`        | `Ref<string>` | SelectionToolbar (SQL export / download filename); RowEditPanel gets it via prop |
+| `showDataTypes`    | `Ref<boolean>` | TableColumnHeader, ColumnVisibilityPanel, SortPanel, FilterBar |
 | `editable`         | `ComputedRef<{ insert, update, delete }>` | TableGrid, TableCell, ContextMenu, SelectionToolbar (via prop) |
-| `showRowBorders`   | Boolean      | TableGrid, TableColumnHeader, TableCell |
-| `showColumnBorders`| Boolean      | TableGrid, TableColumnHeader, TableCell |
+| `showRowBorders`   | `Ref<boolean>` | TableGrid, TableColumnHeader, TableCell |
+| `showColumnBorders`| `Ref<boolean>` | TableGrid, TableColumnHeader, TableCell |
+| `getSubTable`      | `Ref<Function\|null>` | TableGridDataRow, TableGridVirtualRows |
 | `openInsertPanel`  | Function     | TableGrid (empty state insert button) |
+| `emitInsertAction` | `(key) => void` | TableGrid (empty state `insertActions` menu) |
 | `cellOverflow`     | `ComputedRef<string>` | `TableCell` — default `'truncate'` \| `'wrap'`; columns override via `meta.overflow` |
 | `rowActions`       | `ComputedRef<Array>` | `TableGridDataRow` — items for per-row ellipsis menu |
 | `emitRowAction`    | `(key, rowData) => void` | `TableGridDataRow` — forwards to `row-action` |
+
+Flag injects are refs (`toRef(props, …)`) so they follow prop changes: templates unwrap them automatically, script code must `unref()` them.
 
 The `editable` inject value is always the normalized object shape `{ insert: boolean, update: boolean, delete: boolean }` — never a raw boolean. Consumers check specific keys: `editable.value.update`, `editable.delete`, etc.
 
@@ -115,6 +120,7 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 ### CSS layout patterns
 
 - Sticky columns (row numbers + checkboxes) use `position: sticky` with `left` offsets and `z-10`/`z-30`; widths are `DATA_TABLE_ROW_NUMBER_COL_PX` + `DATA_TABLE_ROW_SELECT_COL_PX` (see `columnSizingFill.js`, summed as `DATA_TABLE_STICKY_CHROME_PX` for auto-sizing).
+- `src/style.css` imports only Tailwind's theme + utilities — **no global preflight**. A small reset is scoped to `.data-table-root`, so every Teleported root (menus, dialogs, pickers) must also carry the `data-table-root` class. The demo page loads preflight itself in `demo-base.css`.
 - Dropdowns that appear inside `<thead>` (which has `sticky` + `z-20`) are Teleported to `<body>` to escape the stacking context
 - Named Tailwind group variants: `group/header` on `<th>`, `group-hover/header:opacity-100` on chevron buttons
 - Table uses `table-fixed` layout with explicit pixel width computed from column sizes (see sticky chrome constant in `columnSizingFill.js`). Horizontal scroll appears when the data column sum exceeds the scroll viewport’s inner width.

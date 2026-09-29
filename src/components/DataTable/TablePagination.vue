@@ -1,9 +1,8 @@
 <script setup>
-import { computed, ref, inject, toValue } from 'vue'
-import { DATA_TABLE_FOOTER_ROW_HEIGHT_CLASSES } from './types.js'
+import { computed, ref, inject } from 'vue'
+import { DATA_TABLE_FOOTER_ROW_HEIGHT_CLASSES, PAGE_SIZE_OPTIONS } from './types.js'
 
 const themeVars = inject('themeVars', {})
-const tableSourceRows = inject('tableSourceRows', null)
 
 const props = defineProps({
   table: { type: Object, required: true },
@@ -18,8 +17,9 @@ const props = defineProps({
 
 const emit = defineEmits(['commit', 'discard'])
 
-const pageIndex = computed(() => props.table.getState().pagination.pageIndex)
-const pageSize = computed(() => props.table.getState().pagination.pageSize)
+const pagination = computed(() => props.table.atoms.pagination.get())
+const pageIndex = computed(() => pagination.value.pageIndex)
+const pageSize = computed(() => pagination.value.pageSize)
 
 /** Server mode: derive from props so Vue tracks totalCount; TanStack getPageCount() is not reactive to parent fetches. */
 const isServerTotal = computed(
@@ -48,7 +48,6 @@ const canNextPage = computed(() => {
 
 const totalRecords = computed(() => {
   if (props.totalCount !== null && props.totalCount !== undefined) return props.totalCount
-  if (tableSourceRows != null) void toValue(tableSourceRows)
   return props.table.getFilteredRowModel().rows.length
 })
 
@@ -134,9 +133,7 @@ function confirmDiscard() {
         :style="{ backgroundColor: 'var(--st-bg-input)', border: '1px solid var(--st-border-secondary)', color: 'var(--st-text)' }"
         @change="table.setPageSize(Number($event.target.value))"
       >
-        <option :value="100">100</option>
-        <option :value="500">500</option>
-        <option :value="1000">1000</option>
+        <option v-for="size in PAGE_SIZE_OPTIONS" :key="size" :value="size">{{ size }}</option>
       </select>
     </div>
 
@@ -200,7 +197,7 @@ function confirmDiscard() {
     <Teleport to="body">
       <div
         v-if="showDiscardConfirm"
-        class="fixed inset-0 z-[100] flex items-center justify-center"
+        class="data-table-root fixed inset-0 z-[100] flex items-center justify-center"
         :style="{ ...themeVars, backgroundColor: 'var(--st-bg-overlay)' }"
         @click.self="showDiscardConfirm = false"
       >

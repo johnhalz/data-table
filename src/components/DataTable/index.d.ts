@@ -43,8 +43,8 @@ export type SubTableSortingState = ReadonlyArray<{ id: string; desc?: boolean }>
 /** Returned from `getSubTable` — nested rows + column defs. */
 export interface SubTableConfig {
   rows: unknown[]
-  /** Use `ColumnDef<any>` so callers can pass TanStack defs typed to their row model. */
-  columns: ColumnDef<any, any>[]
+  /** `ColumnDef<any, any, any>` (TanStack v9: features, row, value) so callers can pass TanStack defs typed to their row model. */
+  columns: ColumnDef<any, any, any>[]
   /** Passed through — enables footer pagination + server mode when set. */
   totalCount?: number | null
   showPagination?: boolean
@@ -75,7 +75,7 @@ export interface InsertAction {
 }
 
 export interface DataTableProps {
-  columns: ColumnDef<any, any>[]
+  columns: ColumnDef<any, any, any>[]
   rows: unknown[]
   tableName?: string
   loading?: boolean
@@ -103,7 +103,7 @@ export interface DataTableProps {
    */
   fontFamily?: string | null
   getSubTable?: ((rowData: any) => SubTableConfig | null) | null
-  subTableColumns?: ColumnDef<any, any>[] | null
+  subTableColumns?: ColumnDef<any, any, any>[] | null
   expandedRows?: Record<string, boolean> | null
   nestingDepth?: number
   showToolbar?: boolean
@@ -146,7 +146,7 @@ export declare const MINI_TABLE_PAGE_SIZE: number
 export declare const MINI_TABLE_BULK_SELECTION_SPINNER_THRESHOLD: number
 
 export interface MiniTableProps {
-  column: ColumnDef<any, any>
+  column: ColumnDef<any, any, any>
   rows: unknown[]
   tableName?: string
   loading?: boolean
