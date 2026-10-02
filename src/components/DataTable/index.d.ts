@@ -1,5 +1,12 @@
 import type { DefineComponent } from 'vue'
-import type { ColumnDef } from '@tanstack/vue-table'
+
+/**
+ * A TanStack v9 column def, typed to the caller's row model (`createColumnHelper<any, Row>()`,
+ * `ColumnDef<any, Row>`). Deliberately `object`, not `ColumnDef<any, any, any>`: v9's recursive
+ * Row -> Cell -> ColumnDef generics make a def typed to a concrete row unassignable to the
+ * `any`-row form, so typed TS callers could not pass their columns at all.
+ */
+type ColumnDefLike = object
 
 /** Custom action shown in the selection toolbar when rows are selected. */
 export interface SelectionAction {
@@ -43,8 +50,7 @@ export type SubTableSortingState = ReadonlyArray<{ id: string; desc?: boolean }>
 /** Returned from `getSubTable` — nested rows + column defs. */
 export interface SubTableConfig {
   rows: unknown[]
-  /** `ColumnDef<any, any, any>` (TanStack v9: features, row, value) so callers can pass TanStack defs typed to their row model. */
-  columns: ColumnDef<any, any, any>[]
+  columns: ColumnDefLike[]
   /** Passed through — enables footer pagination + server mode when set. */
   totalCount?: number | null
   showPagination?: boolean
@@ -75,7 +81,7 @@ export interface InsertAction {
 }
 
 export interface DataTableProps {
-  columns: ColumnDef<any, any, any>[]
+  columns: ColumnDefLike[]
   rows: unknown[]
   tableName?: string
   loading?: boolean
@@ -103,7 +109,7 @@ export interface DataTableProps {
    */
   fontFamily?: string | null
   getSubTable?: ((rowData: any) => SubTableConfig | null) | null
-  subTableColumns?: ColumnDef<any, any, any>[] | null
+  subTableColumns?: ColumnDefLike[] | null
   expandedRows?: Record<string, boolean> | null
   nestingDepth?: number
   showToolbar?: boolean
@@ -146,7 +152,7 @@ export declare const MINI_TABLE_PAGE_SIZE: number
 export declare const MINI_TABLE_BULK_SELECTION_SPINNER_THRESHOLD: number
 
 export interface MiniTableProps {
-  column: ColumnDef<any, any, any>
+  column: ColumnDefLike
   rows: unknown[]
   tableName?: string
   loading?: boolean
