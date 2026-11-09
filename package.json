@@ -35,12 +35,12 @@
     "vue": "^3.5"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.3",
-    "@tanstack/vue-table": "^9.2.4",
-    "@tanstack/vue-virtual": "^3.13.39",
-    "@vitejs/plugin-vue": "^6.0.9",
-    "tailwindcss": "^4.3.3",
-    "vite": "^8.3.1",
-    "vue": "^3.5.43"
+    "@tailwindcss/vite": "^4.3.5",
+    "@tanstack/vue-table": "^9.3.1",
+    "@tanstack/vue-virtual": "^3.13.52",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "tailwindcss": "^4.3.5",
+    "vite": "^8.3.7",
+    "vue": "^3.5.45"
   }
 }
