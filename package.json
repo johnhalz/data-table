@@ -1,7 +1,7 @@
 {
   "name": "@johnhalazonetis/data-table",
-  "version": "2.0.1",
-  "description": "Feature-rich Vue 3 data grid built on TanStack Table",
+  "version": "3.0.0",
+  "description": "Feature-rich React data grid built on TanStack Table",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -29,18 +29,21 @@
     "build:lib": "BUILD_LIB=true vite build",
     "preview": "vite preview --outDir dist-demo"
   },
-  "peerDependencies": {
-    "@tanstack/vue-table": "^9.2",
-    "@tanstack/vue-virtual": "^3.13",
-    "vue": "^3.5"
-  },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/vite": "^4.3.3",
-    "@tanstack/vue-table": "^9.2.4",
-    "@tanstack/vue-virtual": "^3.13.39",
-    "@vitejs/plugin-vue": "^6.0.9",
+    "@tanstack/react-table": "^9.3.1",
+    "@tanstack/react-virtual": "^3.14.26",
+    "@vitejs/plugin-react": "^6.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "tailwindcss": "^4.3.3",
-    "vite": "^8.3.1",
-    "vue": "^3.5.43"
+    "vite": "^8.3.1"
+  },
+  "peerDependencies": {
+    "@tanstack/react-table": "^9.3",
+    "@tanstack/react-virtual": "^3.13",
+    "react": "^19",
+    "react-dom": "^19"
   }
 }

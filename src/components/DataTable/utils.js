@@ -1,15 +1,10 @@
-import { onMounted, onUnmounted, unref } from 'vue'
-
-/** Provide/inject key for the resolved font stack (shared by DataTable + MiniTable so nesting works across both). */
-export const DT_FONT_FAMILY_KEY = Symbol('dataTable.fontFamily')
-
 /** Default UI stack when the `fontFamily` prop is omitted. */
 export const DEFAULT_DT_FONT =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
 
 /** First non-blank font stack from the prop, then the parent table, else null. */
 export function resolveFontFamily(own, parent) {
-  for (const f of [own, unref(parent)]) {
+  for (const f of [own, parent]) {
     if (f != null && String(f).trim() !== '') return String(f).trim()
   }
   return null
@@ -126,16 +121,6 @@ function fallbackCopy(text) {
   ta.select()
   document.execCommand('copy')
   ta.remove()
-}
-
-/** Calls `handler` on a pointerdown outside `elRef`'s element. Replaces @vueuse/core's onClickOutside. */
-export function onClickOutside(elRef, handler) {
-  const listener = (e) => {
-    const el = unref(elRef)
-    if (el && !e.composedPath().includes(el)) handler(e)
-  }
-  onMounted(() => document.addEventListener('pointerdown', listener, true))
-  onUnmounted(() => document.removeEventListener('pointerdown', listener, true))
 }
 
 /** Row originals without internal staging fields. */

@@ -1,4 +1,4 @@
-import { createColumnHelper } from '@tanstack/vue-table'
+import { createColumnHelper } from '@tanstack/react-table'
 
 const col = createColumnHelper()
 

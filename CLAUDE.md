@@ -2,13 +2,13 @@
 
 ## Project Overview
 
-DataTable is a Vue 3 data table package. It exposes **`DataTable`** (full grid) and **`MiniTable`** (narrow single-column list with infinite scroll), both built on TanStack Table v9 with Tailwind CSS v4.
+DataTable is a React 19 data table package (3.x; the Vue 3 build is 2.x). It exposes **`DataTable`** (full grid) and **`MiniTable`** (narrow single-column list with infinite scroll), both built on TanStack Table v9 with Tailwind CSS v4.
 
 ## Tech Stack
 
-- **Vue 3.5+** — Composition API with `<script setup>`
-- **TanStack Table v9** (`@tanstack/vue-table`) — headless table engine; features declared via `tableFeatures()`
-- **TanStack Virtual** (`@tanstack/vue-virtual`) — row virtualization above 500 rows/page
+- **React 19** — function components, `forwardRef` + `useImperativeHandle` for the exposed API
+- **TanStack Table v9** (`@tanstack/react-table`) — headless table engine; features declared via `tableFeatures()`
+- **TanStack Virtual** (`@tanstack/react-virtual`) — row virtualization above 500 rows/page
 - **Tailwind CSS v4** — utility-first styling (layout/spacing), CSS custom properties for colors
 - **Vite 8** — dev server and build
 
@@ -20,34 +20,33 @@ npm run build    # Production build
 npm run preview  # Preview production build
 ```
 
-There is no test suite, linter, or type checker configured. `node src/components/DataTable/utils.check.js` runs assert checks for the pure helpers (filter operators, CSV/SQL export, color luminance).
+`npx playwright test` drives the demo page (sort, filter, selection, context menu, delete, sub-table, inline edit, MiniTable infinite scroll) and fails on any console error. `node src/components/DataTable/utils.check.js` runs assert checks for the pure helpers (filter operators, CSV/SQL export, color luminance).
 
 ## Project Structure
 
 ```
 src/
-  App.vue                          # Demo — DataTable + MiniTable
+  App.jsx                          # Demo — DataTable + MiniTable
   demo/
     demoColumns.js                 # Column definitions for the demo
     demoData.js                    # Sample row data for the demo
   components/DataTable/
     index.js                       # Named export: { DataTable, MiniTable, MINI_TABLE_PAGE_SIZE }
-    DataTable.vue                  # Full grid — SDK props, state, provide/inject hub
-    MiniTable.vue                  # Checkbox + one column; infinite scroll; contains filter input + shared cells/selection
-    TableToolbar.vue               # Toolbar: filter bar, sort, columns, insert, refresh
-    SelectionToolbar.vue           # Appears when rows selected: delete, actions, clear/select all
-    TableGrid.vue                  # Table element: headers, rows, cells, checkboxes, row numbers
-    TableGridDataRow.vue           # Body row: `#` column, row-actions ellipsis, checkbox, cells, sub-table slot
-    TableColumnHeader.vue          # Single column header: name, type badge, sort indicator, dropdown
-    TableCell.vue                  # Single cell: text, badge, progress bar, suffix icon, inline edit, boolean toggle
-    TablePagination.vue            # Bottom bar: page nav, rows per page, record count
-    RowEditPanel.vue               # Slide-in panel for insert/update row forms
-    ColumnVisibilityPanel.vue      # Dropdown panel to show/hide columns
-    SortPanel.vue                  # Dropdown panel to add/reorder sort rules
-    FilterBar.vue                  # Inline filter chips with operator selection
-    FilterOperatorMenu.vue         # Operator picker dropdown for a single filter
-    ContextMenu.vue                # Right-click menu: copy, filter, edit, delete
-    DeleteRowsConfirmDialog.vue    # Shared delete confirmation modal (toolbar + `openDeleteConfirmation` ref)
+    DataTable.jsx                  # Full grid — SDK props, state, provide/inject hub
+    MiniTable.jsx                  # Checkbox + one column; infinite scroll; contains filter input + shared cells/selection
+    TableToolbar.jsx               # Toolbar: filter bar, sort, columns, insert, refresh
+    SelectionToolbar.jsx           # Appears when rows selected: delete, actions, clear/select all
+    TableGrid.jsx                  # Table element: headers, rows, cells, checkboxes, row numbers
+    TableGridDataRow.jsx           # Body row: `#` column, row-actions ellipsis, checkbox, cells, sub-table slot
+    TableColumnHeader.jsx          # Single column header: name, type badge, sort indicator, dropdown
+    TableCell.jsx                  # Single cell: text, badge, progress bar, suffix icon, inline edit, boolean toggle
+    TablePagination.jsx            # Bottom bar: page nav, rows per page, record count
+    RowEditPanel.jsx               # Slide-in panel for insert/update row forms
+    ColumnVisibilityPanel.jsx      # Dropdown panel to show/hide columns
+    SortPanel.jsx                  # Dropdown panel to add/reorder sort rules
+    FilterBar.jsx                  # Inline filter chips with operator selection
+    ContextMenu.jsx                # Right-click menu: copy, filter, edit, delete
+    DeleteRowsConfirmDialog.jsx    # Shared delete confirmation modal (toolbar + `openDeleteConfirmation` ref)
     types.js                       # Filter operators, page size options, constants
     utils.js                       # Shared helpers: theme vars, operator filterFn, export (CSV/TSV/SQL/JSON), copyText, onClickOutside
 ```
@@ -56,17 +55,17 @@ src/
 
 ### Data flow
 
-`DataTable.vue` (full grid) and `MiniTable.vue` (narrow variant) each create a TanStack `useTable` instance with reactive Vue `ref()` state wired through `state` getters and `on*Change` handlers. Both distribute config via `provide()` so **`TableCell`**, **`TableColumnHeader`**, and **`SelectionToolbar`** behave consistently; **`DataTable`** also composes **`FilterBar`** via **`TableToolbar`**, while **`MiniTable`** uses a simple contains **`input`** bound to **`columnFilters`** instead of **`FilterBar`**.
+`DataTable.jsx` (full grid) and `MiniTable.jsx` (narrow variant) each create a TanStack `useTable` instance with reactive Vue `ref()` state wired through `state` getters and `on*Change` handlers. Both distribute config via `provide()` so **`TableCell`**, **`TableColumnHeader`**, and **`SelectionToolbar`** behave consistently; **`DataTable`** also composes **`FilterBar`** via **`TableToolbar`**, while **`MiniTable`** uses a simple contains **`input`** bound to **`columnFilters`** instead of **`FilterBar`**.
 
 `MiniTable` omits the `#` column, sort/columns/insert toolbar, **rows-per-page**, and footer page navigation. A **contains** filter **`input`** (visible column only, operator **`~~*`**, case-insensitive) **+ Refresh** stays visible even when rows are selected. The full **`DataTable`** filter bar also offers **`~~`** (case-sensitive contains) and **`!~~*`** (excludes / not-contains). **Bulk selection UI** (`SelectionToolbar` with **`footerLayout`** — ratio **`selected/eligible`**, Delete, Actions, Clear, Select All) appears in the **footer** when there is a selection; otherwise the footer shows only the **total** count (`toLocaleString()` + count noun). All loaded **`rows`** appear in the scroll list after filter/sort (no client-side paging). Parents conventionally fetch in batches of **`MINI_TABLE_PAGE_SIZE`** (**100**) via **`load-more`** + **`hasMore`**. It forces **`cellOverflow: truncate`** with a fluid data-column width.
 
 ### Reactivity pattern
 
-All table state is stored in Vue `ref()`s and wired into `useTable` via `state` getters and `on*Change` handlers. TanStack v9's Vue adapter is reactive (state atoms are Vue refs, `data` may be a computed), so child components just wrap table reads in `computed()` — use `table.atoms.<slice>.get()` instead of the removed `getState()`.
+All table state lives in `useState` in `DataTable.jsx` / `MiniTable.jsx` and is passed to `useTable` as controlled `state` with `on*Change` handlers. Children read the table during render (`table.getRowModel()`, `table.atoms.<slice>.get()`); the owner re-renders on every state change, so they never subscribe themselves. Vue `watch`es on props became `useUpdateEffect` (skips the mount run, like a non-immediate watch).
 
-### Provide/inject map
+### Context map (was provide/inject)
 
-These values are provided by `DataTable.vue` / `MiniTable.vue` and injected by child components:
+`DataTable` / `MiniTable` each provide one object through `DTContext` (`context.js`); children read it with `useDT()`. The resolved font stack has its own `DTFontContext` so nested tables inherit it. Keys:
 
 | Key                | Type         | Consumers |
 |--------------------|--------------|-----------|
@@ -83,13 +82,13 @@ These values are provided by `DataTable.vue` / `MiniTable.vue` and injected by c
 | `rowActions`       | `ComputedRef<Array>` | `TableGridDataRow` — items for per-row ellipsis menu |
 | `emitRowAction`    | `(key, rowData) => void` | `TableGridDataRow` — forwards to `row-action` |
 
-Flag injects are refs (`toRef(props, …)`) so they follow prop changes: templates unwrap them automatically, script code must `unref()` them.
+Values are plain (no refs). `setSubTableSorting` is also provided so a nested server table's sort reaches the root.
 
 The `editable` inject value is always the normalized object shape `{ insert: boolean, update: boolean, delete: boolean }` — never a raw boolean. Consumers check specific keys: `editable.value.update`, `editable.delete`, etc.
 
 ### Theming system
 
-All colors are driven by CSS custom properties (`--st-*`) set on the root `<div>` of `DataTable.vue` via a `themeVars` computed property. This approach was chosen over provide/inject because:
+All colors are driven by CSS custom properties (`--st-*`) set on the root `<div>` of `DataTable.jsx` via a `themeVars` computed property. This approach was chosen over provide/inject because:
 - CSS variables cascade naturally through the DOM, including into Teleported elements (dropdowns, modals)
 - Zero JS overhead for distributing colors to deeply nested components
 - Works with both inline `:style` bindings and `<style scoped>` blocks
@@ -223,11 +222,11 @@ col.accessor('field', {
 
 ## Coding Conventions
 
-- Single-file components with `<script setup>` — no Options API
-- No TypeScript — plain JavaScript throughout
-- Props validated with Vue's built-in `defineProps` type/default syntax
-- State management via `ref()`/`computed()` — no Pinia or Vuex
+- Function components in `.jsx` — no class components
+- No TypeScript — plain JavaScript throughout; the public surface is typed by hand in `index.d.ts`
+- Props take defaults by destructuring
+- State via `useState` / `useMemo` — no state library
 - Tailwind classes for layout/spacing, CSS custom properties (`--st-*`) via inline `:style` bindings for all colors
-- `<style scoped>` blocks only for hover effects that require `:hover` pseudo-selectors
+- Hover / row-state rules that need pseudo-selectors live in `src/style.css`, scoped under `:where(.data-table-root)`; portaled roots carry `data-table-root` so they apply
 - SVG icons are inlined, not imported from an icon library
-- Components communicate via props down, events up, with `provide/inject` for deeply nested config
+- Components communicate via props down, `on*` callbacks up, with `DTContext` for deeply nested config; menus and dialogs portal to `document.body` (`createPortal`)
