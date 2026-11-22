@@ -1,4 +1,4 @@
-import type { DefineComponent } from 'vue'
+import type { ForwardRefExoticComponent, RefAttributes } from 'react'
 
 /**
  * A TanStack v9 column def, typed to the caller's row model (`createColumnHelper<any, Row>()`,
@@ -58,11 +58,11 @@ export interface SubTableConfig {
   fontFamily?: string | null
   /** Extra context-menu items for nested rows; forwarded as `contextMenuActions`. */
   contextMenuActions?: ReadonlyArray<RowAction>
-  /** Handled internally (stripped before `v-bind`); invokes on nested `@row-action`. */
+  /** Wired to the nested table's `onRowAction`. */
   onRowAction?: (key: string, rowData: unknown) => void
-  /** Stripped before `v-bind`; wired to nested `@page-change` (server child pagination). */
+  /** Wired to the nested table's `onPageChange` (server child pagination). */
   onPageChange?: (payload: { pageIndex: number; pageSize: number }) => void
-  /** Stripped before `v-bind`; wired to nested `@sort-change` (server child refetch). */
+  /** Wired to the nested table's `onSortChange` (server child refetch). */
   onSortChange?: (sorting: SubTableSortingState) => void
 }
 
@@ -94,7 +94,7 @@ export interface DataTableProps {
   toolbarActions?: ToolbarAction[]
   toolbarActionsLabel?: string
   defaultInsertLabel?: string | null
-  /** Custom insert/import menu entries; emits `insert-action` with `key`. */
+  /** Custom insert/import menu entries; calls `onInsertAction(key)`. */
   insertActions?: InsertAction[]
   showRowBorders?: boolean
   showColumnBorders?: boolean
@@ -134,16 +134,38 @@ export interface DataTableProps {
   countLabelPlural?: string
   /** Extra context-menu entries (right-click); also listed in selection toolbar Actions when multi-selecting. */
   contextMenuActions?: ReadonlyArray<RowAction>
+  /** Row id kept visually highlighted (e.g. the last-opened detail). */
+  highlightedRowId?: string | number | null
+
+  // Events (the Vue build's `@insert-row` etc., camelCased with an `on` prefix).
+  // `rows` must be referentially stable between renders: a new array resets the checkbox selection.
+  onInsertRow?: (row?: Record<string, unknown>) => void
+  onUpdateRow?: (payload: { id: unknown; changes: Record<string, unknown> }) => void
+  onDeleteRows?: (ids: string[]) => void
+  onRefresh?: () => void
+  onSelectionAction?: (key: string, rows: any[], selectedIds: string[]) => void
+  onRowAction?: (key: string, rowData: any) => void
+  onToolbarAction?: (key: string) => void
+  onInsertAction?: (key: string) => void
+  onExpandedRowsChange?: (expanded: Record<string, boolean>) => void
+  onColumnResize?: (sizing: Record<string, number>) => void
+  onPageChange?: (payload: { pageIndex: number; pageSize: number }) => void
+  onSortChange?: (sorting: SubTableSortingState) => void
+  onSelectAllMatching?: () => void
+  onAdditionalSelectedRowIdsChange?: (ids: string[]) => void
+  onColumnFiltersChange?: (filters: unknown[]) => void
+  onCommitEdits?: (payload: CommitEditsPayload, done: (ok: boolean) => void) => void
+  onDiscardEdits?: () => void
 }
 
-/** Exposed instance API (template ref): `ref.value.openDeleteConfirmation(['id', ...])`. */
+/** Imperative handle (`ref`): `ref.current.openDeleteConfirmation(['id', ...])`. */
 export interface DataTableExpose {
   openDeleteConfirmation: (ids: readonly string[] | string[]) => void
   /** Depth-0 only: merged Sort-panel rules applied to nested tables (for paging / refetch). */
   getSubTableSorting?: () => SubTableSortingState
 }
 
-export declare const DataTable: DefineComponent<DataTableProps>
+export declare const DataTable: ForwardRefExoticComponent<DataTableProps & RefAttributes<DataTableExpose>>
 
 /** Default rows-per-request for infinite scroll (`types.js`); conventionally 100. */
 export declare const MINI_TABLE_PAGE_SIZE: number
@@ -184,10 +206,24 @@ export interface MiniTableProps {
    */
   inferSelectAllMatching?: boolean
   additionalSelectedRowIds?: readonly string[] | string[]
+
+  onRefresh?: () => void
+  /** Sentinel near the end of the list came into view while `hasMore && !loading`. */
+  onLoadMore?: () => void
+  onColumnFiltersChange?: (filters: unknown[]) => void
+  onSortChange?: (sorting: SubTableSortingState) => void
+  /** Merged selection (checkboxes + `additionalSelectedRowIds`) whenever it changes. */
+  onSelectionChange?: (ids: string[]) => void
+  onAdditionalSelectedRowIdsChange?: (ids: string[]) => void
+  onSelectAllMatching?: () => void
+  onSelectionAction?: (key: string, rows: any[], selectedIds: string[]) => void
+  onRowAction?: (key: string, rowData: any) => void
+  onDeleteRows?: (ids: string[]) => void
+  onUpdateRow?: (payload: { id: unknown; changes: Record<string, unknown> }) => void
 }
 
 export interface MiniTableExpose {
   openDeleteConfirmation: (ids: readonly string[] | string[]) => void
 }
 
-export declare const MiniTable: DefineComponent<MiniTableProps>
+export declare const MiniTable: ForwardRefExoticComponent<MiniTableProps & RefAttributes<MiniTableExpose>>

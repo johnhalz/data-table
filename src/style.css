@@ -77,3 +77,55 @@
 .data-table-root[data-st-theme='light'] * {
   scrollbar-color: #a8a29e transparent;
 }
+
+/* ---- Component styles (were <style scoped> blocks in the Vue build) ---- */
+
+:where(.data-table-root) .hover-menu-item:hover {
+  background-color: var(--st-bg-menu-hover);
+}
+
+:where(.data-table-root) .filter-chip-close:hover {
+  color: var(--st-text);
+  background-color: var(--st-bg-menu-hover);
+}
+
+:where(.data-table-root) .sort-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-left: 0.5rem;
+  padding-right: 1.75rem;
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 12px 12px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23a1a1aa'><path fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/></svg>");
+}
+:where(.data-table-root) .sort-select::-ms-expand {
+  display: none;
+}
+
+/* Row backgrounds: grid body rows and MiniTable rows */
+:where(.data-table-root) .st-row { background-color: transparent; }
+:where(.data-table-root) .st-row:hover { background-color: var(--st-bg-row-hover); }
+:where(.data-table-root) .st-row--selected,
+:where(.data-table-root) .st-row--selected:hover,
+:where(.data-table-root) .st-row--active,
+:where(.data-table-root) .st-row--active:hover { background-color: var(--st-bg-selected); }
+:where(.data-table-root) .st-sticky-cell { background-color: var(--st-bg); }
+:where(.data-table-root) .st-row--selected .st-sticky-cell,
+:where(.data-table-root) .st-row--active .st-sticky-cell { background-color: var(--st-bg-selected-cell); }
+:where(.data-table-root) .st-row--pending-insert,
+:where(.data-table-root) .st-row--pending-insert:hover,
+:where(.data-table-root) .st-row--pending-insert .st-sticky-cell { background-color: var(--st-accent-bg); }
+:where(.data-table-root) .st-row--pending-delete,
+:where(.data-table-root) .st-row--pending-delete .st-sticky-cell { background-color: rgba(239, 68, 68, 0.08); }
+:where(.data-table-root) .st-row--pending-delete:hover { background-color: rgba(239, 68, 68, 0.12); }
+
+/* Row edit panel slides in on open (Vue's <Transition> also animated the close; React unmounts at once). */
+@keyframes dt-slide-panel-in {
+  from { width: 0; opacity: 0; }
+  to { width: 420px; opacity: 1; }
+}
+:where(.data-table-root) .slide-panel-enter { animation: dt-slide-panel-in 0.25s ease; }
+
+:where(.data-table-root) .mini-table-scroll .cursor-col-resize { display: none; }

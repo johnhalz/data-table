@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
+import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
@@ -11,7 +11,7 @@ export default defineConfig(() => {
   if (libBuild) {
     return {
       publicDir: false,
-      plugins: [vue(), tailwindcss()],
+      plugins: [react(), tailwindcss()],
       build: {
         lib: {
           entry: 'src/components/DataTable/index.js',
@@ -19,7 +19,7 @@ export default defineConfig(() => {
           fileName: () => 'data-table.js',
         },
         rollupOptions: {
-          external: ['vue', '@tanstack/vue-table', '@tanstack/vue-virtual'],
+          external: ['react', 'react-dom', 'react/jsx-runtime', '@tanstack/react-table', '@tanstack/react-virtual'],
           output: {
             entryFileNames: 'data-table.js',
             assetFileNames: 'data-table.[ext]',
@@ -34,7 +34,7 @@ export default defineConfig(() => {
 
   /** Demo app — must not write to `dist/` (library build output). */
   return {
-    plugins: [vue(), tailwindcss()],
+    plugins: [react(), tailwindcss()],
     build: {
       outDir: 'dist-demo',
       emptyOutDir: true,

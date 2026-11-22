@@ -1,6 +1,6 @@
 # DataTable
 
-A feature-rich Vue 3 data table component built on [TanStack Table v9](https://tanstack.com/table/latest) with Tailwind CSS dark theme styling.
+A feature-rich React 19 data table component built on [TanStack Table v9](https://tanstack.com/table/latest) with Tailwind CSS dark theme styling.
 
 ## Quick Start
 
@@ -19,11 +19,21 @@ npm install @johnhalazonetis/data-table
 
 **Peer dependencies** (install alongside if they are not already in your app):
 
-- Vue 3.5+
-- `@tanstack/vue-table` ^9.2
-- `@tanstack/vue-virtual` ^3.13
+- React 19 (`react`, `react-dom`)
+- `@tanstack/react-table` ^9.3
+- `@tanstack/react-virtual` ^3.13
 
 `style.css` is precompiled and scoped to the table (it does not reset your page), so your app does not need Tailwind.
+
+### Upgrading from 2.x (Vue → React)
+
+3.0 is a React port with the same features and props; the Vue build stays on 2.x.
+
+- Props are camelCase (`tableName`, `defaultInsertLabel`, …). Events become `on`-prefixed callbacks: `@insert-row` → `onInsertRow`, `@update:column-filters` → `onColumnFiltersChange`, `@update:additionalSelectedRowIds` → `onAdditionalSelectedRowIdsChange`, `@update:expanded-rows` → `onExpandedRowsChange`, MiniTable `@load-more` → `onLoadMore`.
+- Template refs become `ref` + `ref.current.openDeleteConfirmation(ids)`.
+- Column defs come from `@tanstack/react-table`'s `createColumnHelper()`; the `meta` keys are unchanged.
+- Pass a referentially stable `rows` array (state or `useMemo`): a new array is treated as new data and resets the checkbox selection, like a Vue watch on `rows`.
+- Body rows and cells now carry ARIA `row` / `cell` roles and menus use `menu` / `menuitem`.
 
 ### Upgrading from 1.x
 
@@ -34,57 +44,41 @@ npm install @johnhalazonetis/data-table
 
 ## Basic Usage
 
-```vue
-<script setup>
-import { ref } from 'vue'
+```jsx
+import { useState } from 'react'
 import { DataTable } from '@johnhalazonetis/data-table'
 import '@johnhalazonetis/data-table/style.css'
-import { createColumnHelper } from '@tanstack/vue-table'
+import { createColumnHelper } from '@tanstack/react-table'
 
 const col = createColumnHelper()
 
+// Defined once, outside the component, so the identity is stable.
 const columns = [
-  col.accessor('id', {
-    header: 'id',
-    meta: { type: 'int8', isPrimaryKey: true, isNullable: false },
-    size: 80,
-    enableSorting: true,
-    enableColumnFilter: true,
-  }),
-  col.accessor('name', {
-    header: 'name',
-    meta: { type: 'varchar', isNullable: false },
-    size: 200,
-    enableSorting: true,
-    enableColumnFilter: true,
-  }),
-  col.accessor('is_active', {
-    header: 'is_active',
-    meta: { type: 'boolean', isNullable: false },
-    size: 110,
-    enableSorting: true,
-    enableColumnFilter: true,
-  }),
+  col.accessor('id', { header: 'id', meta: { type: 'int8', isPrimaryKey: true, isNullable: false }, size: 80 }),
+  col.accessor('name', { header: 'name', meta: { type: 'varchar', isNullable: false }, size: 200 }),
+  col.accessor('is_active', { header: 'is_active', meta: { type: 'boolean', isNullable: false }, size: 110 }),
 ]
 
-const rows = ref([
-  { id: 1, name: 'Acme Corp', is_active: true },
-  { id: 2, name: 'Globex', is_active: false },
-])
-</script>
-
-<template>
-  <DataTable
-    :columns="columns"
-    :rows="rows"
-    table-name="companies"
-    @insert-row="handleInsert"
-    @update-row="handleUpdate"
-    @delete-rows="handleDelete"
-    @refresh="handleRefresh"
-  />
-</template>
+export function Companies() {
+  const [rows, setRows] = useState([
+    { id: 1, name: 'Acme Corp', is_active: true },
+    { id: 2, name: 'Globex', is_active: false },
+  ])
+  return (
+    <DataTable
+      columns={columns}
+      rows={rows}
+      tableName="companies"
+      onInsertRow={handleInsert}
+      onUpdateRow={handleUpdate}
+      onDeleteRows={handleDelete}
+      onRefresh={handleRefresh}
+    />
+  )
+}
 ```
+
+The rest of this README still shows prop and event names in their 2.x kebab-case form; map them as above.
 
 ## MiniTable
 

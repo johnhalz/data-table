@@ -1,40 +1,41 @@
 # Architecture
 
+> Written for the Vue build and carried over to the 3.x React port. The structure is the same; read *provide/inject* as `DTContext` (`context.js`), *ref()* as `useState`, *Teleport* as `createPortal`, *emit('x-y')* as an `onXY` callback, and *watch* as `useUpdateEffect`.
+
 ## Component Tree
 
 ### DataTable
 
 ```
-DataTable.vue                 ← primary grid; all state lives here
-├── SelectionToolbar.vue          ← shown when rows are selected (replaces toolbar)
+DataTable.jsx                 ← primary grid; all state lives here
+├── SelectionToolbar.jsx          ← shown when rows are selected (replaces toolbar)
 │   └── [Teleport] delete confirmation dialog
-├── TableToolbar.vue              ← shown when no rows selected
-│   ├── FilterBar.vue             ← inline filter chips
-│   │   └── FilterOperatorMenu.vue
-│   ├── SortPanel.vue             ← dropdown: add/reorder sort rules
-│   └── ColumnVisibilityPanel.vue ← dropdown: toggle columns, show all / default
-├── TableGrid.vue                 ← scrollable table with sticky columns
-│   ├── TableColumnHeader.vue     ← per-column: name, type, sort indicator, dropdown
-│   └── TableCell.vue             ← per-cell: display, badge, inline edit, boolean toggle
-├── TablePagination.vue           ← page nav, rows per page, record count
-├── RowEditPanel.vue              ← slide-in form (insert or update)
-└── ContextMenu.vue               ← right-click menu (Teleported to body)
+├── TableToolbar.jsx              ← shown when no rows selected
+│   ├── FilterBar.jsx             ← inline filter chips
+│   ├── SortPanel.jsx             ← dropdown: add/reorder sort rules
+│   └── ColumnVisibilityPanel.jsx ← dropdown: toggle columns, show all / default
+├── TableGrid.jsx                 ← scrollable table with sticky columns
+│   ├── TableColumnHeader.jsx     ← per-column: name, type, sort indicator, dropdown
+│   └── TableCell.jsx             ← per-cell: display, badge, inline edit, boolean toggle
+├── TablePagination.jsx           ← page nav, rows per page, record count
+├── RowEditPanel.jsx              ← slide-in form (insert or update)
+└── ContextMenu.jsx               ← right-click menu (Teleported to body)
 ```
 
 ### MiniTable
 
 ```
-MiniTable.vue                  ← narrow single-column variant (own useTable + provide/inject)
+MiniTable.jsx                  ← narrow single-column variant (own useTable + provide/inject)
 ├── (contains filter `<input>` + Refresh row — not FilterBar)
-├── SelectionToolbar.vue        ← embedded in footer when rows selected (footerLayout + summaryRatio)
-├── TableColumnHeader.vue       ← sort via header chevron only
-├── TableCell.vue
-├── RowEditPanel.vue            ← update-only flow when editable.update
-├── ContextMenu.vue
-└── DeleteRowsConfirmDialog.vue
+├── SelectionToolbar.jsx        ← embedded in footer when rows selected (footerLayout + summaryRatio)
+├── TableColumnHeader.jsx       ← sort via header chevron only
+├── TableCell.jsx
+├── RowEditPanel.jsx            ← update-only flow when editable.update
+├── ContextMenu.jsx
+└── DeleteRowsConfirmDialog.jsx
 ```
 
-`MiniTable.vue` is **not** a wrapper around `DataTable`. It uses **`manualSorting`** and **`manualFiltering`** so the parent can react to **`sort-change`** and **`update:column-filters`** by refetching or reshaping **`rows`**.
+`MiniTable.jsx` is **not** a wrapper around `DataTable`. It uses **`manualSorting`** and **`manualFiltering`** so the parent can react to **`sort-change`** and **`update:column-filters`** by refetching or reshaping **`rows`**.
 
 - **Layout**: Checkbox column + one data column (**no `#` column**). **`ResizeObserver`** sets **`columnSizing`** so the data column fills **`viewportWidth - checkboxWidth`** with **`overflow-x: hidden`** on the scroll shell.
 - **Toolbar**: **Contains search field + Refresh** is **always** shown — selection does not hide filtering.
@@ -44,7 +45,7 @@ MiniTable.vue                  ← narrow single-column variant (own useTable + 
 
 ## State Management
 
-All table state is owned by `DataTable.vue` as Vue `ref()`s:
+All table state is owned by `DataTable.jsx` as Vue `ref()`s:
 
 | Ref | Type | Controls |
 |-----|------|----------|
@@ -63,7 +64,7 @@ TanStack Table v9's Vue adapter (`useTable`) backs table state with Vue refs/com
 2. Each `on*Change` handler updates the corresponding ref
 3. Child components wrap table reads (`table.getRowModel().rows`, `table.atoms.pagination.get()`) in `computed()`; no manual dependency hints are needed
 
-Features are declared explicitly with `tableFeatures({...})` in `DataTable.vue` / `MiniTable.vue` (MiniTable omits pagination and column resizing, so shared children call resize APIs with optional chaining).
+Features are declared explicitly with `tableFeatures({...})` in `DataTable.jsx` / `MiniTable.jsx` (MiniTable omits pagination and column resizing, so shared children call resize APIs with optional chaining).
 
 ## Communication Patterns
 
@@ -74,7 +75,7 @@ Parent App
   │
   │  props: columns, rows, tableName, editable, loading, error, totalCount, ...
   ▼
-DataTable.vue
+DataTable.jsx
   │
   │  emit: insert-row, update-row, delete-rows, refresh, selection-action,
   │        page-change, column-resize
@@ -84,10 +85,10 @@ Parent App
 
 ### Provide/inject for deep config
 
-Configuration props that need to reach deeply nested components (TableCell, TableColumnHeader) are provided by `DataTable.vue` and injected by consumers:
+Configuration props that need to reach deeply nested components (TableCell, TableColumnHeader) are provided by `DataTable.jsx` and injected by consumers:
 
 ```
-DataTable.vue ──provide──► showDataTypes
+DataTable.jsx ──provide──► showDataTypes
                                editable          ← ComputedRef<{ insert, update, delete }>
                                showRowBorders
                                showColumnBorders
@@ -99,13 +100,13 @@ DataTable.vue ──provide──► showDataTypes
 The `editable` inject is always the normalized object form. Consumers must check specific keys (`editable.value.update`, `editable.delete`) rather than treating it as a boolean.
 
 Injecting components:
-- `TableColumnHeader.vue` injects: `showDataTypes`, `showRowBorders`, `showColumnBorders`
-- `TableCell.vue` injects: `editable`, `showRowBorders`, `showColumnBorders`
-- `TableGrid.vue` injects: `editable`, `showRowBorders`, `showColumnBorders`, `openInsertPanel`
-- `ContextMenu.vue` injects: `editable`
-- `SortPanel.vue` injects: `showDataTypes`
-- `FilterBar.vue` injects: `showDataTypes`
-- `ColumnVisibilityPanel.vue` injects: `showDataTypes`
+- `TableColumnHeader.jsx` injects: `showDataTypes`, `showRowBorders`, `showColumnBorders`
+- `TableCell.jsx` injects: `editable`, `showRowBorders`, `showColumnBorders`
+- `TableGrid.jsx` injects: `editable`, `showRowBorders`, `showColumnBorders`, `openInsertPanel`
+- `ContextMenu.jsx` injects: `editable`
+- `SortPanel.jsx` injects: `showDataTypes`
+- `FilterBar.jsx` injects: `showDataTypes`
+- `ColumnVisibilityPanel.jsx` injects: `showDataTypes`
 
 ## Dropdown / Modal Pattern
 
@@ -120,13 +121,13 @@ Teleporting to `<body>` is required when the dropdown is inside a positioned anc
 
 ## Row Identity
 
-`getRowId` is derived at runtime from the column definitions. `DataTable.vue` scans `props.columns` for the first column with `meta.isPrimaryKey: true` and uses its `accessorKey` (or `id`) as the row identity field. Falls back to `row.id` if no primary key column is found.
+`getRowId` is derived at runtime from the column definitions. `DataTable.jsx` scans `props.columns` for the first column with `meta.isPrimaryKey: true` and uses its `accessorKey` (or `id`) as the row identity field. Falls back to `row.id` if no primary key column is found.
 
 This means row IDs in `delete-rows` payloads, `rowSelection` state, and TanStack's internal row model all reflect the actual primary key field — not a hardcoded `.id` assumption.
 
 ## Server-Side Pagination
 
-When `totalCount` prop is set (non-null), `DataTable.vue` configures TanStack with `manualPagination: true` and derives `pageCount` from `totalCount / pageSize`. In this mode:
+When `totalCount` prop is set (non-null), `DataTable.jsx` configures TanStack with `manualPagination: true` and derives `pageCount` from `totalCount / pageSize`. In this mode:
 - The table does **not** slice `rows` — the parent is responsible for passing the correct page slice
 - Every page navigation emits `page-change: { pageIndex, pageSize }` for the parent to fetch the next slice
 - `TablePagination` shows `totalCount` as the count line instead of `filteredRowModel.rows.length`; wording uses `countLabelSingular` / `countLabelPlural` (default record/records)
@@ -157,17 +158,16 @@ Columns are defined using TanStack's `createColumnHelper()`. The `meta` object i
 
 | File | Responsibility | Props received | Events emitted |
 |------|---------------|---------------|----------------|
-| `DataTable.vue` | State hub, provide/inject, layout | SDK props | SDK events |
-| `TableToolbar.vue` | Toolbar layout, panel toggles | `table`, `sorting`, `columnFilters`, `columnVisibility`, `defaultColumnVisibility`, `editable` (object), `loading` | `update:sorting`, `update:column-filters`, `update:column-visibility`, `insert-row`, `refresh` |
-| `SelectionToolbar.vue` | Selection actions, delete confirm | `selectedCount`, `table`, `editable` (object), `selectionActions` | `delete-rows`, `selection-action` |
-| `TableGrid.vue` | Scrollable table, row rendering | `table` | `update-cell`, `context-menu`, `edit-row` |
-| `TableColumnHeader.vue` | Column header cell | `header`, `table` | (none — uses injected functions) |
-| `TableCell.vue` | Data cell rendering/editing | `cell`, `isSelected` | `select`, `update` |
-| `TablePagination.vue` | Page controls | `table`, `totalCount` | (none — calls table methods directly) |
-| `RowEditPanel.vue` | Insert/update form | `mode`, `rowData`, `table`, `tableName` | `save`, `close` |
-| `ColumnVisibilityPanel.vue` | Column show/hide toggles | `table`, `columnVisibility`, `defaultColumnVisibility` | `update:column-visibility`, `close` |
-| `SortPanel.vue` | Sort rule management | `table`, `sorting`, `allColumns` | `update:sorting`, `close` |
-| `FilterBar.vue` | Filter chip management | `table`, `columnFilters`, `allColumns` | `update:column-filters` |
-| `FilterOperatorMenu.vue` | Operator picker | `operators`, `selected` | `select` |
-| `ContextMenu.vue` | Right-click actions | `x`, `y`, `row`, `cell` | `close`, `edit-row`, `delete-row`, `filter-by-value` |
+| `DataTable.jsx` | State hub, provide/inject, layout | SDK props | SDK events |
+| `TableToolbar.jsx` | Toolbar layout, panel toggles | `table`, `sorting`, `columnFilters`, `columnVisibility`, `defaultColumnVisibility`, `editable` (object), `loading` | `update:sorting`, `update:column-filters`, `update:column-visibility`, `insert-row`, `refresh` |
+| `SelectionToolbar.jsx` | Selection actions, delete confirm | `selectedCount`, `table`, `editable` (object), `selectionActions` | `delete-rows`, `selection-action` |
+| `TableGrid.jsx` | Scrollable table, row rendering | `table` | `update-cell`, `context-menu`, `edit-row` |
+| `TableColumnHeader.jsx` | Column header cell | `header`, `table` | (none — uses injected functions) |
+| `TableCell.jsx` | Data cell rendering/editing | `cell`, `isSelected` | `select`, `update` |
+| `TablePagination.jsx` | Page controls | `table`, `totalCount` | (none — calls table methods directly) |
+| `RowEditPanel.jsx` | Insert/update form | `mode`, `rowData`, `table`, `tableName` | `save`, `close` |
+| `ColumnVisibilityPanel.jsx` | Column show/hide toggles | `table`, `columnVisibility`, `defaultColumnVisibility` | `update:column-visibility`, `close` |
+| `SortPanel.jsx` | Sort rule management | `table`, `sorting`, `allColumns` | `update:sorting`, `close` |
+| `FilterBar.jsx` | Filter chip management | `table`, `columnFilters`, `allColumns` | `update:column-filters` |
+| `ContextMenu.jsx` | Right-click actions | `x`, `y`, `row`, `cell` | `close`, `edit-row`, `delete-row`, `filter-by-value` |
 | `types.js` | Constants | — | — |
