@@ -90,3 +90,8 @@ test('meta.render puts a custom node in the cell', async ({ page }) => {
   await button.click()
   await logged
 })
+
+test('a meta.render column keeps its own width: its content cannot be measured', async ({ page }) => {
+  const box = await grid(page).getByRole('columnheader', { name: /name \(render\)/ }).first().boundingBox()
+  expect(box.width).toBeGreaterThanOrEqual(240) // the demo column's size
+})

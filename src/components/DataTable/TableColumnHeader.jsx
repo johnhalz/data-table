@@ -57,7 +57,8 @@ export default function TableColumnHeader({ header, table }) {
     if (Array.isArray(colMeta.cellButtons) && colMeta.cellButtons.length > 0) {
       contentWidth += widthPxForCellButtons(colMeta.cellButtons)
     }
-    const newWidth = Math.min(Math.max(Math.ceil(contentWidth) + 16 + 28, 60), 500)
+    const ownSize = typeof colMeta.render === 'function' ? (col.columnDef.size ?? 0) : 0
+    const newWidth = Math.min(Math.max(Math.ceil(contentWidth) + 16 + 28, ownSize, 60), 500)
     table.setColumnSizing((prev) => ({ ...prev, [col.id]: newWidth }))
   }
 
