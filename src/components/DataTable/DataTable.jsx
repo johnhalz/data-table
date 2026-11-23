@@ -423,7 +423,7 @@ const DataTable = forwardRef(function DataTable(props, ref) {
       let w = ctx.measureText(typeof col.columnDef.header === 'string' ? col.columnDef.header : String(col.id)).width
       if (showDataTypes && meta.type) w += 6 + ctx.measureText(meta.type).width
       const isSegmentedBar = !!meta.segmentedBar
-      const isFixedUiCell = (meta.type === 'boolean' && !meta.badge) || !!meta.progressBar || isSegmentedBar
+      const isFixedUiCell = (meta.type === 'boolean' && !meta.badge) || !!meta.progressBar || isSegmentedBar || typeof meta.render === 'function'
       if (!isFixedUiCell) {
         const { accessorFn } = col.columnDef
         const accessorKey = col.columnDef.accessorKey ?? col.id

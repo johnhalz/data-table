@@ -46,7 +46,7 @@ export default function TableColumnHeader({ header, table }) {
     const colMeta = col.columnDef.meta || {}
     let contentWidth = ctx.measureText(typeof col.columnDef.header === 'string' ? col.columnDef.header : String(col.id)).width
     if (showDataTypes && colMeta.type) contentWidth += 6 + ctx.measureText(String(colMeta.type)).width
-    const isFixedUiCell = (colMeta.type === 'boolean' && !colMeta.badge) || !!colMeta.progressBar
+    const isFixedUiCell = (colMeta.type === 'boolean' && !colMeta.badge) || !!colMeta.progressBar || typeof colMeta.render === 'function'
     if (!isFixedUiCell) {
       for (const row of table.getFilteredRowModel().rows) {
         const value = row.getValue(col.id)

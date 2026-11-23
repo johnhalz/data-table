@@ -1,3 +1,4 @@
+import { createElement } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 
 const col = createColumnHelper()
@@ -216,5 +217,17 @@ export const columns = [
     size: 200,
     enableSorting: true,
     enableColumnFilter: true,
+  }),
+  col.accessor('name', {
+    id: 'name_custom',
+    header: 'name (render)',
+    meta: {
+      type: 'varchar',
+      render: (_value, row) => createElement('span', { 'data-testid': 'custom-cell' }, `${row.name}!`),
+      cellButtons: [{ label: 'Greet', onClick: (row) => console.log('greet', row.name) }],
+    },
+    size: 240,
+    enableSorting: false,
+    enableColumnFilter: false,
   }),
 ]
