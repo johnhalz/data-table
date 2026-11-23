@@ -1,6 +1,6 @@
 {
   "name": "@johnhalazonetis/data-table",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Feature-rich React data grid built on TanStack Table",
   "license": "MIT",
   "repository": {

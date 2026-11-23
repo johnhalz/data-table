@@ -73,3 +73,20 @@ test('mini table loads more on scroll and selects', async ({ page }) => {
   await rows.nth(1).getByRole('checkbox').check()
   await expect(page.getByText('Mini selected: 1')).toBeVisible()
 })
+
+test('meta.render puts a custom node in the cell', async ({ page }) => {
+  const row = grid(page).getByRole('row').nth(1)
+  const custom = row.getByTestId('custom-cell')
+  await expect(custom).toHaveText(/.+!$/)
+
+  // Never an inline editor, even though the demo table is editable...
+  await custom.dblclick()
+  await expect(grid(page).getByRole('textbox')).toHaveCount(0)
+
+  // ...and cellButtons still work beside it.
+  const button = row.getByRole('button', { name: 'Greet', exact: true })
+  await row.hover()
+  const logged = page.waitForEvent('console', (m) => m.text().startsWith('greet'))
+  await button.click()
+  await logged
+})

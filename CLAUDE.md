@@ -208,6 +208,7 @@ col.accessor('field', {
     // Presentation (optional)
     overflow: 'truncate',   // 'truncate' | 'wrap' — overrides table `cellOverflow`; `multiline: true` is legacy alias for wrap
     progressBar: true,      // or { min, max } or (value, row) => 0–100
+    render: (value, row) => node, // custom cell content; wins over badge / progressBar / segmentedBar / boolean toggle; not editable inline
     cellButtons: [{ label, icon? (SVG HTML), onClick(row) }],
     badge: true,            // or { color?: CSSColor } or (value, row) => { color? } | null — pill for any type; boolean columns show a pill instead of the toggle when set. `color`: any CSS color (hex, rgb/hsl, named, var(--…))
     textColor: (value, row) => '#hex' | { color: CSSColor, label?: string } | null, // plain primary text color; optional `label` overrides displayed text (e.g. em dash for null). After progress/segmented bar; if `meta.badge` is also set, badge renders first and textColor is skipped.

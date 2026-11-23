@@ -96,14 +96,16 @@ export default function TableCell({ cell, isSelected = false, onSelect, onUpdate
   const isCellModified = getCellPendingState(rowId, colId) === 'modified'
   const previousValue = getCellPreviousValue(rowId, colId)
   const isRowDeleted = getRowPendingState(rowId) === 'delete'
-  const useBooleanToggle = m.type === 'boolean' && !m.badge
-  const progressPercent = progressPercentOf(m, value, row)
+  // Custom content: meta.render = (value, row) => ReactNode. Wins over every other presentation; never edited inline.
+  const custom = typeof m.render === 'function'
+  const useBooleanToggle = m.type === 'boolean' && !m.badge && !custom
+  const progressPercent = custom ? null : progressPercentOf(m, value, row)
   // Segmented progress: meta.segmentedBar = (value, row) => { segments: { color, count, label }[], total }
-  const segmented = typeof m.segmentedBar === 'function' ? m.segmentedBar(value, row) ?? null : null
+  const segmented = !custom && typeof m.segmentedBar === 'function' ? m.segmentedBar(value, row) ?? null : null
   const overflowMode = m.overflow || (m.multiline ? 'wrap' : cellOverflow || 'truncate')
   const cellButtons = m.cellButtons ?? []
   const textColor = textColorOf(m, value, row)
-  const badge = badgeOf(m, value, row)
+  const badge = custom ? null : badgeOf(m, value, row)
   const suffixIcon = !m.suffixIcon ? null : typeof m.suffixIcon === 'function' ? m.suffixIcon(value, row) || null : m.suffixIcon
   const secondary = secondaryOf(m, value, row)
   const showSecondary = !!secondary && (isNullish(value) || !badge)
@@ -137,7 +139,7 @@ export default function TableCell({ cell, isSelected = false, onSelect, onUpdate
       m.dblClick(row)
       return
     }
-    if (!editable?.update || useBooleanToggle || m.progressBar || m.segmentedBar || cellButtons.length > 0) return
+    if (!editable?.update || useBooleanToggle || custom || m.progressBar || m.segmentedBar || cellButtons.length > 0) return
     setEditValue(value ?? '')
     setEditing(true)
   }
@@ -252,7 +254,9 @@ export default function TableCell({ cell, isSelected = false, onSelect, onUpdate
     )
   } else {
     let primary
-    if (badge) {
+    if (custom) {
+      primary = m.render(value, row)
+    } else if (badge) {
       primary = (
         <span className="inline-flex shrink-0 self-start items-center px-1.5 py-0.5 rounded text-[11px] font-medium leading-tight" style={badge.style}>
           {badge.text}
