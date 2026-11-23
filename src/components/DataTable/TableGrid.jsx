@@ -7,6 +7,8 @@ import { DATA_TABLE_STICKY_CHROME_PX, DATA_TABLE_ROW_NUMBER_COL_PX, DATA_TABLE_R
 
 /** Rows at or below this render in document flow (stable scrollbar track); above uses TanStack Virtual. */
 const ROW_VIRTUALIZATION_THRESHOLD = 500
+/** A nested table has no height of its own; with virtual rows it scrolls inside this much. */
+const NESTED_VIRTUAL_MAX_HEIGHT = '70vh'
 /** Placeholder rows while `loading` is true and there is no data yet. */
 const SKELETON_ROW_COUNT = 8
 /** Stable bar widths (%) for skeleton cells: cycles by (row + col) index. */
@@ -37,8 +39,10 @@ const TableGrid = forwardRef(function TableGrid({ table, onUpdateCell, onContext
   const [editingRowId, setEditingRowId] = useState(null)
   const lastClickedRowIndex = useRef(null)
   const scrollerRef = useRef(null)
+  const nestedShellRef = useRef(null)
 
   const rows = table.getRowModel().rows
+  const virtual = rows.length > ROW_VIRTUALIZATION_THRESHOLD
   const visibleColumns = table.getVisibleLeafColumns()
   const totalTableWidth = DATA_TABLE_STICKY_CHROME_PX + visibleColumns.reduce((sum, col) => sum + col.getSize(), 0)
   const paginationState = table.atoms.pagination?.get() ?? { pageIndex: 0, pageSize: rows.length }
@@ -83,7 +87,11 @@ const TableGrid = forwardRef(function TableGrid({ table, onUpdateCell, onContext
   const insertLabel = defaultInsertLabel == null ? '' : String(defaultInsertLabel).trim()
 
   return (
-    <div className={nestingDepth === 0 ? 'flex-1 min-h-0 relative' : 'overflow-auto relative min-h-[180px]'}>
+    <div
+      ref={nestedShellRef}
+      className={nestingDepth === 0 ? 'flex-1 min-h-0 relative' : 'overflow-auto relative min-h-[180px]'}
+      style={nestingDepth > 0 && virtual ? { maxHeight: NESTED_VIRTUAL_MAX_HEIGHT } : undefined}
+    >
       <div
         ref={scrollerRef}
         role="table"
@@ -151,8 +159,8 @@ const TableGrid = forwardRef(function TableGrid({ table, onUpdateCell, onContext
           </table>
         </div>
 
-        {rows.length > 0 && rows.length > ROW_VIRTUALIZATION_THRESHOLD ? (
-          <TableGridVirtualRows {...rowProps} scrollElementRef={scrollerRef} />
+        {virtual ? (
+          <TableGridVirtualRows {...rowProps} scrollElementRef={nestingDepth > 0 ? nestedShellRef : scrollerRef} />
         ) : rows.length > 0 ? (
           <TableGridFlowRows {...rowProps} />
         ) : loading ? (

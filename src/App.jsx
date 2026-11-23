@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { DataTable, MiniTable, MINI_TABLE_PAGE_SIZE } from './components/DataTable'
 import { columns, employeeColumns } from './demo/demoColumns.js'
-import { stores as initialStores, employeesByStore } from './demo/demoData.js'
+import { stores as initialStores, employeesByStore, pagedEmployees, pagedStoreId } from './demo/demoData.js'
 
 const miniColumn = createColumnHelper().accessor('name', {
   id: 'name',
@@ -37,10 +37,29 @@ export default function App() {
   const miniRows = useMemo(() => miniFiltered.slice(0, miniLoaded), [miniFiltered, miniLoaded])
   const loadMore = useCallback(() => setMiniLoaded((n) => n + MINI_TABLE_PAGE_SIZE), [])
 
-  const getSubTable = useCallback((row) => {
-    const rows = employeesByStore[row.id]
-    return rows ? { rows, columns: employeeColumns, tableName: 'employees', showToolbar: false } : null
-  }, [])
+  const [paged, setPaged] = useState(pagedEmployees.slice(0, 100))
+  const getSubTable = useCallback(
+    (row) => {
+      if (row.id === pagedStoreId) {
+        return {
+          rows: paged,
+          columns: employeeColumns,
+          tableName: 'employees',
+          showToolbar: false,
+          showPagination: true,
+          totalCount: pagedEmployees.length,
+          onPageChange: ({ pageIndex, pageSize }) => {
+            console.log('sub page', pageIndex, pageSize)
+            setTimeout(() => setPaged(pagedEmployees.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize)), 50)
+          },
+          onSortChange: () => console.log('sub sort'),
+        }
+      }
+      const rows = employeesByStore[row.id]
+      return rows ? { rows, columns: employeeColumns, tableName: 'employees', showToolbar: false, showPagination: true } : null
+    },
+    [paged],
+  )
 
   return (
     <div className={`h-screen flex flex-col ${theme === 'dark' ? 'bg-[#1c1c1c] text-white' : 'bg-white text-black'}`}>
