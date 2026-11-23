@@ -178,9 +178,9 @@ const TableGridDataRow = forwardRef(function TableGridDataRow(
               backgroundColor: 'var(--st-bg)',
             }}
           >
-            {/* Remount when lazily-loaded `rows` length changes — avoids stale state if parent snapshots lag. */}
+            {/* Remount once lazily-loaded `rows` arrive. Not per length: a short last page would reset the page number. */}
             <DataTable
-              key={`${row.id}-${(subCfg.rows ?? []).length}`}
+              key={`${row.id}-${(subCfg.rows ?? []).length > 0}`}
               {...subTableProps}
               editable={subCfg.editable ?? { insert: false, update: false, delete: false }}
               theme={subCfg.theme ?? parentTheme}

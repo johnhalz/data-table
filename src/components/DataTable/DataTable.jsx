@@ -442,6 +442,8 @@ const DataTable = forwardRef(function DataTable(props, ref) {
       if (Array.isArray(meta.cellButtons) && meta.cellButtons.length > 0) w += widthPxForCellButtons(meta.cellButtons)
       let finalWidth = Math.ceil(w) + CELL_PADDING_PX + HEADER_CHROME_PX
       if (isSegmentedBar) finalWidth = Math.max(finalWidth, 200)
+      // Custom content can't be measured from the value: trust the column's own size.
+      if (typeof meta.render === 'function') finalWidth = Math.max(finalWidth, col.columnDef.size ?? 0)
       sizing[col.id] = Math.min(Math.max(finalWidth, 60), 500)
     }
     return sizing

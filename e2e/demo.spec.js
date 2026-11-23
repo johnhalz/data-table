@@ -90,3 +90,44 @@ test('meta.render puts a custom node in the cell', async ({ page }) => {
   await button.click()
   await logged
 })
+
+test('a meta.render column keeps its own width: its content cannot be measured', async ({ page }) => {
+  const box = await grid(page).getByRole('columnheader', { name: /name \(render\)/ }).first().boundingBox()
+  expect(box.width).toBeGreaterThanOrEqual(240) // the demo column's size
+})
+
+const expandStore = (page, name) => grid(page).getByRole('row').filter({ hasText: name }).first().getByRole('button', { name: 'Toggle sub-table' }).click()
+
+test('a nested table paged by a server stays on a short last page', async ({ page }) => {
+  const events = []
+  page.on('console', (m) => /^sub /.test(m.text()) && events.push(m.text()))
+  await expandStore(page, 'Whole Foods - SOMA')
+  const sub = page.getByRole('table').nth(1)
+  await expect(sub.getByText('Crew 100', { exact: true })).toBeVisible()
+  await page.waitForTimeout(300)
+  expect(events).toEqual([]) // showing it asks for nothing: its first page is already there
+
+  await page.getByRole('button', { name: 'Next page' }).first().click()
+  await expect(sub.getByText('Crew 120', { exact: true })).toBeVisible()
+  await expect(sub.getByText('Crew 1', { exact: true })).toHaveCount(0)
+  await page.waitForTimeout(500)
+  await expect(sub.getByText('Crew 120', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('Page number').first()).toHaveValue('2')
+  expect(events).toEqual(['sub page 1 100'])
+})
+
+test('a nested table draws only the rows in view', async ({ page }) => {
+  await expandStore(page, 'Whole Foods - Noe Valley')
+  await page.getByLabel('Rows per page:').first().selectOption('1000')
+  const sub = page.getByRole('table').nth(1)
+  await expect(sub.getByText('Crew 1', { exact: true })).toBeVisible()
+  expect(await sub.getByRole('row').count()).toBeLessThan(120)
+  // It scrolls inside itself, to the very end, under its header.
+  const shell = sub.locator('..')
+  expect((await shell.boundingBox()).height).toBeLessThan(700)
+  await shell.evaluate((el) => (el.scrollTop = el.scrollHeight))
+  await expect(sub.getByText('Crew 700', { exact: true })).toBeVisible()
+  const header = await sub.getByRole('columnheader', { name: /role/ }).first().boundingBox()
+  expect(Math.abs(header.y - (await shell.boundingBox()).y)).toBeLessThan(3)
+  expect(await sub.getByRole('row').count()).toBeLessThan(120)
+})

@@ -81,3 +81,10 @@ export const employeesByStore = {
     { id: 2802, name: 'Yves Keller', role: 'Kassier', email: 'ykeller@migros.ch', hired: '2021-10-15', salary: 54000 },
   ],
 }
+
+const crew = (storeId, n) => Array.from({ length: n }, (_, i) => ({ id: storeId * 10000 + i + 1, name: `Crew ${i + 1}`, role: 'Crew Member', email: `crew${i + 1}@example.com`, hired: '2024-01-01', salary: 50000 + i }))
+/** More rows than are drawn at once. */
+employeesByStore[5] = crew(5, 700)
+/** Paged by a "server" (see App.jsx): 100, then a short last page of 20. */
+export const pagedStoreId = 4
+export const pagedEmployees = crew(4, 120)
