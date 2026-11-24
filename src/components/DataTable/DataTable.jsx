@@ -334,8 +334,12 @@ const DataTable = forwardRef(function DataTable(props, ref) {
     for (const row of rows) if (additionalSet.has(idOf(row))) next[idOf(row)] = true
     return next
   }
-  // New rows (page change / refetch) reset checkboxes, keeping the parent's cross-page selection.
-  useUpdateEffect(() => setRowSelection(withAdditionalOnPage({})), [rows])
+  // New rows keep the checkboxes of rows still here (a live update patches rows under the user's selection); a page
+  // change drops the rest, keeping the parent's cross-page selection.
+  useUpdateEffect(() => {
+    const here = new Set(rows.map(idOf))
+    setRowSelection((s) => withAdditionalOnPage(Object.fromEntries(Object.entries(s).filter(([id, on]) => on && here.has(id)))))
+  }, [rows])
   useUpdateEffect(() => setRowSelection((s) => withAdditionalOnPage(s)), [additionalSelectedRowIds, additionalSelectedRowIds?.length, totalCount])
 
   const clearFullSelection = () => {

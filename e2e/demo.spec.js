@@ -131,3 +131,18 @@ test('a nested table draws only the rows in view', async ({ page }) => {
   expect(Math.abs(header.y - (await shell.boundingBox()).y)).toBeLessThan(3)
   expect(await sub.getByRole('row').count()).toBeLessThan(120)
 })
+
+test('a selection survives its rows being updated', async ({ page }) => {
+  const row = grid(page).getByRole('row').nth(1)
+  await row.getByRole('checkbox', { name: 'Select row' }).check()
+  await expect(page.getByText('1 row selected')).toBeVisible()
+  // Another row changes: the parent hands over a new `rows` array, as live updates do.
+  const cell = grid(page).getByRole('row').nth(2).getByRole('cell').nth(3)
+  await cell.dblclick()
+  await page.keyboard.press('ControlOrMeta+a')
+  await page.keyboard.type('Changed elsewhere')
+  await page.keyboard.press('Enter')
+  await expect(cell).toContainText('Changed elsewhere')
+  await expect(page.getByText('1 row selected')).toBeVisible()
+  await expect(row.getByRole('checkbox', { name: 'Select row' })).toBeChecked()
+})
