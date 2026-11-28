@@ -146,3 +146,18 @@ test('a selection survives its rows being updated', async ({ page }) => {
   await expect(page.getByText('1 row selected')).toBeVisible()
   await expect(row.getByRole('checkbox', { name: 'Select row' })).toBeChecked()
 })
+
+test('a toolbar button acts on the rows ticked in a nested table', async ({ page }) => {
+  const open = page.getByRole('button', { name: /^Open picked/ })
+  await expect(open).toBeDisabled()
+  await page.getByRole('button', { name: 'Toggle sub-table' }).first().click()
+  const sub = page.getByRole('table').nth(1)
+  const first = sub.getByRole('row').nth(1)
+  await first.getByRole('checkbox', { name: 'Select row' }).check()
+  await expect(open).toHaveText('Open picked (1)')
+  await open.click()
+  const id = await first.getByRole('cell').nth(2).innerText()
+  await expect(page.getByText(`Opened: ${id.trim()}`)).toBeVisible()
+  await first.getByRole('checkbox', { name: 'Select row' }).uncheck()
+  await expect(open).toBeDisabled()
+})

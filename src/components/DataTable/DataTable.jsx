@@ -67,6 +67,7 @@ const DataTable = forwardRef(function DataTable(props, ref) {
     enableSelectAll = true,
     toolbarActions = EMPTY,
     toolbarActionsLabel = 'Actions',
+    toolbarButtons = EMPTY,
     defaultInsertLabel = null,
     showRowBorders = true,
     showColumnBorders = true,
@@ -100,7 +101,7 @@ const DataTable = forwardRef(function DataTable(props, ref) {
     // events
     onInsertRow, onUpdateRow, onDeleteRows, onRefresh, onSelectionAction, onRowAction, onToolbarAction,
     onInsertAction, onExpandedRowsChange, onColumnResize, onPageChange, onSortChange, onSelectAllMatching,
-    onAdditionalSelectedRowIdsChange, onColumnFiltersChange, onCommitEdits, onDiscardEdits,
+    onAdditionalSelectedRowIdsChange, onColumnFiltersChange, onCommitEdits, onDiscardEdits, onSelectionChange,
   } = props
 
   const parentFont = useContext(DTFontContext)
@@ -172,6 +173,17 @@ const DataTable = forwardRef(function DataTable(props, ref) {
 
   const mergedSelectedIds = () => [...new Set([...additionalSet, ...Object.keys(rowSelection).map(String)])]
   const selectedCount = mergedSelectedIds().length
+
+  // Emit the merged selection when it changes, with the loaded rows it covers; skip same-content arrays.
+  const lastEmitted = useRef(null)
+  useUpdateEffect(() => {
+    const ids = mergedSelectedIds()
+    const prev = lastEmitted.current
+    if (prev && prev.length === ids.length && prev.every((id, i) => id === ids[i])) return
+    lastEmitted.current = ids
+    const picked = new Set(ids)
+    onSelectionChange?.(ids, rows.filter((r) => picked.has(idOf(r))))
+  }, [rowSelection, additionalSelectedRowIds])
 
   // --- Staged edits: Map<rowId, { kind, changes?, snapshot? }> ---
   const [pendingEdits, setPendingEdits] = useState(() => new Map())
@@ -600,6 +612,7 @@ const DataTable = forwardRef(function DataTable(props, ref) {
                 insertActions={insertActions}
                 toolbarActions={toolbarActions}
                 toolbarActionsLabel={toolbarActionsLabel}
+                toolbarButtons={toolbarButtons}
                 subTableColumns={subTableColumns}
                 subTableSorting={subTableSorting}
                 subTableColumnFilters={subTableColumnFilters}

@@ -38,6 +38,11 @@ export default function App() {
   const loadMore = useCallback(() => setMiniLoaded((n) => n + MINI_TABLE_PAGE_SIZE), [])
 
   const [paged, setPaged] = useState(pagedEmployees.slice(0, 100))
+  // Employees ticked in nested tables, per store: what the toolbar's Open picked button acts on.
+  const [picked, setPicked] = useState({})
+  const [opened, setOpened] = useState('')
+  const pick = (storeId) => (_ids, rows) => setPicked((p) => ({ ...p, [storeId]: rows }))
+  const pickedRows = Object.values(picked).flat()
   const getSubTable = useCallback(
     (row) => {
       if (row.id === pagedStoreId) {
@@ -53,10 +58,11 @@ export default function App() {
             setTimeout(() => setPaged(pagedEmployees.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize)), 50)
           },
           onSortChange: () => console.log('sub sort'),
+          onSelectionChange: pick(row.id),
         }
       }
       const rows = employeesByStore[row.id]
-      return rows ? { rows, columns: employeeColumns, tableName: 'employees', showToolbar: false, showPagination: true } : null
+      return rows ? { rows, columns: employeeColumns, tableName: 'employees', showToolbar: false, showPagination: true, onSelectionChange: pick(row.id) } : null
     },
     [paged],
   )
@@ -70,6 +76,7 @@ export default function App() {
           <input type="checkbox" checked={staged} onChange={(e) => setStaged(e.target.checked)} /> staged edits
         </label>
         <span>Mini selected: {miniSelected.length}</span>
+        <span>Opened: {opened}</span>
       </header>
       <main className="flex flex-1 min-h-0">
         <section className="flex flex-col flex-1 min-w-0">
@@ -83,6 +90,8 @@ export default function App() {
             subTableColumns={employeeColumns}
             contextMenuActions={[{ key: 'log', label: 'Log row' }, { divider: true }, { key: 'delete-custom', label: 'Delete (custom)' }]}
             onRowAction={(key, row) => console.log('row-action', key, row)}
+            toolbarButtons={[{ key: 'open-picked', label: `Open picked (${pickedRows.length})`, disabled: pickedRows.length === 0 }]}
+            onToolbarAction={(key) => key === 'open-picked' && setOpened(pickedRows.map((r) => r.id).join(', '))}
             onInsertRow={(row) => row && setStores((s) => [...s, { ...row, id: Math.max(...s.map((r) => r.id)) + 1 }])}
             onUpdateRow={({ id, changes }) => setStores((s) => s.map((r) => (String(r.id) === String(id) ? { ...r, ...changes } : r)))}
             onDeleteRows={(ids) => setStores((s) => s.filter((r) => !ids.includes(String(r.id))))}
