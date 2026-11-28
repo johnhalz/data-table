@@ -235,6 +235,7 @@ Template ref: **`openDeleteConfirmation(ids)`** — same as **`DataTable`**.
 | `enableSelectAll` | `Boolean` | `true` | When `true`, shows **Select all N …** next to **Clear selection** (selects every filtered row across pages). The header checkbox only toggles the current page |
 | `toolbarActions` | `Array` | `[]` | Custom dropdown next to Sort. Items: `{ key, label, icon? (SVG HTML), disabled?, divider? }`. Emits `toolbar-action` with `key`. Hidden when empty |
 | `toolbarActionsLabel` | `String` | `'Actions'` | Label on the `toolbarActions` trigger |
+| `toolbarButtons` | `Array` | `[]` | Plain buttons right after Refresh. Items: `{ key, label, icon? (SVG HTML), disabled?, title? }`. A click emits `toolbar-action` with `key` |
 | `defaultInsertLabel` | `String` | `null` | When `editable.insert` is true, sets the primary insert button label (e.g. `Import…`). Without `insertActions`, clicking fires `insert-row` only. With `insertActions`, the chevron opens the custom menu |
 | `insertActions` | `Array` | `[]` | Extra insert/import menu entries: `{ key, label, icon? (SVG HTML) }`. Emits `insert-action` with `key`. See **Insert button** under Features |
 | `showRowBorders` | `Boolean` | `true` | Show horizontal borders between rows |
@@ -270,7 +271,8 @@ Template ref: **`openDeleteConfirmation(ids)`** — same as **`DataTable`**.
 | `delete-rows` | `Array<string>` (row IDs) | User confirmed deletion of selected rows |
 | `refresh` | — | User clicked the refresh button |
 | `selection-action` | `(actionKey: string, rows: Object[])` | User triggered a custom selection action |
-| `toolbar-action` | `actionKey: string` | User picked an item from `toolbarActions` |
+| `toolbar-action` | `actionKey: string` | User picked an item from `toolbarActions` or clicked a `toolbarButtons` button |
+| `selection-change` (`onSelectionChange`) | `(ids: string[], rows: object[])` | The selection changed: every selected id, and the loaded rows among them. Also on a `getSubTable` config, for a nested table's ticks (lost when its row collapses) |
 | `page-change` | `{ pageIndex: number, pageSize: number }` | Page navigation while `totalCount` is set (server-side pagination) |
 | `column-resize` | `Object<colId, number>` | User finished resizing a column; payload is the full column sizing map |
 | `commit-edits` | `({ inserts, updates, deletes }, done)` | Staged-edits mode: parent must call `done(true)` or `done(false)` |

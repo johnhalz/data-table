@@ -143,6 +143,7 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 | `enableSelectAll` | `Boolean` | `true` | When `true`, shows **Select all N** next to **Clear selection** in the selection toolbar (uses `countLabelSingular` / `countLabelPlural`). Selects every row across all pages (post-filter). The header checkbox only toggles the current page. |
 | `toolbarActions` | `Array` | `[]` | Custom dropdown next to the Sort button. Items: `[{ key, label, icon?, disabled?, divider? }]`. `divider: true` renders a separator. `icon` is raw SVG markup. Emits `toolbar-action` with the `key`. The button is hidden when this array is empty. |
 | `toolbarActionsLabel` | `String` | `'Actions'` | Label shown on the `toolbarActions` dropdown trigger button. |
+| `toolbarButtons` | `Array` | `[]` | Plain buttons right after Refresh: `[{ key, label, icon?, disabled?, title? }]`. A click emits `toolbar-action` with the `key`. |
 | `showRowBorders` | `Boolean` | `true` | Horizontal row dividers |
 | `showColumnBorders` | `Boolean` | `true` | Vertical column dividers |
 | `cellButtonVisibility` | `String` | `'hover'` | `'hover'` \| `'always'` \| `'select'` — when to show trailing cell buttons defined via `meta.cellButtons`. `'select'` uses the existing click-to-select cell state. |
@@ -178,7 +179,8 @@ Hover effects that require `:hover` pseudo-class use `<style scoped>` blocks ref
 | `refresh` | — | Refresh button clicked |
 | `selection-action` | `(actionKey, rows[])` | Custom action from selection toolbar (including `selectionActions` and `rowActions` when multiple rows are selected) |
 | `row-action` | `(actionKey, rowData)` | User chose a `rowActions` item from the per-row ellipsis menu (single row) |
-| `toolbar-action` | `actionKey` | User picked an item from the `toolbarActions` dropdown |
+| `toolbar-action` | `actionKey` | User picked an item from the `toolbarActions` dropdown or clicked a `toolbarButtons` button |
+| `selection-change` (`onSelectionChange`) | `(ids, rows[])` | The selection changed: every selected id and the loaded rows among them. Works on a `getSubTable` config too (a nested table's ticks; lost when its row collapses) |
 | `page-change` | `{ pageIndex, pageSize }` | Page navigation in server-side pagination mode |
 | `column-resize` | `Object<colId, number>` | User finishes resizing a column |
 | `commit-edits` | `({ inserts, updates, deletes }, done)` | User clicked **Commit** in staged-edits mode. `inserts` is `Array<rowData>`, `updates` is `Array<{ id, changes }>`, `deletes` is `Array<id>`. The parent **must** call `done(true)` when the batch has been applied successfully (clears the queue) or `done(false)` on failure (queue is preserved for retry). The Commit button shows a spinner until `done` is called. |

@@ -33,6 +33,7 @@ export default function TableToolbar({
   insertActions = [],
   toolbarActions = [],
   toolbarActionsLabel = 'Actions',
+  toolbarButtons = [],
   subTableColumns = null,
   subTableSorting = [],
   subTableColumnFilters = [],
@@ -90,6 +91,21 @@ export default function TableToolbar({
             <path d="M8 4.466V.534a.25.25 0 01.41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 018 4.466z" />
           </svg>
         </button>
+
+        {toolbarButtons.map((b) => (
+          <button
+            key={b.key}
+            type="button"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[13px] transition-colors"
+            style={b.disabled ? disabledBtn : plainBtn}
+            disabled={b.disabled}
+            title={b.title}
+            onClick={() => !b.disabled && onToolbarAction?.(b.key)}
+          >
+            {b.icon && <span className="shrink-0 flex items-center" dangerouslySetInnerHTML={{ __html: b.icon }} />}
+            {b.label}
+          </button>
+        ))}
 
         <div ref={sort.ref} className="relative">
           <button

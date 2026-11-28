@@ -23,6 +23,17 @@ export interface ToolbarAction {
   divider?: boolean
 }
 
+/** Plain button in the toolbar right after Refresh; a click emits `onToolbarAction(key)`. */
+export interface ToolbarButton {
+  key: string
+  label: string
+  /** Raw SVG markup. */
+  icon?: string
+  disabled?: boolean
+  /** Native tooltip. */
+  title?: string
+}
+
 /** Extra context-menu item (right-click) and bulk Actions menu item when multi-selecting. */
 export interface RowAction {
   /** Omit when `divider` is true. */
@@ -64,6 +75,8 @@ export interface SubTableConfig {
   onPageChange?: (payload: { pageIndex: number; pageSize: number }) => void
   /** Wired to the nested table's `onSortChange` (server child refetch). */
   onSortChange?: (sorting: SubTableSortingState) => void
+  /** Wired to the nested table's `onSelectionChange`: its ticked rows. Lost when the parent row collapses. */
+  onSelectionChange?: (ids: string[], rows: any[]) => void
 }
 
 /** Commit payload when `stagedEdits` is true. */
@@ -93,6 +106,7 @@ export interface DataTableProps {
   enableSelectAll?: boolean
   toolbarActions?: ToolbarAction[]
   toolbarActionsLabel?: string
+  toolbarButtons?: ToolbarButton[]
   defaultInsertLabel?: string | null
   /** Custom insert/import menu entries; calls `onInsertAction(key)`. */
   insertActions?: InsertAction[]
@@ -156,6 +170,8 @@ export interface DataTableProps {
   onColumnFiltersChange?: (filters: unknown[]) => void
   onCommitEdits?: (payload: CommitEditsPayload, done: (ok: boolean) => void) => void
   onDiscardEdits?: () => void
+  /** The selection changed: every selected id, and the loaded rows among them. */
+  onSelectionChange?: (ids: string[], rows: any[]) => void
 }
 
 /** Imperative handle (`ref`): `ref.current.openDeleteConfirmation(['id', ...])`. */
